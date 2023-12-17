@@ -1,20 +1,15 @@
 import reflex as rx 
+from links_bio.styles.styles import Size as Size
 
 def navbar() -> rx.Component:
     return rx.hstack(
         rx.text(
-            "{daniel-banariba};",
-            height="40px",
-            style={"font-family": "'DinaRemaster', sans-serif", # TODO investigar como poner el logo perzonalizado osea el siguiente codigo 
-                   # @font-face {
-                    # font-family: 'DinaRemaster';
-                    # src: url('../font/DinaRemasterII.ttc') format('truetype');
-                    #}
-                   "font-weight": "100", 
-                   "font-size": "30px"}
+            "{daniel-banariba};" # El nombre el principio de la pagina
         ),
-        position="sticky",
-        padding_x="16px",
-        padding_y="8px",
-        z_index="999" #Esto lo que hace es fijar el logo, para que nada lo pueda mover de su lugar
+        position="sticky", 
+        bg="lightgray", 
+        padding_x=Size.DEFAULT.value, # El padding es el espacio que hay entre el borde y el texto
+        padding_y=Size.SMALL.value, 
+        z_index="999", #Esto lo que hace es fijar el logo, para que nada lo pueda mover de su lugar
+        top="0px", # Esto es para que el logo se quede fijo en la parte de arriba
     )
