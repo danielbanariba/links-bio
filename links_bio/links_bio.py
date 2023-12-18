@@ -19,7 +19,8 @@ def index() -> rx.Component:
                 links(),
                 max_width=styles.MAX_WIDTH,
                 width="100%",
-                margin_y=Size.BIG.value
+                margin_y=Size.BIG.value,
+                padding=Size.BIG.value
             )
         ),
         footer()
@@ -28,7 +29,10 @@ def index() -> rx.Component:
 
 # Compila la app y la ejecuta 
 app = rx.App(
-    style=styles.BASE_STYLE
+    style=styles.BASE_STYLE,
+    stylesheets=[
+        "fonts/myfont.css",
+    ],
 )
 app.add_page(index)
 app.compile()
