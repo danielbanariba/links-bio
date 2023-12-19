@@ -1,7 +1,6 @@
 import reflex as rx
-from links_bio.styles.styles import Size as Size
-from links_bio.styles.styles import Color as Color
-from links_bio.styles.styles import TextColor as TextColor
+from links_bio.styles.styles import Size
+from links_bio.styles.colors import Color, TextColor
 
 def info_text(title: str, body: str) -> rx.Component:
     return rx.box(

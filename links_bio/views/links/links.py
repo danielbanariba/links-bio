@@ -1,8 +1,8 @@
 import reflex as rx
+from links_bio.views.links.url_social import Url as URL
 from links_bio.components.link_button import link_button
 from links_bio.components.title import title
-from links_bio.styles.styles import Size as Size
-from links_bio.views.links.url_social import Url as URL
+from links_bio.styles.styles import Size 
 
 def links() -> rx.Component:
     return rx.vstack(
@@ -10,46 +10,53 @@ def links() -> rx.Component:
         link_button(
             "Youtube", 
             "Canal de musica extrema", 
-            URL.YOUTUBE.value
+            "icons/youtube.svg",
+            str(URL.YOUTUBE.value)
         ),
         link_button(
             "Instagram", 
-            "Fotos de mis viajes y aventuras", 
-            URL.INSTAGRAM.value
+            "Fotos de mis viajes y aventuras",
+            "icons/youtube.svg", #TODO cambiar el icono por el de instagram 
+            str(URL.INSTAGRAM.value)
         ),
         link_button(
             "Facebook",
             "Perfil de Facebook para contactarme",
-            URL.FACEBOOK.value
+            "icons/youtube.svg",
+            str(URL.FACEBOOK.value) #TODO buscar el svg de facebook
         ),
         link_button(
             "Github",
             "Repositorio de mis proyectos",
-            URL.GITHUB.value
+            "icons/git.svg",
+            str(URL.GITHUB.value)
         ),
         link_button(
             "Linkedin",
             "Perfil de Linkedin",
-            URL.LINKEDIN.value
+            "icons/linkedin.svg",
+            str(URL.LINKEDIN.value) #TODO cambiar el icono por el de linkedin
         ),
         # TODO Aqui tiene que aparecer una preview de los videos de youtube, tambien poner las mejores escenas de los videos
         title("Proyectos audiovisuales"),
-        link_button(
-            "Blasfemia",
-            "Blasfemia - Inmaculada Concepción",
-            "https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v"
-        ),
-        link_button(
-            "Sobreporrosis",
-            "Sobreporrosis - Acá no es Party Sesiones",
-            "https://youtu.be/vE5s7QdB95I?si=MnHJZYRI59OFVecq"
-        ),
+        #TODO perzonalizar esto para que salga el video y una miniatura del video
+        # link_button(
+        #     "Blasfemia",
+        #     "Blasfemia - Inmaculada Concepción",
+        #     "https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v"
+        # ),
+        # link_button(
+        #     "Sobreporrosis",
+        #     "Sobreporrosis - Acá no es Party Sesiones",
+        #     "https://youtu.be/vE5s7QdB95I?si=MnHJZYRI59OFVecq"
+        # ),
         title("Contacto"),
         link_button(#TODO aqui no seria un boton, tengo que poner literal el correro electronico
             "Email",
-            URL.EMAIL.value,
-            f"{URL.EMAIL.value}"
+            str(URL.EMAIL),
+            "icons/email.svg",
+            f"mailto:{URL.EMAIL}"
         ),
         width="100%",
-        spacing=Size.MEDIUM.value
+        spacing=Size.DEFAULT.value,
     )

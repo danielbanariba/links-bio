@@ -1,17 +1,14 @@
 import reflex as rx 
+import links_bio.styles.styles as styles
 from links_bio.components.navbar import navbar
 from links_bio.views.header.header import header
 from links_bio.views.links.links import links
 from links_bio.components.footer import footer
-from links_bio.styles import styles
-from links_bio.styles.styles import Size as Size
+from links_bio.styles.styles import Size
 
-class State(rx.State):
-    pass
-
-# tiene que ser si o si un index, para que la pagina principal funcione
 def index() -> rx.Component:
     return rx.box(
+        rx.script("document.documentElement.lang='es'"),
         navbar(),
         rx.center(
             rx.vstack(
@@ -29,12 +26,24 @@ def index() -> rx.Component:
 
 # Compila la app y la ejecuta 
 app = rx.App(
+    stylesheets=styles.STYLESHEETS,
     style=styles.BASE_STYLE,
-    stylesheets=[
-        "fonts/myfont.css",
+    head_components=[
+        rx.script(src="https://www.googletagmanager.com/gtag/js?id=G-3YGHT3XJFS"),
+        rx.script(
+            """
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-3YGHT3XJFS');
+            """
+        ),
     ],
 )
-app.add_page(index)
+app.add_page(index,
+    title="Daniel Banariba | Desarrollador de Software y edición de videos",
+    description="Hola!, mi nombre es Daniel Banariba. Soy programador amante de la tecnologia, el cine y la musica.",
+    image="avatar.jpg") #Modificar aqui, que tiene que ir mi avatar
 app.compile()
 
 

@@ -1,25 +1,29 @@
 import reflex as rx
 import links_bio.styles.styles as styles
-from links_bio.styles.styles import Size as Size
+from links_bio.styles.styles import Size
+from links_bio.styles.colors import Color
 
 # Recibe como parametro el texto del boton y la url a la que se quiere redirigir
-def link_button(title: str, body: str, url: str) -> rx.Component:
+def link_button(title: str, body: str, image: str, url: str) -> rx.Component:
     return rx.link(
         rx.button(
             rx.hstack(
-                rx.icon(
-                    tag="arrow_forward",
-                    width=Size.BIG.value,
-                    height=Size.DEFAULT.value,
-                    margin=Size.MEDIUM.value
+                rx.image(
+                    src=image,
+                    width=Size.LARGE.value,
+                    height=Size.LARGE.value,
+                    margin=Size.MEDIUM.value,
+                    alt=title
                 ),
-                rx.vstack(     
+                rx.vstack(
                     rx.text(title, style=styles.button_title_style),
                     rx.text(body, style=styles.button_body_style),
-                    spacing=Size.SMALL.value,
                     align_items="start",
-                    margin=Size.ZERO.value
-                )
+                    spacing=Size.SMALL.value,
+                    padding_y=Size.SMALL.value,
+                    padding_right=Size.SMALL.value
+                ),
+                width="100%"
             )
         ),
         href=url,
