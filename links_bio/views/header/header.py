@@ -12,7 +12,7 @@ def header() -> rx.Component:
             rx.avatar(
                 name="Daniel Banariba", 
                 size="xl",
-                src="avatar.jpg", # TODO poner mi imagen de perfil
+                src="avatar.jpeg", #TODO Funciona, pero se mira muy feo el avatar, hay que buscar una forma de que se vea mejor 
                 color=TextColor.BODY.value,
                 bg=Color.CONTENT.value,
                 padding="2px",

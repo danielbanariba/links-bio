@@ -1,10 +1,12 @@
 from enum import Enum
 
 
+
 class Font(Enum):
-    DEFAULT = "Poppins"
+    DEFAULT = "Poppins" # tiene que tener el mismo nombre que la variable StileSheets
     TITLE = "Poppins"
-    LOGO = "Comfortaa"
+    LOGO = "DinaRemasterII"
+    LOGO_CANAL = "Pulse_virgin"
 
 
 class FontWeight(Enum):

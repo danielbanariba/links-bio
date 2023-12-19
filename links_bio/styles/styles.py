@@ -7,9 +7,9 @@ from .fonts import Font, FontWeight
 MAX_WIDTH = "560px"
 
 #Hojas de estilos
-STYLESHEETS = [ # TODO investigar como poner la fuente de mi carpeta font
+STYLESHEETS = [
     "https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&display=swap",
-    "https://fonts.googleapis.com/css2?family=Comfortaa:wght@500&display=swap"
+    "fonts/fonts.css"
 ]
 
 class Size(Enum):
@@ -53,6 +53,12 @@ BASE_STYLE = {
 
 navbar_title_style = dict(
     font_family=Font.LOGO.value,
+    font_weight=FontWeight.MEDIUM.value,
+    font_size=Size.LARGE.value
+)
+
+logo_canal = dict(
+    font_family=Font.LOGO_CANAL.value,
     font_weight=FontWeight.MEDIUM.value,
     font_size=Size.LARGE.value
 )
