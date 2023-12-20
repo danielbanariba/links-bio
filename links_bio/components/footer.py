@@ -16,7 +16,7 @@ def footer() -> rx.Component:
             rx.box(
                 f"2023-{datetime.datetime.today().year} © ",
                 rx.span(
-                    """DanielBanariba""", color=Color.LOGO_CANAL.value,
+                    """Daniel\nBanariba""", color=Color.LOGO_CANAL.value,
                     style=styles.logo_canal),
             ),
             #href="www.danibanariba.com", # ! Cuando tenga lista mi pagina web oficial, ponerla aqui la url

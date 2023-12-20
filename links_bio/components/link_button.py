@@ -9,7 +9,7 @@ def link_button(title: str, body: str, image: str, url: str) -> rx.Component:
         rx.button(
             rx.hstack(
                 rx.image(
-                    src=image,
+                    src=image, #guarda las url en las imagenes, en pocas palabras al momento de hacer click a la imagen abre una pagina nueva
                     width=Size.LARGE.value,
                     height=Size.LARGE.value,
                     margin=Size.MEDIUM.value,

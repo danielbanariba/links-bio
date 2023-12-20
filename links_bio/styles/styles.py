@@ -18,6 +18,7 @@ class Size(Enum):
     MEDIUM = "0.8em"
     DEFAULT = "1em"
     LARGE = "1.5em"
+    GRANDELOGO = "1.7em"
     BIG = "2em"
     VERY_BIG = "4em"
 
@@ -45,6 +46,8 @@ BASE_STYLE = {
             "background_color": Color.SECONDARY.value
         }
     },
+    #TODO poner los estilos de la caratura del componente link_video
+    
     rx.Link: {# Desaparece el subrayado de los links
         "text_decoration": "none",
         "_hover": {}
@@ -54,7 +57,7 @@ BASE_STYLE = {
 navbar_title_style = dict(
     font_family=Font.LOGO.value,
     font_weight=FontWeight.MEDIUM.value,
-    font_size=Size.LARGE.value
+    font_size=Size.GRANDELOGO.value
 )
 
 logo_canal = dict(

@@ -1,6 +1,6 @@
 import reflex as rx
 import datetime
-from links_bio.views.links.url_social import Url as URL
+import links_bio.views.links.url_social as URL 
 from links_bio.styles.styles import Size 
 from links_bio.styles.colors import Color, TextColor
 from links_bio.components.info_text import info_text
@@ -32,22 +32,32 @@ def header() -> rx.Component:
                 rx.hstack(
                     link_icon(
                         "icons/github.svg",
-                        str(URL.GITHUB),
+                        URL.GITHUB,
                         "GitHub"
                     ),
                     link_icon(
                         "icons/instagram.svg",
-                        str(URL.INSTAGRAM),
+                        URL.INSTAGRAM,
                         "Instagram"
                     ),
                     link_icon(
+                        "icons/facebook.svg",
+                        URL.FACEBOOK,
+                        "Facebook"
+                    ),
+                    link_icon(
+                        "icons/youtube.svg",
+                        URL.YOUTUBE,
+                        "Youtube"
+                    ),
+                    link_icon(
                         "icons/tiktok.svg",
-                        str(URL.TIKTOK),
+                        URL.TIKTOK,
                         "TikTok"
                     ),
                     link_icon(
                         "icons/linkedin.svg",
-                        str(URL.LINKEDIN),
+                        URL.LINKEDIN,
                         "LinkedIn"
                     ),
                     spacing=Size.LARGE.value

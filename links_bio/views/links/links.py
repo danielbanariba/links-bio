@@ -1,6 +1,7 @@
 import reflex as rx
-from links_bio.views.links.url_social import Url as URL
+import links_bio.views.links.url_social as URL 
 from links_bio.components.link_button import link_button
+from links_bio.components.link_video import link_video
 from links_bio.components.title import title
 from links_bio.styles.styles import Size 
 
@@ -11,36 +12,41 @@ def links() -> rx.Component:
             "Youtube", 
             "Canal de musica extrema", 
             "icons/youtube.svg",
-            str(URL.YOUTUBE.value)
+            URL.YOUTUBE
         ),
         link_button(
             "Instagram", 
             "Fotos de mis viajes y aventuras",
-            "icons/youtube.svg", #TODO cambiar el icono por el de instagram 
-            str(URL.INSTAGRAM.value)
+            "icons/instagram.svg",
+            URL.INSTAGRAM
         ),
         link_button(
             "Facebook",
             "Perfil de Facebook para contactarme",
-            "icons/youtube.svg",
-            str(URL.FACEBOOK.value) #TODO buscar el svg de facebook
+            "icons/facebook.svg",
+            URL.FACEBOOK 
         ),
         link_button(
             "Github",
             "Repositorio de mis proyectos",
             "icons/git.svg",
-            str(URL.GITHUB.value)
+            URL.GITHUB
         ),
         link_button(
             "Linkedin",
             "Perfil de Linkedin",
             "icons/linkedin.svg",
-            str(URL.LINKEDIN.value) #TODO cambiar el icono por el de linkedin
+            URL.LINKEDIN 
         ),
         # TODO Aqui tiene que aparecer una preview de los videos de youtube, tambien poner las mejores escenas de los videos
         title("Proyectos audiovisuales"),
-        #TODO perzonalizar esto para que salga el video y una miniatura del video
-        # link_button(
+        link_video(
+            "Blasfemia - Inmaculada Concepción",
+            "Blasfemia es una banda de Brutal Death Metal originaria de Tegucigalpa, Honduras.",
+            "img_video/blasfemia.jpg",
+            "https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v"
+        ),
+        # link_video(#TODO perzonalizar esto para que salga el video y una miniatura del video
         #     "Blasfemia",
         #     "Blasfemia - Inmaculada Concepción",
         #     "https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v"
@@ -53,7 +59,7 @@ def links() -> rx.Component:
         title("Contacto"),
         link_button(#TODO aqui no seria un boton, tengo que poner literal el correro electronico
             "Email",
-            str(URL.EMAIL),
+            URL.EMAIL,
             "icons/email.svg",
             f"mailto:{URL.EMAIL}"
         ),
