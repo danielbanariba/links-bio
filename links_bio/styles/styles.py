@@ -3,8 +3,8 @@ from enum import Enum
 from .colors import Color, TextColor
 from .fonts import Font, FontWeight
 
-# Contantes
-MAX_WIDTH = "560px"
+# Ancho maximo de la pagina 
+MAX_WIDTH = "750px"
 
 #Hojas de estilos
 STYLESHEETS = [
@@ -14,13 +14,15 @@ STYLESHEETS = [
 
 class Size(Enum):
     ZERO = "0px !important"
+    VERY_SMALL = "0.2em"
     SMALL = "0.5em"
     MEDIUM = "0.8em"
     DEFAULT = "1em"
+    ALGO_GRANDE = "1.1em"
     LARGE = "1.5em"
     GRANDELOGO = "1.7em"
-    BIG = "2em"
-    VERY_BIG = "4em"
+    BIG = "2.2em"
+    VERY_BIG = "3em"
 
 
 # Styles
@@ -40,14 +42,12 @@ BASE_STYLE = {
         "border_radius": Size.DEFAULT.value,
         "color": TextColor.HEADER.value,
         "background_color": Color.CONTENT.value,
-        "white_space": "normal",
+        "white_space": "normal", # Responsive text
         "text_align": "start",
         "_hover": { # Cambia de color al pasar el mouse
             "background_color": Color.SECONDARY.value
         }
-    },
-    #TODO poner los estilos de la caratura del componente link_video
-    
+    }, 
     rx.Link: {# Desaparece el subrayado de los links
         "text_decoration": "none",
         "_hover": {}
@@ -57,13 +57,13 @@ BASE_STYLE = {
 navbar_title_style = dict(
     font_family=Font.LOGO.value,
     font_weight=FontWeight.MEDIUM.value,
-    font_size=Size.GRANDELOGO.value
+    font_size=Size.BIG.value
 )
 
 logo_canal = dict(
     font_family=Font.LOGO_CANAL.value,
     font_weight=FontWeight.MEDIUM.value,
-    font_size=Size.LARGE.value
+    font_size=Size.GRANDELOGO.value
 )
 
 # Estilos de los textos que van arriba de los botones
@@ -84,4 +84,28 @@ button_body_style = dict(
     font_weight=FontWeight.LIGHT.value,
     font_size=Size.MEDIUM.value,
     color=TextColor.BODY.value
+)
+
+title_style_music = dict(
+    font_family=Font.TITLE.value,
+    font_weight=FontWeight.MEDIUM.value,
+    font_size=Size.LARGE.value,
+    color=TextColor.HEADER.value
+)
+
+body_style_music = dict(
+    font_weight=FontWeight.LIGHT.value,
+    font_size=Size.ALGO_GRANDE.value,
+    color=TextColor.BODY.value
+)
+
+miniatura_video_style = dict(
+    width="auto", 
+    height="auto",
+    margin="auto",
+    border_radius = Size.DEFAULT.value,
+    _hover={
+        "transform": "scale(1.1)", #rotate(10deg)
+        "transition": "transform 0.2s",
+    },
 )

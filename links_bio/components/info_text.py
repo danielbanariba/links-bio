@@ -9,7 +9,7 @@ def info_text(title: str, body: str) -> rx.Component:
             font_weight="bold", 
             color=Color.PRIMARY.value
         ),
-        f" {body}", 
-        font_size=Size.MEDIUM.value,
-        color=TextColor.BODY.value
+        f"{body}", 
+        font_size=Size.DEFAULT.value,
+        color=TextColor.BODY.value,
     )

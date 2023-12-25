@@ -3,7 +3,7 @@ from enum import Enum
 class Color(Enum):
     PRIMARY = "#0073a8" #Puede ser el ff6abf, Pero estoy en duda
     SECONDARY = "#022b44" #Hover color, al pasar el mouse
-    BACKGROUND = "#09080d" #ESTA EXCELENTE, NO CAMBIAR!
+    BACKGROUND = "#09080d" 
     CONTENT = "#0a121f" #Botones y el header
     LOGO_CANAL = "#908986"
 

@@ -1,39 +1,43 @@
 import reflex as rx
 import links_bio.styles.styles as styles
-from links_bio.styles.styles import Size
-from links_bio.styles.colors import Color
+from links_bio.styles.styles import Size, miniatura_video_style, Color
 
-def link_video(title: str, body: str, image: str, url: str) -> rx.Component:
+def link_video(title: str, body: str, logo_banda: str, size: str, image: str, url: str) -> rx.Component:
     return rx.hstack(
         rx.hstack(
             rx.box(
                 rx.vstack(
-                    rx.box(
-                        rx.text(title, style=styles.button_title_style),
-                        rx.text(body, style=styles.button_body_style),
-                        bg=Color.CONTENT.value,
-                        padding=Size.DEFAULT.value,
-                        border_radius=Size.DEFAULT.value,
-                    ),
-                    align_items="start",
+                rx.image(
+                    src=logo_banda, #guarda las url en las imagenes, en pocas palabras al momento de hacer click a la imagen abre una pagina nueva
+                    width=size,
+                    height=size,
+                    margin=Size.VERY_SMALL.value,
+                    alt=title
+                ),
+                rx.vstack(
+                    rx.text(title, style=styles.title_style_music),
+                    rx.text(body, style=styles.body_style_music),
+                    align_items="center",
                     spacing=Size.SMALL.value,
                     padding_y=Size.SMALL.value,
                     padding_right=Size.SMALL.value
                 ),
                 rx.link(
-                    rx.image(
-                        src=image, 
-                        width="auto", 
-                        height="auto",
-                        margin="auto",
-                        alt=title,
-                        border_radius = Size.DEFAULT.value,
-                    ),
+                rx.image(
+                    src=image,
+                    alt=title,
+                    style=miniatura_video_style
                 ),
+                href=url,
+                is_external=True, # Se abren los links en una nueva pestaña
+                width="100%"
+                ),
+                bg=Color.CONTENT.value,
+                padding=Size.DEFAULT.value,
+                border_radius=Size.SMALL.value,
                 width="100%"
             ),
+            width="100%"
+            ),
         ),
-        href=url,
-        is_external=True, # Se abren los links en una nueva pestaña
-        width="100%"
     )
