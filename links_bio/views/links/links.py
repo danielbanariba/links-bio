@@ -59,6 +59,8 @@ def links() -> rx.Component:
         ),
         width="100%",
         spacing=Size.DEFAULT.value,
+        padding_right=Size.BIG.value,
+        padding_left=Size.BIG.value,
     )
     
 # title("Redes Sociales"),

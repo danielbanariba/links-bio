@@ -36,5 +36,6 @@ def icon(name_icon: str, size: int, url: str, alt: str) -> rx.Component:
                 '''.format(name_icon, name_icon, name_icon, size, size, alt, svg_code),
             ),
             href=url,
-            is_external=True
+            is_external=True,
+            width="100%"
         )

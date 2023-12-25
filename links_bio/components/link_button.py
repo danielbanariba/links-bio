@@ -1,7 +1,6 @@
 import reflex as rx
 import links_bio.styles.styles as styles
 from links_bio.styles.styles import Size
-from links_bio.styles.colors import Color
 
 # Recibe como parametro el texto del boton y la url a la que se quiere redirigir
 def link_button(title: str, body: str, image: str, url: str) -> rx.Component:

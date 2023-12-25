@@ -11,9 +11,6 @@ def navbar() -> rx.Component:
             rx.span("}", color=LogoColor.PARENTESIS.value),
             rx.span(";", color=LogoColor.PUNTO_Y_COMA.value),
             style=styles.navbar_title_style
-            # rx.span("{daniel-", color=Color.PRIMARY.value),
-            # rx.span("banariba};", color=Color.SECONDARY.value),
-            # style=styles.navbar_title_style
         ),
         position="sticky",
         bg=Color.CONTENT.value, # Color de los botones

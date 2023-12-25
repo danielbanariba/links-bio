@@ -37,13 +37,15 @@ def header() -> rx.Component:
                     icon("youtube", Size.GRANDELOGO.value, URL.YOUTUBE, "Youtube"),
                     icon("tiktok", Size.GRANDELOGO.value, URL.TIKTOK, "TikTok"),
                     icon("linkedin", Size.GRANDELOGO.value, URL.LINKEDIN, "LinkedIn"),
-                    spacing=Size.BIG.value
+                    spacing=Size.BIG.value,
                 ),
-                align_items="start"
-            ),
+            align_items="start",
+            width="100%"
+        ),
             spacing=Size.DEFAULT.value
         ),
-        rx.flex(
+        
+        rx.hstack(
             info_text(
                 f"{experiencePrograming()}+",
                 "Años de experiencia programando"
@@ -55,9 +57,11 @@ def header() -> rx.Component:
             ),
             rx.spacer(),
             info_text(
-                "+6000", 
+                "+6000 ", 
                 "Suscriptores en Youtube"
             ),
+            width="100%",
+            padding_right=Size.BIG.value,
         ),
         rx.text(
             """Soy un programador amante de la musica extrema y la musica en general, me encanta el septimo arte
@@ -65,10 +69,14 @@ def header() -> rx.Component:
             haciendo trabajos como videos musicales, live seccion, grabaciones en vivo y documentales.
             """,
             font_size=Size.ALGO_GRANDE.value,
-            color=TextColor.BODY.value
+            color=TextColor.BODY.value,
+            width="100%",
         ),
+        width="100%",
         spacing=Size.LARGE.value,
-        align_items="start"
+        align_items="start",
+        padding_right=Size.BIG.value,
+        padding_left=Size.BIG.value,
     )
     
 def experiencePrograming() -> int:
