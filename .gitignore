@@ -1,13 +1,11 @@
 *.db
-
 *.py[cod]
-
 .web
 
 __pycache__
 
-env
-
-requirements.txt
+__pycache__/
 
 bandas.txt
+
+env
