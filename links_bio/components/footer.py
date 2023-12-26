@@ -15,7 +15,7 @@ def footer() -> rx.Component:
                     alt="Logotipo de DanielBanariba.",
                 ),
             ),
-            href="www.danibanariba.com", # ! Cuando tenga lista mi pagina web oficial, ponerla aqui la url
+            href="www.danielbanariba.com", # ! Cuando tenga lista mi pagina web oficial, ponerla aqui la url
             is_external=True,
             font_size=Size.DEFAULT.value,
         ),
