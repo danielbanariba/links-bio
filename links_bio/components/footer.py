@@ -2,6 +2,7 @@ import reflex as rx
 import datetime
 import links_bio.styles.styles as styles
 from links_bio.styles.styles import Size, Color, TextColor
+import links_bio.views.links.url_social as URL 
 
 def footer() -> rx.Component:
     return rx.vstack(
@@ -15,7 +16,8 @@ def footer() -> rx.Component:
                     alt="Logotipo de DanielBanariba.",
                 ),
             ),
-            href="www.danielbanariba.com", # ! Cuando tenga lista mi pagina web oficial, ponerla aqui la url
+            href=URL.DANIBANARIBA.value,
+            target="_blank",
             is_external=True,
             font_size=Size.DEFAULT.value,
         ),

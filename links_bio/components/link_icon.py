@@ -1,5 +1,4 @@
 import reflex as rx
-from links_bio.styles.styles import Size
 
 def icon(name_icon: str, size: int, url: str, alt: str) -> rx.Component:
     svg_codes = {
@@ -15,9 +14,7 @@ def icon(name_icon: str, size: int, url: str, alt: str) -> rx.Component:
         'blasfemia' : ''
     }
     svg_code = svg_codes.get(name_icon, '')
-
-    icon_size = Size.LARGE.value  # Asume que esto es un número válido para el tamaño del icono
-
+    
     return rx.link(
             rx.html(
                 '''

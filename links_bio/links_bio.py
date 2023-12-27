@@ -42,7 +42,7 @@ app = rx.App(
 )
 app.add_page(index,
     title="Daniel Banariba | Desarrollador de Software y edición de videos",
-    description="Hola!, mi nombre es Daniel Banariba. Soy programador amante de la tecnologia, el cine y la musica.",
+    description="Hola!, mi nombre es Daniel Banariba. Soy programador amante de la tecnologia, el cine y la música.",
     image="avatar.jpeg")
 app.compile()
 

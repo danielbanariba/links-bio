@@ -64,9 +64,9 @@ def header() -> rx.Component:
             padding_right=Size.BIG.value,
         ),
         rx.text(
-            """Soy un programador amante de la musica extrema y la musica en general, me encanta el septimo arte
+            """Soy un programador amante de la música extrema y la música en general, me encanta el septimo arte
             y todo lo que conlleva que sea edicion, filmacion, y direccion, he trabajado con multiples bandas al rededor de mi carrera
-            haciendo trabajos como videos musicales, live seccion, grabaciones en vivo y documentales.
+            haciendo trabajos como videos músicales, live seccion, grabaciones en vivo y documentales.
             """,
             font_size=Size.ALGO_GRANDE.value,
             color=TextColor.BODY.value,

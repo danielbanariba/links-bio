@@ -66,7 +66,7 @@ def links() -> rx.Component:
 # title("Redes Sociales"),
 #         link_button(
 #             "Youtube",
-#             "Canal de musica extrema", 
+#             "Canal de música extrema", 
 #             "icons/youtube.svg",
 #             URL.YOUTUBE
 #         ),
