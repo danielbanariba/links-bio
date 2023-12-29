@@ -19,7 +19,7 @@ def links() -> rx.Component:
         ),
         link_video(
             "Sobreporrosis - Acá no es Party Sesiones",
-            "Sobreporrosis es una banda de punk rock originario de Tegucigalpa, Honduras.",
+            "Sobreporrosis es una banda de Punk Rock originario de Tegucigalpa, Honduras.",
             "logo_bandas/sobreporrosis.svg",
             "60%",
             "img_video/sobreporrosis.jpg",
@@ -27,7 +27,7 @@ def links() -> rx.Component:
         ),
         link_video(
             "Lesath - El Enviado de Satán",
-            "Lesath es una banda de Death Metal Melodico originario de Tegucigalpa, Honduras.",
+            "Lesath es una banda de Death Metal Melódico originario de Tegucigalpa, Honduras.",
             "logo_bandas/lesath.svg",
             "30%",
             "img_video/lesath.jpg",
@@ -49,7 +49,7 @@ def links() -> rx.Component:
             "img_video/krisis.webp",
             "https://youtu.be/548LqsbFhSw"
         ),
-        #TODO Aqui o en la primera parte van a ir mis proyectos de programacion
+        #TODO Aqui o en la primera parte van a ir mis proyectos de programación
         title("Contacto"),
         link_button(
             "Email",

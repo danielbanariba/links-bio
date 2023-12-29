@@ -1,7 +1,8 @@
 import reflex as rx
 import datetime
 import links_bio.views.links.url_social as URL 
-from links_bio.styles.styles import Size 
+from links_bio.styles.styles import Size
+from links_bio.styles.styles import TAMANIO_ICON
 from links_bio.styles.colors import Color, TextColor
 from links_bio.components.info_text import info_text
 from links_bio.components.link_icon import icon
@@ -17,7 +18,8 @@ def header() -> rx.Component:
                 bg=Color.CONTENT.value,
                 padding="2px",
                 border="4px",
-                border_color=Color.PRIMARY.value
+                border_color=Color.PRIMARY.value,
+                align_items="start",
             ),
             rx.vstack(
                 rx.heading(
@@ -30,19 +32,38 @@ def header() -> rx.Component:
                     color=Color.PRIMARY.value,
                     font_size=Size.ALGO_GRANDE.value
                 ),
-                rx.hstack(
-                    icon("github", Size.GRANDELOGO.value, URL.GITHUB,"GitHub"),
-                    icon("instagram", Size.GRANDELOGO.value, URL.INSTAGRAM, "Instagram"),
-                    icon("facebook", Size.GRANDELOGO.value, URL.FACEBOOK,"Facebook"),
-                    icon("youtube", Size.GRANDELOGO.value, URL.YOUTUBE, "Youtube"),
-                    icon("tiktok", Size.GRANDELOGO.value, URL.TIKTOK, "TikTok"),
-                    icon("linkedin", Size.GRANDELOGO.value, URL.LINKEDIN, "LinkedIn"),
-                    spacing=Size.BIG.value,
+                rx.tablet_and_desktop(
+                    rx.hstack(
+                        icon("github", TAMANIO_ICON, URL.GITHUB,"GitHub"),
+                        icon("instagram", TAMANIO_ICON, URL.INSTAGRAM, "Instagram"),
+                        icon("facebook", TAMANIO_ICON, URL.FACEBOOK,"Facebook"),
+                        icon("youtube", TAMANIO_ICON, URL.YOUTUBE, "Youtube"),
+                        icon("tiktok", TAMANIO_ICON, URL.TIKTOK, "TikTok"),
+                        icon("linkedin", TAMANIO_ICON, URL.LINKEDIN, "LinkedIn"),
+                    spacing=Size.GRANDELOGO.value,
+                    ),    
                 ),
             align_items="start",
             width="100%"
         ),
             spacing=Size.DEFAULT.value
+        ),
+        rx.mobile_only(
+            rx.container(
+                rx.vstack(
+                    rx.hstack(
+                        icon("github", TAMANIO_ICON, URL.GITHUB,"GitHub"),
+                        icon("instagram", TAMANIO_ICON, URL.INSTAGRAM, "Instagram"),
+                        icon("facebook", TAMANIO_ICON, URL.FACEBOOK,"Facebook"),
+                        icon("youtube", TAMANIO_ICON, URL.YOUTUBE, "Youtube"),
+                        icon("tiktok", TAMANIO_ICON, URL.TIKTOK, "TikTok"),
+                        icon("linkedin", TAMANIO_ICON, URL.LINKEDIN, "LinkedIn"),
+                    spacing=Size.GRANDELOGO.value,
+                    ),
+                ),
+                center_content=True,
+                spacing=Size.VERY_BIG.value,
+            ),
         ),
         
         rx.hstack(

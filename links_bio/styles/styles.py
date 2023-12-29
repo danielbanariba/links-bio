@@ -5,6 +5,7 @@ from .fonts import Font, FontWeight
 
 # Ancho maximo de la pagina 
 MAX_WIDTH = "750px"
+TAMANIO_ICON = 1.7
 
 #Hojas de estilos
 STYLESHEETS = [

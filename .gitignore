@@ -1,11 +1,7 @@
-*.db
-*.py[cod]
-.web
-
-__pycache__
-
-__pycache__/
-
-bandas.txt
-
+*.db
+*.py[cod]
+.web
+__pycache__
+__pycache__/
+bandas.txt
 env

@@ -6,7 +6,7 @@ import links_bio.views.links.url_social as URL
 
 def footer() -> rx.Component:
     return rx.vstack(
-        rx.link(# * Cuando empiece a crear las paginas web a las bandas amigas, lo que tengo planeado hacer es que poner el mismo footer en todas las paginas web, pero que el footer tenga un link a mi pagina web
+        rx.link(
             rx.box(
                 rx.span(
                     """DANIEL\nBANARIBA""",
@@ -16,7 +16,7 @@ def footer() -> rx.Component:
                     alt="Logotipo de DanielBanariba.",
                 ),
             ),
-            href=URL.DANIBANARIBA.value,
+            href=URL.DANIEL_BANARIBA,
             target="_blank",
             is_external=True,
             font_size=Size.DEFAULT.value,

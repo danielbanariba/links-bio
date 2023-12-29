@@ -7,36 +7,36 @@ def link_video(title: str, body: str, logo_banda: str, size: str, image: str, ur
         rx.hstack(
             rx.box(
                 rx.vstack(
-                rx.image(
-                    src=logo_banda, #guarda las url en las imagenes, en pocas palabras al momento de hacer click a la imagen abre una pagina nueva
-                    width=size,
-                    height=size,
-                    margin=Size.VERY_SMALL.value,
-                    alt=title
+                    rx.image(
+                        src=logo_banda, #guarda las url en las imagenes, en pocas palabras al momento de hacer click a la imagen abre una pagina nueva
+                        width=size,
+                        height=size,
+                        margin=Size.VERY_SMALL.value,
+                        alt=title
+                    ),
+                    rx.vstack(
+                        rx.text(title, style=styles.title_style_music),
+                        rx.text(body, style=styles.body_style_music),
+                        align_items="center",
+                        spacing=Size.SMALL.value,
+                        padding_y=Size.SMALL.value,
+                        padding_right=Size.SMALL.value
+                    ),
+                    rx.link(
+                        rx.image(
+                            src=image,
+                            alt=title,
+                            style=miniatura_video_style
+                        ),
+                    href=url,
+                    is_external=True, # Se abren los links en una nueva pestaña
+                    width="100%"
+                    ),
+                    bg=Color.CONTENT.value,
+                    padding=Size.DEFAULT.value,
+                    border_radius=Size.SMALL.value,
+                    width="100%"
                 ),
-                rx.vstack(
-                    rx.text(title, style=styles.title_style_music),
-                    rx.text(body, style=styles.body_style_music),
-                    align_items="center",
-                    spacing=Size.SMALL.value,
-                    padding_y=Size.SMALL.value,
-                    padding_right=Size.SMALL.value
-                ),
-                rx.link(
-                rx.image(
-                    src=image,
-                    alt=title,
-                    style=miniatura_video_style
-                ),
-                href=url,
-                is_external=True, # Se abren los links en una nueva pestaña
-                width="100%"
-                ),
-                bg=Color.CONTENT.value,
-                padding=Size.DEFAULT.value,
-                border_radius=Size.SMALL.value,
-                width="100%"
-            ),
             width="100%"
             ),
         ),
