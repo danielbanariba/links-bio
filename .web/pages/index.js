@@ -1,15 +1,17 @@
 
-/** @jsxImportSource @emotion/react */import { Fragment } from "react"
+/** @jsxImportSource @emotion/react */import { Fragment, useRef } from "react"
 import { Fragment_fd0e7cb8f9fb4669a6805377d925fba0 } from "/utils/stateful_components"
-import { Avatar, Box, Button, Center, Container, Heading, HStack, Image as ChakraImage, Link, Spacer, Text, VStack } from "@chakra-ui/react"
+import { Avatar, Box, Button, Center, Container, Heading, HStack, Image as ChakraImage, Link, Spacer, Text, VStack, Wrap, WrapItem } from "@chakra-ui/react"
 import Script from "next/script"
 import "focus-visible/dist/focus-visible"
+import { refs } from "/utils/state"
 import NextLink from "next/link"
 import NextHead from "next/head"
 
 
 
 export default function Component() {
+  const ref__ = useRef(null); refs['ref__'] = ref__;
 
   return (
     <Fragment>
@@ -35,7 +37,7 @@ export default function Component() {
 </Box>
 </HStack>
   <Center>
-  <VStack sx={{"maxWidth": "750px", "width": "100%", "marginY": "2.2em", "padding": "0px !important"}}>
+  <VStack id={`/`} ref={ref__} sx={{"maxWidth": "800px", "width": "100%", "marginY": "2.2em", "padding": "0px !important"}}>
   <VStack alignItems={`start`} spacing={`1.5em`} sx={{"width": "100%", "paddingRight": "2.2em", "paddingLeft": "2.2em"}}>
   <HStack spacing={`1em`}>
   <Avatar name={`Daniel Banariba`} size={`2xl`} src={`avatar.jpg`} sx={{"color": "#ccc6be", "bg": "#0a121f", "padding": "2px", "border": "4px", "borderColor": "#0073a8", "alignItems": "start"}}/>
@@ -99,14 +101,14 @@ export default function Component() {
   <HStack sx={{"width": "100%", "paddingRight": "2.2em"}}>
   <Box sx={{"fontSize": "1em", "color": "#ccc6be"}}>
   <Text as={`span`} sx={{"fontWeight": "bold", "color": "#0073a8"}}>
-  {`2+`}
+  {`3+`}
 </Text>
   {`Años de experiencia programando`}
 </Box>
   <Spacer/>
   <Box sx={{"fontSize": "1em", "color": "#ccc6be"}}>
   <Text as={`span`} sx={{"fontWeight": "bold", "color": "#0073a8"}}>
-  {`5+`}
+  {`6+`}
 </Text>
   {`Años de experiencia editando y filmando videos`}
 </Box>
@@ -126,6 +128,50 @@ export default function Component() {
 </Text>
 </VStack>
   <VStack spacing={`1em`} sx={{"width": "100%", "paddingRight": "2.2em", "paddingLeft": "2.2em"}}>
+  <Heading sx={{"width": "100%", "paddingTop": "1em", "fontSize": "1.5em", "color": "#fff8ee", "fontFamily": "Poppins", "fontWeight": "500"}}>
+  {`Proyectos de Programación`}
+</Heading>
+  <Link as={NextLink} href={`https://arsenal-de-odio.vercel.app/`} isExternal={true} sx={{"width": "100%", "textDecoration": "none", "_hover": {}}}>
+  <Button sx={{"width": "100%", "height": "100%", "padding": "0.5em", "borderRadius": "1em", "color": "#fff8ee", "backgroundColor": "#0a121f", "whiteSpace": "normal", "textAlign": "start", "_hover": {"backgroundColor": "#022b44"}}}>
+  <VStack sx={{"padding": "0.5em", "width": "100%"}}>
+  <ChakraImage alt={`Pagina oficial de Arsenal de Odio`} src={`img_proyect/arsenal_website.jpg`} sx={{"width": "100%", "height": "100%", "margin": "0.8em", "borderRadius": "1em"}}/>
+  <VStack spacing={`0.5em`} sx={{"paddingY": "0.5em", "paddingRight": "0.5em"}}>
+  <Text sx={{"fontFamily": "Poppins", "fontWeight": "500", "fontSize": "1.5em", "color": "#fff8ee"}}>
+  {`Pagina oficial de Arsenal de Odio`}
+</Text>
+  <Text sx={{"fontWeight": "300", "fontSize": "1.1em", "color": "#ccc6be", "paddingButtom": "1.1em"}}>
+  {`La banda de Thrash Metal Arsenal de Odio aqui se puede encontrar información de la banda, sus integrantes, discografía, merch, etc.`}
+</Text>
+</VStack>
+  <Box sx={{"display": ["none", "block", "block", "block"]}}>
+  <HStack>
+  <ChakraImage src={`icons/python-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/Reflex.svg`} sx={{"width": "100px", "height": "100px"}}/>
+  <ChakraImage src={`icons/css3-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/html5-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/js.svg`} sx={{"width": "60px", "height": "60px"}}/>
+</HStack>
+</Box>
+  <Box sx={{"display": ["block", "none", "none", "none"]}}>
+  <Wrap align={`center`} justify={`center`}>
+  <WrapItem>
+  <Center>
+  <ChakraImage src={`icons/python-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/Reflex.svg`} sx={{"width": "100px", "height": "100px"}}/>
+</Center>
+</WrapItem>
+  <WrapItem>
+  <Center>
+  <ChakraImage src={`icons/css3-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/html5-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/js.svg`} sx={{"width": "60px", "height": "60px"}}/>
+</Center>
+</WrapItem>
+</Wrap>
+</Box>
+</VStack>
+</Button>
+</Link>
   <Heading sx={{"width": "100%", "paddingTop": "1em", "fontSize": "1.5em", "color": "#fff8ee", "fontFamily": "Poppins", "fontWeight": "500"}}>
   {`Proyectos audiovisuales`}
 </Heading>
@@ -251,9 +297,9 @@ export default function Component() {
 </VStack>
 </Center>
   <VStack spacing={`0px !important`} sx={{"marginBottom": "0.8em", "paddingBotoom": "0.5em", "paddingX": "2.2em", "color": "#99948e"}}>
-  <Link as={NextLink} href={`https://www.danielbanariba.com`} isExternal={true} sx={{"target": "_blank", "fontSize": "1em", "textDecoration": "none", "_hover": {}}}>
+  <Link as={NextLink} href={`/`} isExternal={false} sx={{"target": "_blank", "fontSize": "1em", "textDecoration": "none", "_hover": {}}}>
   <Box>
-  <Text as={`span`} sx={{"fontFamily": "Pulse_virgin", "fontWeight": "500", "fontSize": "1.7em", "color": "#908986", "_hover": {"color": "#045b90"}, "alt": "Logotipo de DanielBanariba."}}>
+  <Text as={`span`} sx={{"fontFamily": "Pulse_virgin", "fontWeight": "500", "fontSize": "1.7em", "_hover": {"color": "#045b90"}, "color": "#908986", "alt": "Logotipo de DanielBanariba."}}>
   {`DANIEL
 BANARIBA`}
 </Text>
@@ -264,7 +310,7 @@ BANARIBA`}
 </Text>
   <Center>
   <Text as={`span`} sx={{"fontSize": "0.8em"}}>
-  {` © 2023-2023`}
+  {` © 2023-2024`}
 </Text>
 </Center>
 </VStack>
@@ -273,7 +319,7 @@ BANARIBA`}
   <title>
   {`Daniel Banariba | Desarrollador de Software y edición de videos`}
 </title>
-  <meta content={`Hola!, mi nombre es Daniel Banariba. Soy programador amante de la tecnologia, el cine y la música.`} name={`description`}/>
+  <meta content={`Hola! mi nombre es Daniel Alejandro Barrientos Anariba soy un programador amante de la tecnologia, el cine y la música.`} name={`description`}/>
   <meta content={`avatar.jpeg`} property={`og:image`}/>
 </NextHead>
 </Fragment>

@@ -28,9 +28,9 @@ def link_video(title: str, body: str, logo_banda: str, size: str, image: str, ur
                             alt=title,
                             style=miniatura_video_style
                         ),
-                    href=url,
-                    is_external=True, # Se abren los links en una nueva pestaña
-                    width="100%"
+                        href=url,
+                        is_external=True, # Se abren los links en una nueva pestaña
+                        width="100%"
                     ),
                     bg=Color.CONTENT.value,
                     padding=Size.DEFAULT.value,

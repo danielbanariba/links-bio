@@ -17,7 +17,8 @@ def index() -> rx.Component:
                 max_width=styles.MAX_WIDTH,
                 width="100%",
                 margin_y=Size.BIG.value,
-                padding=Size.ZERO.value
+                padding=Size.ZERO.value,
+                id="/"
             )
         ),
         footer()
@@ -42,11 +43,6 @@ app = rx.App(
 )
 app.add_page(index,
     title="Daniel Banariba | Desarrollador de Software y edición de videos",
-    description="Hola!, mi nombre es Daniel Banariba. Soy programador amante de la tecnologia, el cine y la música.",
+    description="Hola! mi nombre es Daniel Alejandro Barrientos Anariba soy un programador amante de la tecnologia, el cine y la música.",
     image="avatar.jpeg")
 app.compile()
-
-
-# Ideas para la pagina de Arsenal de Odio
-# Upload: para que la gente pueda subir imagenes y videos de los eventos de arsenal de odio 
-# Link: https://reflex.dev/docs/library/forms/upload/

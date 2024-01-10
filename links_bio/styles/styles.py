@@ -4,7 +4,7 @@ from .colors import Color, TextColor
 from .fonts import Font, FontWeight
 
 # Ancho maximo de la pagina 
-MAX_WIDTH = "750px"
+MAX_WIDTH = "800px"
 TAMANIO_ICON = 1.7
 
 #Hojas de estilos
@@ -30,7 +30,7 @@ class Size(Enum):
 BASE_STYLE = {
     "font_family": Font.DEFAULT.value, # Fuente de texto
     "font_weight": FontWeight.LIGHT.value,
-    "background_color": Color.BACKGROUND.value, # Color de fondo
+    "background": Color.BACKGROUND.value,
     rx.Heading: {
         "color": TextColor.HEADER.value,
         "font_family": Font.TITLE.value,
@@ -64,7 +64,8 @@ navbar_title_style = dict(
 logo_canal = dict(
     font_family=Font.LOGO_CANAL.value,
     font_weight=FontWeight.MEDIUM.value,
-    font_size=Size.GRANDELOGO.value
+    font_size=Size.GRANDELOGO.value,
+    _hover={"color": "#045b90"},
 )
 
 # Estilos de los textos que van arriba de los botones
@@ -98,6 +99,13 @@ body_style_music = dict(
     font_weight=FontWeight.LIGHT.value,
     font_size=Size.ALGO_GRANDE.value,
     color=TextColor.BODY.value
+)
+
+body_style_proyect = dict(
+    font_weight=FontWeight.LIGHT.value,
+    font_size=Size.ALGO_GRANDE.value,
+    color=TextColor.BODY.value,
+    padding_buttom=Size.ALGO_GRANDE.value
 )
 
 miniatura_video_style = dict(
