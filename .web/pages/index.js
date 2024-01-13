@@ -1,7 +1,7 @@
 
 /** @jsxImportSource @emotion/react */import { Fragment, useRef } from "react"
 import { Fragment_fd0e7cb8f9fb4669a6805377d925fba0 } from "/utils/stateful_components"
-import { Avatar, Box, Button, Center, Container, Heading, HStack, Image as ChakraImage, Link, Spacer, Text, VStack, Wrap, WrapItem } from "@chakra-ui/react"
+import { Avatar, Box, Button, Center, Container, Heading, HStack, Image as ChakraImage, Link, Spacer, Text, VStack } from "@chakra-ui/react"
 import Script from "next/script"
 import "focus-visible/dist/focus-visible"
 import { refs } from "/utils/state"
@@ -131,7 +131,7 @@ export default function Component() {
   <Heading sx={{"width": "100%", "paddingTop": "1em", "fontSize": "1.5em", "color": "#fff8ee", "fontFamily": "Poppins", "fontWeight": "500"}}>
   {`Proyectos de Programación`}
 </Heading>
-  <Link as={NextLink} href={`https://arsenal-de-odio.vercel.app/`} isExternal={true} sx={{"width": "100%", "textDecoration": "none", "_hover": {}}}>
+  <Link as={NextLink} href={`https://arsenaldeodio.reflex.run/`} isExternal={true} sx={{"width": "100%", "textDecoration": "none", "_hover": {}}}>
   <Button sx={{"width": "100%", "height": "100%", "padding": "0.5em", "borderRadius": "1em", "color": "#fff8ee", "backgroundColor": "#0a121f", "whiteSpace": "normal", "textAlign": "start", "_hover": {"backgroundColor": "#022b44"}}}>
   <VStack sx={{"padding": "0.5em", "width": "100%"}}>
   <ChakraImage alt={`Pagina oficial de Arsenal de Odio`} src={`img_proyect/arsenal_website.jpg`} sx={{"width": "100%", "height": "100%", "margin": "0.8em", "borderRadius": "1em"}}/>
@@ -140,34 +140,14 @@ export default function Component() {
   {`Pagina oficial de Arsenal de Odio`}
 </Text>
   <Text sx={{"fontWeight": "300", "fontSize": "1.1em", "color": "#ccc6be", "paddingButtom": "1.1em"}}>
-  {`La banda de Thrash Metal Arsenal de Odio aqui se puede encontrar información de la banda, sus integrantes, discografía, merch, etc.`}
+  {`Arsenal De Odio es una banda de Thrash Metal de Honduras, que usando el lenguaje de programación Python y la librería Reflex se pudo plasmar su espíritu como banda en la pagina web. Aquí se puede encontrar todo relacionado con la banda, sus integrantes, discografía, mercadería, etc.`}
 </Text>
 </VStack>
   <Box sx={{"display": ["none", "block", "block", "block"]}}>
   <HStack>
-  <ChakraImage src={`icons/python-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/Reflex.svg`} sx={{"width": "100px", "height": "100px"}}/>
-  <ChakraImage src={`icons/css3-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/html5-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/js.svg`} sx={{"width": "60px", "height": "60px"}}/>
+  <ChakraImage src={`icons/python-alt.svg`} sx={{"width": "60px", "height": "60px", "paddingX": "0.5em"}}/>
+  <ChakraImage src={`icons/Reflex.svg`} sx={{"width": "100px", "height": "100px", "paddingX": "0.5em"}}/>
 </HStack>
-</Box>
-  <Box sx={{"display": ["block", "none", "none", "none"]}}>
-  <Wrap align={`center`} justify={`center`}>
-  <WrapItem>
-  <Center>
-  <ChakraImage src={`icons/python-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/Reflex.svg`} sx={{"width": "100px", "height": "100px"}}/>
-</Center>
-</WrapItem>
-  <WrapItem>
-  <Center>
-  <ChakraImage src={`icons/css3-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/html5-alt.svg`} sx={{"width": "60px", "height": "60px"}}/>
-  <ChakraImage src={`icons/js.svg`} sx={{"width": "60px", "height": "60px"}}/>
-</Center>
-</WrapItem>
-</Wrap>
 </Box>
 </VStack>
 </Button>

@@ -31,43 +31,45 @@ def link_proyects(title: str, body: str, image: str, url: str, *image_icons: str
                     rx.tablet_and_desktop(
                         rx.hstack(
                             rx.image(
-                            src="icons/python-alt.svg",
-                            width="60px", 
-                            height="60px",
+                                src="icons/python-alt.svg",
+                                width="60px", 
+                                height="60px",
+                                padding_x=Size.SMALL.value,
                             ),
                             rx.image(
                                 src="icons/Reflex.svg",
                                 width="100px",
                                 height="100px",
+                                padding_x=Size.SMALL.value,
                             ),  
-                            *image_components,     
+                            *image_components,
                         ),
                     ),
-                    rx.mobile_only(
-                        rx.wrap(
-                            rx.wrap_item(
-                                rx.center(
-                                    rx.image(
-                                         src="icons/python-alt.svg",
-                                        width="60px", 
-                                        height="60px",
-                                    ),
-                                    rx.image(
-                                        src="icons/Reflex.svg",
-                                        width="100px",
-                                        height="100px",
-                                    ),    
-                                )
-                            ),
-                            rx.wrap_item(
-                                rx.center(  
-                                    *image_components,    
-                                )
-                            ),                     
-                            align="center",  # Alinea los elementos en el centro verticalmente
-                            justify="center",   
-                        ),
-                    ),
+                    # rx.mobile_only(
+                    #     rx.wrap(
+                    #         rx.wrap_item(
+                    #             rx.center(
+                    #                 rx.image(
+                    #                      src="icons/python-alt.svg",
+                    #                     width="60px", 
+                    #                     height="60px",
+                    #                 ),
+                    #                 rx.image(
+                    #                     src="icons/Reflex.svg",
+                    #                     width="100px",
+                    #                     height="100px",
+                    #                 ),    
+                    #             )
+                    #         ),
+                    #         rx.wrap_item(
+                    #             rx.center(  
+                    #                 *image_components,    
+                    #             )
+                    #         ),                     
+                    #         align="center",  # Alinea los elementos en el centro verticalmente
+                    #         justify="center",   
+                    #     ),
+                    # ),
                 padding=Size.SMALL.value,
                 width="100%"
             ),

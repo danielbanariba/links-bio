@@ -11,12 +11,9 @@ def links() -> rx.Component:
         title("Proyectos de Programación"),
         link_proyects(#title: str, body: str, image: str, url: str, image_icon: str
             "Pagina oficial de Arsenal de Odio",
-            "La banda de Thrash Metal Arsenal de Odio aqui se puede encontrar información de la banda, sus integrantes, discografía, merch, etc.",
+            "Arsenal De Odio es una banda de Thrash Metal de Honduras, que usando el lenguaje de programación Python y la librería Reflex se pudo plasmar su espíritu como banda en la pagina web. Aquí se puede encontrar todo relacionado con la banda, sus integrantes, discografía, mercadería, etc.",
             "img_proyect/arsenal_website.jpg",
-            "https://arsenal-de-odio.vercel.app/",
-            "icons/css3-alt.svg",
-            "icons/html5-alt.svg",
-            "icons/js.svg",
+            "https://arsenaldeodio.reflex.run/",
         ),
         # TODO Aqui tiene que aparecer una preview de los videos de youtube, tambien poner las mejores escenas de los videos
         title("Proyectos audiovisuales"),
