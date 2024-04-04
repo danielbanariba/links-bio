@@ -1,0 +1,9 @@
+Hacer que mi pagina se conecte con alguna API de Youtube, para analizar automaticamente los videos que tenga en mi canal y comience hacer webscraping
+con el objetivo de poder tener una seccion en mi pagina que sea:
+-Pais
+-Anno
+-Genero musical
+
+de esta manera va analizar la descripcion y buscar alguna palabra claves que seria pais, annio, genero musical y guardar la
+informacion en algunas de las secciones descritas anteriormente, despues de obtener la informacion por medio de la descripcion, tendra que
+buscar de manera automatica la portada de los discos por medio de agarrar el titulo del video y buscarla en google imagenes
