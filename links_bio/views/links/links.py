@@ -8,20 +8,20 @@ from links_bio.components.link_proyects import link_proyects
 
 def links() -> rx.Component:
     return rx.vstack(
-        title("Proyectos de Programación"),
-        link_proyects(#title: str, body: str, image: str, url: str, image_icon: str
-            "Pagina oficial de Arsenal de Odio",
-            "Arsenal De Odio es una banda de Thrash Metal de Honduras, que usando el lenguaje de programación Python y la librería Reflex se pudo plasmar su espíritu como banda en la pagina web. Aquí se puede encontrar todo relacionado con la banda, sus integrantes, discografía, mercadería, etc.",
-            "img_proyect/arsenal_website.jpg",
-            "https://arsenaldeodio.reflex.run/",
-        ),
+        # title("Proyectos de Programación"),
+        # link_proyects(#title: str, body: str, image: str, url: str, image_icon: str
+        #     "Pagina oficial de Arsenal de Odio",
+        #     "Arsenal De Odio es una banda de Thrash Metal de Honduras, que usando el lenguaje de programación Python y la librería Reflex se pudo plasmar su espíritu como banda en la pagina web. Aquí se puede encontrar todo relacionado con la banda, sus integrantes, discografía, mercadería, etc.",
+        #     "img_proyect/arsenal_website.jpg",
+        #     "https://arsenaldeodio.reflex.run/",
+        # ),
         # TODO Aqui tiene que aparecer una preview de los videos de youtube, tambien poner las mejores escenas de los videos
         title("Proyectos audiovisuales"),
         link_video(
             "Blasfemia - Inmaculada Concepción",
             "Blasfemia es una banda de Brutal Death Metal originario de Tegucigalpa, Honduras.",
             "logo_bandas/blasfemia.svg",
-            "40%",
+            "50%",
             "img_video/blasfemia.jpg",
             "https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v",
         ),
@@ -29,7 +29,7 @@ def links() -> rx.Component:
             "Sobreporrosis - Acá no es Party Sesiones",
             "Sobreporrosis es una banda de Punk Rock originario de Tegucigalpa, Honduras.",
             "logo_bandas/sobreporrosis.svg",
-            "60%",
+            "70%",
             "img_video/sobreporrosis.jpg",
             "https://youtu.be/vE5s7QdB95I?si=KntI0wqkG7Qj3XVF",
         ),

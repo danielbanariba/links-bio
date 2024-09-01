@@ -9,17 +9,17 @@ from links_bio.components.link_icon import icon
 
 def header() -> rx.Component:
     return rx.vstack(
-        rx.hstack(# el hstack es para que el contenido apareza de forma horizontal
+        rx.hstack(
             rx.avatar(
                 name="Daniel Banariba", 
-                size="2xl",
+                size="8",
                 src="avatar.jpg", 
                 color=TextColor.BODY.value,
                 bg=Color.CONTENT.value,
                 padding="2px",
-                border="4px",
+                border="4px solid",
                 border_color=Color.PRIMARY.value,
-                align_items="start",
+                radius="full"
             ),
             rx.vstack(
                 rx.heading(
@@ -43,10 +43,13 @@ def header() -> rx.Component:
                     spacing=Size.GRANDELOGO.value,
                     ),    
                 ),
+            spacing=Size.SMALL.value,
+            justify_content="center",
             align_items="start",
-            width="100%"
+            height="100%",
         ),
-            spacing=Size.DEFAULT.value
+        align_items="center",  # Center items vertically
+        width="100%"
         ),
         rx.mobile_only(
             rx.container(
@@ -94,12 +97,13 @@ def header() -> rx.Component:
             width="100%",
         ),
         width="100%",
-        spacing=Size.LARGE.value,
+        spacing=Size.ALGO_GRANDE.value,
         align_items="start",
         padding_right=Size.BIG.value,
         padding_left=Size.BIG.value,
     )
-    
+
+# Funciones para calcular la experiencia y no tener que estar cambiando el año manualmente
 def experiencePrograming() -> int:
     return datetime.date.today().year - 2021
 

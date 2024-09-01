@@ -1,15 +1,10 @@
 *.db
-
 *.py[cod]
-
 .web
-
 __pycache__
-
 __pycache__/
-
+assets/external/
 bandas.txt
-
 discografias.txt
-
 env
+.vscode

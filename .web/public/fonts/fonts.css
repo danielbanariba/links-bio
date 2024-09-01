@@ -1,9 +1,9 @@
 @font-face {
     font-family: 'DinaRemasterII';
-    src: url('DinaRemasterII.ttc') format('truetype');
+    src: url('/fonts/DinaRemasterII.ttc') format('truetype');
 }
 
 @font-face{
     font-family: 'Pulse_virgin'; 
-    src: url('Pulse_virgin.ttf') format('truetype');
+    src: url('/fonts/Pulse_virgin.ttf') format('truetype');
 }

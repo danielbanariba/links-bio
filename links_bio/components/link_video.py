@@ -6,13 +6,14 @@ def link_video(title: str, body: str, logo_banda: str, size: str, image: str, ur
     return rx.hstack(
         rx.hstack(
             rx.box(
-                rx.vstack(
+                rx.vstack(# se pone los logis de la banda
                     rx.image(
                         src=logo_banda, #guarda las url en las imagenes, en pocas palabras al momento de hacer click a la imagen abre una pagina nueva
                         width=size,
                         height=size,
                         margin=Size.VERY_SMALL.value,
-                        alt=title
+                        alt=title,
+                        align_self="center",
                     ),
                     rx.vstack(
                         rx.text(title, style=styles.title_style_music),
@@ -32,6 +33,7 @@ def link_video(title: str, body: str, logo_banda: str, size: str, image: str, ur
                         is_external=True, # Se abren los links en una nueva pestaña
                         width="100%"
                     ),
+                    align_items="center",
                     bg=Color.CONTENT.value,
                     padding=Size.DEFAULT.value,
                     border_radius=Size.SMALL.value,

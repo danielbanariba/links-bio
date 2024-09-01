@@ -31,12 +31,12 @@ BASE_STYLE = {
     "font_family": Font.DEFAULT.value, # Fuente de texto
     "font_weight": FontWeight.LIGHT.value,
     "background": Color.BACKGROUND.value,
-    rx.Heading: {
+    rx.heading: {
         "color": TextColor.HEADER.value,
         "font_family": Font.TITLE.value,
         "font_weight": FontWeight.MEDIUM.value
     },
-    rx.Button: {
+    rx.button: {
         "width": "100%",
         "height": "100%",
         "padding": Size.SMALL.value,
@@ -49,7 +49,7 @@ BASE_STYLE = {
             "background_color": Color.SECONDARY.value
         }
     }, 
-    rx.Link: {# Desaparece el subrayado de los links
+    rx.link: {# Desaparece el subrayado de los links
         "text_decoration": "none",
         "_hover": {}
     }

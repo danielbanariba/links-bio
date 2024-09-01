@@ -24,25 +24,27 @@ def index() -> rx.Component:
         footer()
     )
 
-
-# Compila la app y la ejecuta 
+# Inicializa la app
 app = rx.App(
     stylesheets=styles.STYLESHEETS,
     style=styles.BASE_STYLE,
-    head_components=[
-        rx.script(src="https://www.googletagmanager.com/gtag/js?id=G-3YGHT3XJFS"),
-        rx.script(
-            """
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-3YGHT3XJFS');
-            """
-        ),
-    ],
+    # head_components=[
+    #     #TODO agregar google analytics pero de mi perfil!
+    #     rx.script(src=""),
+    #     rx.script(
+    #         """
+    #         window.dataLayer = window.dataLayer || [];
+    #         function gtag(){dataLayer.push(arguments);}
+    #         gtag('js', new Date());
+    #         gtag('config', ''); #TODO agregar el id de google analytics, en las comillas
+    #         """
+    #     ),
+    # ],
 )
-app.add_page(index,
+
+app.add_page(
+    index,
     title="Daniel Banariba | Desarrollador de Software y edición de videos",
     description="Hola! mi nombre es Daniel Alejandro Barrientos Anariba soy un programador amante de la tecnologia, el cine y la música.",
-    image="avatar.jpeg")
-app.compile()
+    image="avatar.jpeg"
+)
