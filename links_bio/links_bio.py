@@ -1,8 +1,8 @@
 import reflex as rx 
 import links_bio.styles.styles as styles
 from links_bio.components.navbar import navbar
-from links_bio.views.header.header import header
-from links_bio.views.links.links import links
+from links_bio.views.header import header
+from links_bio.views.links import links
 from links_bio.components.footer import footer
 from links_bio.styles.styles import Size
 

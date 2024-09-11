@@ -15,21 +15,16 @@ import NextHead from "next/head"
 
 
 
-export function Fragment_cf53a535ae2e610a113dd361eb6ac95b () {
-  const [addEvents, connectErrors] = useContext(EventLoopContext);
+export function Link_9c6cb73cb372754b600bf2887d880c02 () {
 
 
 
   return (
-    <Fragment>
-  {isTrue(connectErrors.length > 0) ? (
-  <Fragment>
-  <LucideWifiOffIcon css={{"color": "crimson", "zIndex": 9999, "position": "fixed", "bottom": "33px", "right": "33px", "animation": `${pulse} 1s infinite`}} size={32}/>
-</Fragment>
-) : (
-  <Fragment/>
-)}
-</Fragment>
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://www.linkedin.com/in/danielbanariba/`} passHref={true}>
+  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .linkedin-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .linkedin-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"linkedin-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>LinkedIn</title>\n                        <path d=\"M100.28 448H7.4V148.9h92.88zM53.79 108.1C24.09 108.1 0 83.5 0 53.8a53.79 53.79 0 0 1 107.58 0c0 29.7-24.1 54.3-53.79 54.3zM447.9 448h-92.68V302.4c0-34.7-.7-79.2-48.29-79.2-48.29 0-55.69 37.7-55.69 76.7V448h-92.78V148.9h89.08v40.8h1.3c12.4-23.5 42.69-48.3 87.88-48.3 94 0 111.28 61.9 111.28 142.3V448z\"/>\n                    </svg>\n            "}}/>
+</NextLink>
+</RadixThemesLink>
   )
 }
 
@@ -48,6 +43,18 @@ BANARIBA`}
 </RadixThemesBox>
 </NextLink>
 </RadixThemesLink>
+  )
+}
+
+export function Div_ac2a89ea84667d600a059f034bd91dfe () {
+  const [addEvents, connectErrors] = useContext(EventLoopContext);
+
+
+
+  return (
+    <div css={{"position": "fixed", "width": "100vw", "height": "0"}} title={`Connection Error: ${(connectErrors.length > 0) ? connectErrors[connectErrors.length - 1].message : ''}`}>
+  <Fragment_cf53a535ae2e610a113dd361eb6ac95b/>
+</div>
   )
 }
 
@@ -76,119 +83,18 @@ export function Link_ae36edc148075f3fa5c37c115bf5cdcd () {
   )
 }
 
-export function Link_e4fae4d11b03179ddbd03b7fcae92906 () {
+export function Link_90a8c5717cb9b0ad1bceb4c044bf6532 () {
 
 
 
   return (
     <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://youtu.be/vE5s7QdB95I?si=KntI0wqkG7Qj3XVF`} passHref={true}>
-  <img alt={`Sobreporrosis - Acá no es Party Sesiones`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/sobreporrosis.jpg`}/>
+  <NextLink href={`https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v`} passHref={true}>
+  <img alt={`Blasfemia - Inmaculada Concepción`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/blasfemia.jpg`}/>
 </NextLink>
 </RadixThemesLink>
   )
 }
-
-export function Link_b6edeccad733a90423e845edf202d88f () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://youtu.be/lvH-dy-Gn0Y`} passHref={true}>
-  <img alt={`Desmembramiento - Maldita Enfermedad`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/desmembramiento.webp`}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_48acdf72d3d7f60524f703223f231507 () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://www.instagram.com/danielbanariba/`} passHref={true}>
-  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .instagram-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .instagram-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"instagram-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Instagram</title>\n                        <path d=\"M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z\"/>\n                    </svg>\n            "}}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_ffe9ab6cc542f7c175bd3de3a21b7530 () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://youtu.be/548LqsbFhSw`} passHref={true}>
-  <img alt={`Krisis - Johd Ass`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/krisis.webp`}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_c10a8e204007439912b247734cfe4798 () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://youtu.be/EAZR_GLTHyw`} passHref={true}>
-  <img alt={`Lesath - El Enviado de Satán`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/lesath.jpg`}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_23329e395d8fedfca4efb8b8ff9d4410 () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://www.tiktok.com/@danielbanariba`} passHref={true}>
-  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .tiktok-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .tiktok-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"tiktok-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>TikTok</title>\n                        <path d=\"M448,209.91a210.06,210.06,0,0,1-122.77-39.25V349.38A162.55,162.55,0,1,1,185,188.31V278.2a74.62,74.62,0,1,0,52.23,71.18V0l88,0a121.18,121.18,0,0,0,1.86,22.17h0A122.18,122.18,0,0,0,381,102.39a121.43,121.43,0,0,0,67,20.14Z\"/>\n                    </svg>\n            "}}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_98e5e4d8b141df1814437cf25d7e54de () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q`} passHref={true}>
-  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .youtube-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .youtube-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"youtube-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Youtube</title>\n                        <path d=\"M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z\"/>\n                    </svg>\n            "}}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-export function Link_9c6cb73cb372754b600bf2887d880c02 () {
-
-
-
-  return (
-    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://www.linkedin.com/in/danielbanariba/`} passHref={true}>
-  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .linkedin-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .linkedin-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"linkedin-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>LinkedIn</title>\n                        <path d=\"M100.28 448H7.4V148.9h92.88zM53.79 108.1C24.09 108.1 0 83.5 0 53.8a53.79 53.79 0 0 1 107.58 0c0 29.7-24.1 54.3-53.79 54.3zM447.9 448h-92.68V302.4c0-34.7-.7-79.2-48.29-79.2-48.29 0-55.69 37.7-55.69 76.7V448h-92.78V148.9h89.08v40.8h1.3c12.4-23.5 42.69-48.3 87.88-48.3 94 0 111.28 61.9 111.28 142.3V448z\"/>\n                    </svg>\n            "}}/>
-</NextLink>
-</RadixThemesLink>
-  )
-}
-
-const pulse = keyframes`
-    0% {
-        opacity: 0;
-    }
-    100% {
-        opacity: 1;
-    }
-`
-
 
 export function Toaster_6e90e5e87a1cac8c96c683214079bef3 () {
   const { resolvedColorMode } = useContext(ColorModeContext)
@@ -218,6 +124,45 @@ useEffect(() => {
   )
 }
 
+export function Link_9816f97be69c3df5cd02613dfd80923f () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://www.facebook.com/profile.php?id=100063668491929`} passHref={true}>
+  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .facebook-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .facebook-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"facebook-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Facebook</title>\n                        <path d=\"M512 256C512 114.6 397.4 0 256 0S0 114.6 0 256C0 376 82.7 476.8 194.2 504.5V334.2H141.4V256h52.8V222.3c0-87.1 39.4-127.5 125-127.5c16.2 0 44.2 3.2 55.7 6.4V172c-6-.6-16.5-1-29.6-1c-42 0-58.2 15.9-58.2 57.2V256h83.6l-14.4 78.2H287V510.1C413.8 494.8 512 386.9 512 256h0z\"/>\n                    </svg>\n            "}}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
+export function Link_b6edeccad733a90423e845edf202d88f () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://youtu.be/lvH-dy-Gn0Y`} passHref={true}>
+  <img alt={`Desmembramiento - Maldita Enfermedad`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/desmembramiento.webp`}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
+export function Link_98e5e4d8b141df1814437cf25d7e54de () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q`} passHref={true}>
+  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .youtube-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .youtube-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"youtube-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Youtube</title>\n                        <path d=\"M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z\"/>\n                    </svg>\n            "}}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
 export function Link_f0d7d787bbcda4fe325b50b9530ab066 () {
 
 
@@ -231,39 +176,94 @@ export function Link_f0d7d787bbcda4fe325b50b9530ab066 () {
   )
 }
 
-export function Div_ac2a89ea84667d600a059f034bd91dfe () {
-  const [addEvents, connectErrors] = useContext(EventLoopContext);
-
-
-
-  return (
-    <div css={{"position": "fixed", "width": "100vw", "height": "0"}} title={`Connection Error: ${(connectErrors.length > 0) ? connectErrors[connectErrors.length - 1].message : ''}`}>
-  <Fragment_cf53a535ae2e610a113dd361eb6ac95b/>
-</div>
-  )
-}
-
-export function Link_90a8c5717cb9b0ad1bceb4c044bf6532 () {
+export function Link_48acdf72d3d7f60524f703223f231507 () {
 
 
 
   return (
     <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v`} passHref={true}>
-  <img alt={`Blasfemia - Inmaculada Concepción`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/blasfemia.jpg`}/>
+  <NextLink href={`https://www.instagram.com/danielbanariba/`} passHref={true}>
+  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .instagram-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .instagram-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"instagram-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Instagram</title>\n                        <path d=\"M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z\"/>\n                    </svg>\n            "}}/>
 </NextLink>
 </RadixThemesLink>
   )
 }
 
-export function Link_9816f97be69c3df5cd02613dfd80923f () {
+export function Link_23329e395d8fedfca4efb8b8ff9d4410 () {
 
 
 
   return (
     <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
-  <NextLink href={`https://www.facebook.com/profile.php?id=100063668491929`} passHref={true}>
-  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .facebook-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .facebook-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"facebook-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>Facebook</title>\n                        <path d=\"M512 256C512 114.6 397.4 0 256 0S0 114.6 0 256C0 376 82.7 476.8 194.2 504.5V334.2H141.4V256h52.8V222.3c0-87.1 39.4-127.5 125-127.5c16.2 0 44.2 3.2 55.7 6.4V172c-6-.6-16.5-1-29.6-1c-42 0-58.2 15.9-58.2 57.2V256h83.6l-14.4 78.2H287V510.1C413.8 494.8 512 386.9 512 256h0z\"/>\n                    </svg>\n            "}}/>
+  <NextLink href={`https://www.tiktok.com/@danielbanariba`} passHref={true}>
+  <div className={`rx-Html`} dangerouslySetInnerHTML={{"__html": "\n                <style>\n                    .tiktok-icon {\n                        fill: #fff8ee;\n                        /* Establece un tamaño fijo para el SVG */\n                        width: 1.7em;\n                        height: 1.7em;\n                    }\n                    .tiktok-icon:hover {\n                        fill: #022b44;\n                    }\n                </style>\n                    <svg class=\"tiktok-icon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\">\n                        <title>TikTok</title>\n                        <path d=\"M448,209.91a210.06,210.06,0,0,1-122.77-39.25V349.38A162.55,162.55,0,1,1,185,188.31V278.2a74.62,74.62,0,1,0,52.23,71.18V0l88,0a121.18,121.18,0,0,0,1.86,22.17h0A122.18,122.18,0,0,0,381,102.39a121.43,121.43,0,0,0,67,20.14Z\"/>\n                    </svg>\n            "}}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
+const pulse = keyframes`
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+`
+
+
+export function Fragment_cf53a535ae2e610a113dd361eb6ac95b () {
+  const [addEvents, connectErrors] = useContext(EventLoopContext);
+
+
+
+  return (
+    <Fragment>
+  {isTrue(connectErrors.length > 0) ? (
+  <Fragment>
+  <LucideWifiOffIcon css={{"color": "crimson", "zIndex": 9999, "position": "fixed", "bottom": "33px", "right": "33px", "animation": `${pulse} 1s infinite`}} size={32}/>
+</Fragment>
+) : (
+  <Fragment/>
+)}
+</Fragment>
+  )
+}
+
+export function Link_e4fae4d11b03179ddbd03b7fcae92906 () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://youtu.be/vE5s7QdB95I?si=KntI0wqkG7Qj3XVF`} passHref={true}>
+  <img alt={`Sobreporrosis - Acá no es Party Sesiones`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/sobreporrosis.jpg`}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
+export function Link_ffe9ab6cc542f7c175bd3de3a21b7530 () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://youtu.be/548LqsbFhSw`} passHref={true}>
+  <img alt={`Krisis - Johd Ass`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/krisis.webp`}/>
+</NextLink>
+</RadixThemesLink>
+  )
+}
+
+export function Link_c10a8e204007439912b247734cfe4798 () {
+
+
+
+  return (
+    <RadixThemesLink asChild={true} css={{"textDecoration": "none", "&:hover": {"color": "var(--accent-8)"}, "width": "100%"}} target={isTrue(true) ? `_blank` : ``}>
+  <NextLink href={`https://youtu.be/EAZR_GLTHyw`} passHref={true}>
+  <img alt={`Lesath - El Enviado de Satán`} css={{"width": "auto", "height": "auto", "margin": "auto", "borderRadius": "1em", "&:hover": {"transform": "scale(1.1)", "transition": "transform 0.2s"}}} src={`img_video/lesath.jpg`}/>
 </NextLink>
 </RadixThemesLink>
   )
