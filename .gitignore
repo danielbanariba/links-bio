@@ -1,5 +1,6 @@
 *.db
 *.py[cod]
+.vscode
 .web
 __pycache__
 __pycache__/
@@ -7,4 +8,3 @@ assets/external/
 bandas.txt
 discografias.txt
 env
-.vscode
