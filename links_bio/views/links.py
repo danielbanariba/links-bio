@@ -1,5 +1,5 @@
 import reflex as rx
-import links_bio.views.url_social as URL 
+import links_bio.constants.url_social as URL 
 from links_bio.components.link_button import link_button
 from links_bio.components.link_video import link_video
 from links_bio.components.title import title

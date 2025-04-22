@@ -1,6 +1,6 @@
 import reflex as rx
 import datetime
-import links_bio.views.url_social as URL 
+import links_bio.constants.url_social as URL 
 from links_bio.styles.styles import Size
 from links_bio.styles.styles import TAMANIO_ICON
 from links_bio.styles.colors import Color, TextColor

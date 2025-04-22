@@ -2,7 +2,7 @@ import reflex as rx
 import datetime
 import links_bio.styles.styles as styles
 from links_bio.styles.styles import Size, Color, TextColor
-import links_bio.views.url_social as URL 
+import links_bio.constants.url_social as URL 
 
 def footer() -> rx.Component:
     return rx.center(
