@@ -66,7 +66,7 @@ def links() -> rx.Component:
             f"mailto:{URL.EMAIL}"
         ),
         width="100%",
-        spacing=Size.DEFAULT.value,
+        spacing=Size.DEFAULT_SPACING.value,
         padding_right=Size.BIG.value,
         padding_left=Size.BIG.value,
     )

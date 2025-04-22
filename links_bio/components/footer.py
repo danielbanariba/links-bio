@@ -36,7 +36,7 @@ def footer() -> rx.Component:
             margin_bottom=Size.MEDIUM.value,
             padding_botoom=Size.SMALL.value, # Para que se separare el texto de la parte de abajo
             padding_x=Size.BIG.value, # Responsive, se separe el texto de los lados
-            spacing=Size.ZERO.value,
+            spacing=Size.ZERO.value,  # Esto ya es correcto, ZERO = "0"
             color=TextColor.FOOTER.value
         )
     )

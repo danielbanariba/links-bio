@@ -19,7 +19,7 @@ def link_video(title: str, body: str, logo_banda: str, size: str, image: str, ur
                         rx.text(title, style=styles.title_style_music),
                         rx.text(body, style=styles.body_style_music),
                         align_items="center",
-                        spacing=Size.SMALL.value,
+                        spacing=Size.SMALL_SPACING.value,
                         padding_y=Size.SMALL.value,
                         padding_right=Size.SMALL.value
                     ),

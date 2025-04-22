@@ -24,7 +24,7 @@ def link_proyects(title: str, body: str, image: str, url: str, *image_icons: str
                         body, 
                         style=styles.body_style_proyect,
                     ),
-                    spacing=Size.SMALL.value,
+                    spacing=Size.SMALL_SPACING.value,
                     padding_y=Size.SMALL.value,
                     padding_right=Size.SMALL.value
                 ),

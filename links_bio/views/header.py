@@ -28,7 +28,7 @@ def header() -> rx.Component:
                 ),
                 rx.text(
                     "@danielbanariba",
-                    margin_top=Size.ZERO.value,
+                    margin_top=Size.ZERO_PX.value,
                     color=Color.PRIMARY.value,
                     font_size=Size.ALGO_GRANDE.value
                 ),
@@ -40,16 +40,16 @@ def header() -> rx.Component:
                         icon("youtube", TAMANIO_ICON, URL.YOUTUBE, "Youtube"),
                         icon("tiktok", TAMANIO_ICON, URL.TIKTOK, "TikTok"),
                         icon("linkedin", TAMANIO_ICON, URL.LINKEDIN, "LinkedIn"),
-                    spacing=Size.GRANDELOGO.value,
+                        spacing=Size.LARGE_SPACING.value,
                     ),    
                 ),
-            spacing=Size.SMALL.value,
-            justify_content="center",
-            align_items="start",
-            height="100%",
-        ),
-        align_items="center",  # Center items vertically
-        width="100%"
+                spacing=Size.SMALL_SPACING.value,
+                justify_content="center",
+                align_items="start",
+                height="100%",
+            ),
+            align_items="center",
+            width="100%"
         ),
         rx.mobile_only(
             rx.container(
@@ -61,11 +61,11 @@ def header() -> rx.Component:
                         icon("youtube", TAMANIO_ICON, URL.YOUTUBE, "Youtube"),
                         icon("tiktok", TAMANIO_ICON, URL.TIKTOK, "TikTok"),
                         icon("linkedin", TAMANIO_ICON, URL.LINKEDIN, "LinkedIn"),
-                    spacing=Size.GRANDELOGO.value,
+                        spacing=Size.LARGE_SPACING.value,
                     ),
                 ),
                 center_content=True,
-                spacing=Size.VERY_BIG.value,
+                spacing=Size.BIG_SPACING.value,
             ),
         ),
         
@@ -97,7 +97,7 @@ def header() -> rx.Component:
             width="100%",
         ),
         width="100%",
-        spacing=Size.ALGO_GRANDE.value,
+        spacing=Size.DEFAULT_SPACING.value,
         align_items="start",
         padding_right=Size.BIG.value,
         padding_left=Size.BIG.value,

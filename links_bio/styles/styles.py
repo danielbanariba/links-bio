@@ -14,7 +14,16 @@ STYLESHEETS = [
 ]
 
 class Size(Enum):
-    ZERO = "0px !important"
+    # Para propiedades spacing en componentes HStack/VStack (valores de 0-9)
+    ZERO = "0"
+    SMALL_SPACING = "1"
+    MEDIUM_SPACING = "2"
+    DEFAULT_SPACING = "3"
+    LARGE_SPACING = "4"
+    BIG_SPACING = "5"
+    
+    # Para propiedades CSS que necesitan valores con unidades
+    ZERO_PX = "0px"
     VERY_SMALL = "0.2em"
     SMALL = "0.5em"
     MEDIUM = "0.8em"
