@@ -1,5 +1,6 @@
 import reflex as rx
 import links_bio.styles.styles as styles
+import links_bio.constants.images as IMG
 from links_bio.styles.styles import Size
 from links_bio.styles.styles import Color
 
@@ -16,7 +17,8 @@ def link_proyects(title: str, body: str, image: str, url: str, *image_icons: str
                     height="100%",
                     margin=Size.MEDIUM.value,
                     border_radius=Size.DEFAULT.value,
-                    alt=title
+                    alt=title,
+                    loading="lazy"
                 ),
                 rx.vstack(
                     rx.text(title, style=styles.title_style_music),
@@ -31,51 +33,45 @@ def link_proyects(title: str, body: str, image: str, url: str, *image_icons: str
                     rx.tablet_and_desktop(
                         rx.hstack(
                             rx.image(
-                                src="icons/python-alt.svg",
-                                width="60px", 
+                                src=IMG.ICON_PYTHON,
+                                width="60px",
                                 height="60px",
                                 padding_x=Size.SMALL.value,
+                                alt="Python"
                             ),
                             rx.image(
-                                src="icons/Reflex.svg",
+                                src=IMG.ICON_REFLEX,
                                 width="100px",
                                 height="100px",
                                 padding_x=Size.SMALL.value,
-                            ),  
+                                alt="Reflex"
+                            ),
                             *image_components,
                         ),
                     ),
-                    # rx.mobile_only(
-                    #     rx.wrap(
-                    #         rx.wrap_item(
-                    #             rx.center(
-                    #                 rx.image(
-                    #                      src="icons/python-alt.svg",
-                    #                     width="60px", 
-                    #                     height="60px",
-                    #                 ),
-                    #                 rx.image(
-                    #                     src="icons/Reflex.svg",
-                    #                     width="100px",
-                    #                     height="100px",
-                    #                 ),    
-                    #             )
-                    #         ),
-                    #         rx.wrap_item(
-                    #             rx.center(  
-                    #                 *image_components,    
-                    #             )
-                    #         ),                     
-                    #         align="center",  # Alinea los elementos en el centro verticalmente
-                    #         justify="center",   
-                    #     ),
-                    # ),
+                    rx.mobile_only(
+                        rx.hstack(
+                            rx.image(
+                                src=IMG.ICON_PYTHON,
+                                width="60px",
+                                height="60px",
+                                padding_x=Size.SMALL.value,
+                                alt="Python"
+                            ),
+                            rx.image(
+                                src=IMG.ICON_REFLEX,
+                                width="100px",
+                                height="100px",
+                                padding_x=Size.SMALL.value,
+                                alt="Reflex"
+                            ),
+                            *image_components,
+                            spacing=Size.SMALL_SPACING.value,
+                        ),
+                    ),
                 padding=Size.SMALL.value,
                 width="100%"
             ),
-            #bg="#09080d !important",
-            # bg = "#022b44 !important",
-            # _hover= { "background_color": "#0a121f !important"},
         ),
         href=url,
         is_external=True, # Se abren los links en una nueva pestaña

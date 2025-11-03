@@ -5,11 +5,11 @@ from links_bio.styles.colors import Color, TextColor
 def info_text(title: str, body: str) -> rx.Component:
     return rx.box(
         rx.text(
-            title, 
-            font_weight="bold", 
+            title,
+            font_weight="bold",
             color=Color.PRIMARY.value
         ),
-        f"{body}", 
+        body,
         font_size=Size.DEFAULT.value,
         color=TextColor.BODY.value,
         justify="between",

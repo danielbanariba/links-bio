@@ -1,5 +1,6 @@
-import reflex as rx 
+import reflex as rx
 import links_bio.styles.styles as styles
+import links_bio.constants.images as IMG
 from links_bio.components.navbar import navbar
 from links_bio.views.header import header
 from links_bio.views.links import links
@@ -9,6 +10,23 @@ from links_bio.styles.styles import Size
 def index() -> rx.Component:
     return rx.box(
         rx.script("document.documentElement.lang='es'"),
+        rx.script(
+            """
+            const metaOg = [
+                {property: 'og:type', content: 'website'},
+                {property: 'og:url', content: 'https://danielbanariba.com'},
+                {property: 'og:title', content: 'Daniel Banariba | Desarrollador de Software y edición de videos'},
+                {property: 'og:description', content: 'Programador amante de la tecnología, el cine y la música. Especializado en desarrollo web y edición de videos musicales.'},
+                {property: 'og:image', content: 'https://danielbanariba.com/avatar.jpg'},
+            ];
+            metaOg.forEach(meta => {
+                const element = document.createElement('meta');
+                Object.keys(meta).forEach(key => element.setAttribute(key, meta[key]));
+                document.head.appendChild(element);
+            });
+            """,
+            type="application/javascript"
+        ),
         navbar(),
         rx.center(
             rx.vstack(
@@ -46,5 +64,5 @@ app.add_page(
     index,
     title="Daniel Banariba | Desarrollador de Software y edición de videos",
     description="Hola! mi nombre es Daniel Alejandro Barrientos Anariba soy un programador amante de la tecnologia, el cine y la música.",
-    image="avatar.jpeg"
+    image=IMG.AVATAR
 )

@@ -17,7 +17,6 @@ def footer() -> rx.Component:
                     ),
                 ),
                 href=URL.HOME,
-                target="_blank",
                 is_external=False,
                 font_size=Size.DEFAULT.value,
             ),
@@ -34,7 +33,7 @@ def footer() -> rx.Component:
             width="100%",
             align_items="center",
             margin_bottom=Size.MEDIUM.value,
-            padding_botoom=Size.SMALL.value, # Para que se separare el texto de la parte de abajo
+            padding_bottom=Size.SMALL.value, # Para que se separare el texto de la parte de abajo
             padding_x=Size.BIG.value, # Responsive, se separe el texto de los lados
             spacing=Size.ZERO.value,  # Esto ya es correcto, ZERO = "0"
             color=TextColor.FOOTER.value

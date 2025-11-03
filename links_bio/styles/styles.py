@@ -114,7 +114,7 @@ body_style_proyect = dict(
     font_weight=FontWeight.LIGHT.value,
     font_size=Size.ALGO_GRANDE.value,
     color=TextColor.BODY.value,
-    padding_buttom=Size.ALGO_GRANDE.value
+    padding_bottom=Size.ALGO_GRANDE.value
 )
 
 miniatura_video_style = dict(

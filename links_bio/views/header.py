@@ -1,6 +1,7 @@
 import reflex as rx
 import datetime
-import links_bio.constants.url_social as URL 
+import links_bio.constants.url_social as URL
+import links_bio.constants.images as IMG
 from links_bio.styles.styles import Size
 from links_bio.styles.styles import TAMANIO_ICON
 from links_bio.styles.colors import Color, TextColor
@@ -11,9 +12,9 @@ def header() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.avatar(
-                name="Daniel Banariba", 
+                name="Daniel Banariba",
                 size="8",
-                src="avatar.jpg", 
+                src=IMG.AVATAR,
                 color=TextColor.BODY.value,
                 bg=Color.CONTENT.value,
                 padding="2px",
@@ -107,5 +108,5 @@ def header() -> rx.Component:
 def experiencePrograming() -> int:
     return datetime.date.today().year - 2021
 
-def experienceEditorVideo() -> str:
+def experienceEditorVideo() -> int:
     return datetime.date.today().year - 2018
