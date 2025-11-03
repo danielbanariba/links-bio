@@ -46,6 +46,7 @@ def index() -> rx.Component:
 app = rx.App(
     stylesheets=styles.STYLESHEETS,
     style=styles.BASE_STYLE,
+    enable_state=False,  # Desactiva WebSocket para sitio estático
     # head_components=[
     #     #TODO agregar google analytics pero de mi perfil!
     #     rx.script(src=""),
