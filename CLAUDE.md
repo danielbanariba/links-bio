@@ -4,110 +4,76 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a personal portfolio website built with **Reflex** (Python web framework) showcasing Daniel Banariba's work as a software developer and video editor. The site features links to social media, audiovisual projects (music videos), and contact information.
+Personal portfolio website for Daniel Banariba built with **Reflex 0.8.26** (Python web framework). Two main sections:
+1. **Portfolio/Bio** — social links, audiovisual projects (music videos), contact info
+2. **Metal Archive** — database-driven catalog of Honduran underground metal albums with search, filtering, band submissions, newsletter, and promo packages
 
-**Framework:** Reflex 0.8.17 (Python-based reactive web framework)
-**Language:** Spanish (site content is in Spanish)
+All user-facing content is in Spanish.
 
 ## Development Commands
 
-### Environment Setup
 ```bash
-# Activate virtual environment
-source env/bin/activate
+source env/bin/activate          # Required before all commands (Python 3.13 venv)
+pip install -r requirements.txt  # Install deps (reflex[db], google-api-python-client, google-auth)
+reflex run                       # Dev server with hot reload
 
-# Install/upgrade dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+# Database setup / migrations (via Reflex's built-in Alembic wrapper)
+reflex db init
+reflex db makemigrations --message "description"
+reflex db migrate
 
-# Initialize Reflex (first time setup)
-reflex init
-```
-
-### Running the Application
-```bash
-# Development server with hot reload
-reflex run
-
-# Development server on specific host/port
-reflex run --loglevel debug
-```
-
-### Building for Production
-```bash
-# Export frontend-only build
-reflex export --frontend-only
-
-# The build.sh script automates the full build process:
+# Production setup (build.sh automates: pip install, reflex init, db init+migrate)
 ./build.sh
-# This script: activates env, upgrades pip, installs requirements,
-# initializes reflex, exports frontend, cleans up old public folder,
-# unzips frontend, and deactivates env
+
+# Frontend-only export
+reflex export --frontend-only
 ```
 
-## Architecture Overview
+## Architecture
 
-### Application Structure
-The app follows a component-based architecture with clear separation:
+### Two Operational Modes
 
-```
-links_bio/
-├── links_bio.py          # Main app entry point, page configuration
-├── views/                # Page-level compositions
-│   ├── header.py         # Profile header with avatar, bio, social icons
-│   └── links.py          # Main content area with video projects and contact
-├── components/           # Reusable UI components
-│   ├── navbar.py         # Sticky navigation with logo
-│   ├── footer.py         # Footer with copyright
-│   ├── link_button.py    # Standard link button (title, body, icon)
-│   ├── link_video.py     # Video preview card component
-│   ├── link_icon.py      # Social media icon links
-│   ├── link_proyects.py  # Project preview component
-│   ├── title.py          # Section title component
-│   └── info_text.py      # Stat display component
-├── styles/               # Centralized styling
-│   ├── styles.py         # Size enum, base styles, component styles
-│   ├── colors.py         # Color palette constants
-│   └── fonts.py          # Font family and weight definitions
-└── constants/
-    ├── url_social.py     # Social media URLs and constants
-    └── images.py         # Image paths constants
-```
+The app now has **state enabled** (backend + WebSocket) because the Metal Archive section requires database queries and form handling. The original portfolio page still renders statically in practice.
 
-### Key Design Patterns
+### Entry Point
 
-1. **Component Composition**: Main page (`index()`) composes high-level views (navbar, header, links, footer), which in turn compose reusable components.
+`links_bio/links_bio.py` — Creates the `rx.App`, registers all pages via `app.add_page()`, imports models so Reflex discovers them for DB migrations (`import links_bio.models`).
 
-2. **Centralized Styling**: All styles defined in `links_bio/styles/styles.py` with:
-   - `Size` enum for consistent spacing/sizing (has two categories: spacing values 0-9 for HStack/VStack, and CSS values with units for other properties)
-   - `BASE_STYLE` dict applies globally to all components
-   - Named style dicts (e.g., `button_title_style`) for specific use cases
+### Page Structure
 
-3. **Constants Management**:
-   - URLs and configuration values in `links_bio/constants/url_social.py`
-   - Image paths centralized in `links_bio/constants/images.py` for consistency and easy updates
+- **Portfolio index** (`index()`): Composed from `views/header.py` + `views/links.py`, wrapped in `components/navbar.py` + `components/footer.py`
+- **Metal Archive pages** (`pages/metal_archive/`): 9 pages — `landing`, `browse`, `album_detail`, `genre_page`, `country_page`, `year_page`, `submit`, `promo`, `newsletter`. Routes defined in `constants/metal_archive.py`.
 
-4. **Dynamic Content**: Functions like `experiencePrograming()` and `experienceEditorVideo()` in `links_bio/views/header.py` calculate years of experience dynamically based on current date.
+### State Management
 
-5. **Responsive Design**: Uses Reflex's responsive utilities:
-   - `rx.mobile_only()` / `rx.tablet_and_desktop()` for conditional rendering
-   - Components adjust layout based on screen size
+- `states/metal_archive_state.py` — `MetalArchiveState`: all DB queries for albums (landing, browse with filters/search/pagination, album detail with tracks + similar bands). Each page has a dedicated `on_load` event handler.
+- `states/form_state.py` — `FormState`: handles band submission, newsletter signup, contact form.
+- `state.py` — `AppState`: YouTube RSS feed fetching (unused on current pages but available).
 
-### Main Entry Point
-`links_bio/links_bio.py` is the application root:
-- Configures the Reflex app with stylesheets, base styles
-- Defines the `index()` page component
-- Sets page metadata (title, description, og:image)
-- Contains commented TODO for Google Analytics integration
+### Data Models (`models/`)
 
-## Important Notes
+SQLite database (`reflex.db`) with SQLModel/Alembic. Tables: `albums` (main catalog), `tracks`, `similar_bands`, `submissions`, `newsletter_subscribers`, `contact_messages`.
 
-- **Virtual Environment**: Always activate the virtual environment (`source env/bin/activate`) before running commands
-- **Python Version**: Project uses Python 3.14 (note: Pydantic v1 compatibility warning is expected)
-- **Spanish Content**: All user-facing text is in Spanish
-- **External Links**: All external links open in new tabs (`is_external=True`)
-- **Assets**: Images/icons are referenced using constants from `links_bio/constants/images.py`
-- **Sticky Navbar**: The navbar uses `position="sticky"` with `z_index="999"` to remain fixed at top
-- **SEO**: Open Graph meta tags are injected via JavaScript in `links_bio.py:13-29`
-- **Performance**: All images use `loading="lazy"` for optimized performance
-- **Sitemap Plugin**: Disabled in `rxconfig.py` to avoid warnings
+### Styling System
+
+All styles centralized in `links_bio/styles/`:
+- **`styles.py`**: `Size` enum has two categories — spacing values (`"0"`–`"5"` for HStack/VStack `spacing`) and CSS values with units (`"0.5em"`, `"2.2em"` for padding/font-size). Also defines `BASE_STYLE`, named style dicts (e.g. `button_title_style`, `miniatura_video_style`, `album_card_style`), and `METAL_ARCHIVE_MAX_WIDTH`.
+- **`colors.py`**: `Color`, `TextColor`, `LogoColor` enums for the dark theme
+- **`fonts.py`**: `Font` (Poppins, DinaRemasterII, Pulse_virgin) and `FontWeight` enums
+
+### Constants
+
+- `constants/url_social.py` — Social media URLs and email
+- `constants/images.py` — All asset paths (avatar, icons, band logos, thumbnails)
+- `constants/metal_archive.py` — Route definitions, page metadata, genre list, sort options, promo packages
+
+### Key Conventions
+
+- Dynamic experience calculations in `views/header.py` (`experiencePrograming()`, `experienceEditorVideo()`) compute years from fixed start dates
+- Responsive layout via `rx.mobile_only()` / `rx.tablet_and_desktop()` for social icon placement
+- All images use `loading="lazy"`
+- OG meta tags injected via `rx.script()` with raw JS
+- Metal Archive pages each have a dedicated `on_load` handler that queries the DB
+- Browse page pagination: fetches `page_limit + 1` rows to detect `has_more`, supports append for "load more"
+- DB config: `sqlite:///reflex.db`, sitemap plugin disabled in `rxconfig.py`
+- Data ingestion scripts at project root: `sync_youtube_to_db.py`, `sync_artwork_deathgrind.py`, `sync_artwork_fallback.py`; utility scripts in `scripts/` (`seed_data.py`, `normalize_db.py`)
