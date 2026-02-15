@@ -1,0 +1,14 @@
+{
+  "redirects": [
+    {
+      "source": "/metal-archive/:path*",
+      "destination": "https://links-bio-silver-wood.reflex.run/metal-archive/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/metal-archive",
+      "destination": "https://links-bio-silver-wood.reflex.run/metal-archive",
+      "permanent": false
+    }
+  ]
+}
