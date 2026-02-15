@@ -4,18 +4,36 @@ import links_bio.constants.images as IMG
 from links_bio.components.link_button import link_button
 from links_bio.components.link_video import link_video
 from links_bio.components.title import title
+import links_bio.styles.styles as styles
 from links_bio.styles.styles import Size
 from links_bio.components.link_proyects import link_proyects
 
 def links() -> rx.Component:
     return rx.vstack(
-        # title("Proyectos de Programación"),
-        # link_proyects(#title: str, body: str, image: str, url: str, image_icon: str
-        #     "Pagina oficial de Arsenal de Odio",
-        #     "Arsenal De Odio es una banda de Thrash Metal de Honduras, que usando el lenguaje de programación Python y la librería Reflex se pudo plasmar su espíritu como banda en la pagina web. Aquí se puede encontrar todo relacionado con la banda, sus integrantes, discografía, mercadería, etc.",
-        #     "img_proyect/arsenal_website.jpg",
-        #     "https://arsenaldeodio.reflex.run/",
-        # ),
+        # Metal Archive link
+        title("Metal Archive"),
+        rx.link(
+            rx.button(
+                rx.hstack(
+                    rx.icon("disc-3", size=24, color="#0073a8"),
+                    rx.vstack(
+                        rx.text("Metal Archive", style=styles.button_title_style),
+                        rx.text(
+                            "Explora el archivo de metal underground hondureno",
+                            style=styles.button_body_style,
+                        ),
+                        align_items="start",
+                        spacing=Size.SMALL_SPACING.value,
+                        padding_y=Size.SMALL.value,
+                        padding_right=Size.SMALL.value,
+                    ),
+                    width="100%",
+                ),
+            ),
+            href="/metal-archive",
+            is_external=False,
+            width="100%",
+        ),
         title("Proyectos audiovisuales"),
         link_video(
             "Blasfemia - Inmaculada Concepción",

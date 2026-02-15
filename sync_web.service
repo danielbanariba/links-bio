@@ -1,0 +1,11 @@
+[Unit]
+Description=Sync YouTube videos to Metal Archive database
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=banar
+WorkingDirectory=/home/banar/Desktop/links-bio
+ExecStart=/home/banar/Desktop/links-bio/sync_all.sh
+TimeoutStartSec=1800

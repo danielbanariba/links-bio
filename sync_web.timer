@@ -1,0 +1,10 @@
+[Unit]
+Description=Ejecutar sync de YouTube a Metal Archive cada 12 horas
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*-*-* 06,18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

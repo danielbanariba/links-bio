@@ -24,3 +24,6 @@ IMG_SOBREPORROSIS = "img_video/sobreporrosis.jpg"
 IMG_LESATH = "img_video/lesath.jpg"
 IMG_DESMEMBRAMIENTO = "img_video/desmembramiento.webp"
 IMG_KRISIS = "img_video/krisis.webp"
+
+# Metal Archive defaults
+DEFAULT_ALBUM_ARTWORK = "img_video/default_album.jpg"

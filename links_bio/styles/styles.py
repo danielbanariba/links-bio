@@ -118,7 +118,7 @@ body_style_proyect = dict(
 )
 
 miniatura_video_style = dict(
-    width="auto", 
+    width="auto",
     height="auto",
     margin="auto",
     border_radius = Size.DEFAULT.value,
@@ -126,4 +126,114 @@ miniatura_video_style = dict(
         "transform": "scale(1.1)", #rotate(10deg)
         "transition": "transform 0.2s",
     },
+)
+
+# ─── Metal Archive Styles ────────────────────────────────────────────
+
+METAL_ARCHIVE_MAX_WIDTH = "1200px"
+
+metal_hero_style = dict(
+    background="linear-gradient(135deg, #0a121f 0%, #022b44 50%, #0a121f 100%)",
+    padding_y="3em",
+    padding_x="2em",
+    text_align="center",
+    width="100%",
+)
+
+album_card_style = dict(
+    background=Color.CONTENT.value,
+    border_radius="0.8em",
+    overflow="hidden",
+    transition="transform 0.2s, box-shadow 0.2s",
+    _hover={
+        "transform": "scale(1.03)",
+        "box_shadow": f"0 0 20px {Color.PRIMARY.value}40",
+    },
+    cursor="pointer",
+    width="100%",
+)
+
+genre_card_style = dict(
+    background=Color.CONTENT.value,
+    border_radius="0.8em",
+    padding="1.2em",
+    text_align="center",
+    transition="background 0.2s",
+    _hover={
+        "background": Color.SECONDARY.value,
+    },
+    cursor="pointer",
+    width="100%",
+)
+
+search_input_style = dict(
+    background=Color.CONTENT.value,
+    border="1px solid",
+    border_color=Color.SECONDARY.value,
+    color=TextColor.HEADER.value,
+    width="100%",
+    _focus={
+        "border_color": Color.PRIMARY.value,
+    },
+)
+
+filter_select_style = dict(
+    background=Color.CONTENT.value,
+    border="1px solid",
+    border_color=Color.SECONDARY.value,
+    color=TextColor.HEADER.value,
+)
+
+form_input_style = dict(
+    background=Color.CONTENT.value,
+    border="1px solid",
+    border_color=Color.SECONDARY.value,
+    color=TextColor.HEADER.value,
+    width="100%",
+    _focus={
+        "border_color": Color.PRIMARY.value,
+    },
+)
+
+primary_button_style = dict(
+    background=Color.PRIMARY.value,
+    color=TextColor.HEADER.value,
+    padding_x="1.5em",
+    padding_y="0.6em",
+    border_radius="0.5em",
+    font_weight=FontWeight.MEDIUM.value,
+    cursor="pointer",
+    _hover={
+        "opacity": "0.85",
+    },
+)
+
+streaming_link_style = dict(
+    background=Color.SECONDARY.value,
+    color=TextColor.HEADER.value,
+    padding_x="1em",
+    padding_y="0.5em",
+    border_radius="0.5em",
+    font_size=Size.MEDIUM.value,
+    _hover={
+        "background": Color.PRIMARY.value,
+    },
+)
+
+track_row_style = dict(
+    width="100%",
+    padding_y="0.5em",
+    border_bottom="1px solid",
+    border_color=Color.SECONDARY.value,
+)
+
+stat_box_style = dict(
+    background=Color.CONTENT.value,
+    border="1px solid",
+    border_color=Color.SECONDARY.value,
+    border_radius="0.8em",
+    padding="1.2em 1.5em",
+    text_align="center",
+    flex="1",
+    min_width="140px",
 )

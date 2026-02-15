@@ -9,3 +9,4 @@ assets/external/
 bandas.txt
 discografias.txt
 env
+.env

@@ -2,3 +2,4 @@ reflex[db]==0.8.26
 google-api-python-client
 google-auth-oauthlib
 google-auth
+requests
