@@ -11,9 +11,9 @@ from links_bio.styles.colors import Color, TextColor
 from links_bio.states.metal_archive_state import MetalArchiveState
 from links_bio.components.metal.metal_navbar import metal_navbar
 from links_bio.components.metal.album_grid import album_grid
-from links_bio.components.metal.newsletter_form import newsletter_form_inline
 from links_bio.components.footer import footer
 import links_bio.constants.metal_archive as MA
+import links_bio.constants.url_social as URL
 
 
 # ─── Stats Banner ─────────────────────────────────────────────────────
@@ -266,24 +266,25 @@ def _landing_content() -> rx.Component:
             width="100%",
             padding_y="1em",
         ),
-        # Newsletter
-        rx.vstack(
-            rx.heading(
-                "Mantente al dia",
-                font_size=Size.LARGE.value,
-                color=TextColor.HEADER.value,
-            ),
-            rx.text(
-                "Suscribete para recibir noticias sobre nuevas publicaciones.",
-                color=TextColor.BODY.value,
-            ),
-            rx.center(
-                newsletter_form_inline(),
-                width="100%",
+        # Subscribe to YouTube
+        rx.center(
+            rx.link(
+                rx.button(
+                    rx.icon("youtube", size=20),
+                    "Suscribete al canal",
+                    background="#FF0000",
+                    color="white",
+                    padding_x="2em",
+                    padding_y="0.8em",
+                    border_radius="0.5em",
+                    font_size="1.1em",
+                    cursor="pointer",
+                    _hover={"opacity": "0.85"},
+                ),
+                href=URL.YOUTUBE + "?sub_confirmation=1",
+                is_external=True,
             ),
             width="100%",
-            spacing="2",
-            align_items="center",
             padding_y="2em",
         ),
         width="100%",

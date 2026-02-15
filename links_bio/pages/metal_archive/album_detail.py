@@ -99,14 +99,6 @@ def album_detail_page() -> rx.Component:
                                     spacing="2",
                                     flex_wrap="wrap",
                                 ),
-                                rx.cond(
-                                    album["description"] != "",
-                                    rx.text(
-                                        album["description"],
-                                        color=TextColor.BODY.value,
-                                        font_size=Size.MEDIUM.value,
-                                    ),
-                                ),
                                 # Streaming / social links
                                 streaming_links(album),
                                 spacing="3",

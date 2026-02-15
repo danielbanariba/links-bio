@@ -49,14 +49,17 @@ def album_grid(albums: rx.Var[list[dict]], show_load_more: bool = True) -> rx.Co
                     rx.foreach(albums, album_card),
                     columns=rx.breakpoints(
                         initial="1",
-                        sm="2",
-                        md="3",
-                        lg="4",
+                        sm=rx.cond(albums.length() < 2, "1", "2"),
+                        md=rx.cond(albums.length() < 3, str(albums.length()), "3"),
+                        lg=rx.cond(albums.length() < 4, str(albums.length()), "4"),
                     ),
                     spacing="4",
-                    width="100%",
+                    width=rx.cond(albums.length() == 1, "auto", "100%"),
+                    justify_content="center",
                 ),
                 width="100%",
+                display="flex",
+                justify_content="center",
             ),
             rx.center(
                 rx.text(

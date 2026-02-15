@@ -1,3 +1,4 @@
+import random
 import reflex as rx
 from sqlmodel import select, col, func
 from links_bio.models.album import Album
@@ -59,6 +60,7 @@ COUNTRY_FLAGS: dict[str, str] = {
     "Kazajistan": "\U0001F1F0\U0001F1FF",
     "Kenia": "\U0001F1F0\U0001F1EA",
     "Letonia": "\U0001F1F1\U0001F1FB",
+    "Libano": "\U0001F1F1\U0001F1E7",
     "Lituania": "\U0001F1F1\U0001F1F9",
     "Luxemburgo": "\U0001F1F1\U0001F1FA",
     "Malasia": "\U0001F1F2\U0001F1FE",
@@ -634,6 +636,24 @@ class MetalArchiveState(rx.State):
             "Mas vistos": "views",
         }
         self.sort_order = mapping.get(value, "newest")
+        self.page_offset = 0
+        with rx.session() as session:
+            self._fetch_albums(session)
+
+    @rx.event
+    def random_filters(self):
+        """Set one random filter (genre OR country) to guarantee results."""
+        self.filter_genre = ""
+        self.filter_country = ""
+        self.filter_year = ""
+        self.filter_release_type = ""
+        self.sort_order = "newest"
+        # Pick one random filter type to apply
+        choice = random.choice(["genre", "country"])
+        if choice == "genre" and self.available_genres:
+            self.filter_genre = random.choice(self.available_genres)
+        elif choice == "country" and self.available_countries:
+            self.filter_country = random.choice(self.available_countries)
         self.page_offset = 0
         with rx.session() as session:
             self._fetch_albums(session)

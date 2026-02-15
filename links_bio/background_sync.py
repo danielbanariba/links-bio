@@ -22,6 +22,7 @@ STARTUP_DELAY = int(os.environ.get("SYNC_STARTUP_DELAY", "60"))
 
 _sync_thread = None
 _started = False
+_sync_count = 0
 
 
 def _run_sync_cycle():
@@ -36,14 +37,31 @@ def _run_sync_cycle():
 
     try:
         # Importar aqui para evitar imports circulares
+        import reflex as rx
         import sys
         from pathlib import Path
+        from sqlmodel import select, func
+        from links_bio.models.album import Album
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         from sync_youtube_to_db import run_sync
 
+        # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
+        with rx.session() as session:
+            album_count = session.exec(select(func.count(Album.id))).one()
+
+        global _sync_count
+        _sync_count += 1
+
+        # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
+        solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
+        if not solo_nuevos:
+            logger.warning(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
+        else:
+            logger.warning(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
+
         run_sync(
             youtube_client=youtube_client,
-            solo_nuevos=True,
+            solo_nuevos=solo_nuevos,
             mark_featured=True,
             featured_count=10,
         )
@@ -52,15 +70,49 @@ def _run_sync_cycle():
         traceback.print_exc()
         return False
 
-    # Paso 2: reemplazar thumbnails de YouTube con portadas de DeathGrind
+    # Paso 2: normalizar generos y paises
+    try:
+        _run_normalize()
+    except Exception as e:
+        logger.error(f"Error durante normalizacion: {e}")
+        traceback.print_exc()
+
+    # Paso 3: reemplazar thumbnails de YouTube con portadas de DeathGrind
     try:
         _run_artwork_sync()
     except Exception as e:
         logger.error(f"Error durante sync artwork: {e}")
         traceback.print_exc()
-        # No retornamos False: el sync de YouTube ya se completo
 
     return True
+
+
+def _run_normalize():
+    """Normaliza generos y paises en la DB."""
+    import reflex as rx
+    from sqlmodel import select
+    from links_bio.models.album import Album
+    from scripts.normalize_db import normalize_genre, normalize_country
+
+    changes = 0
+    with rx.session() as session:
+        albums = session.exec(select(Album)).all()
+        for album in albums:
+            new_genre = normalize_genre(album.genre)
+            new_country = normalize_country(album.country)
+            changed = False
+            if new_genre != album.genre:
+                album.genre = new_genre
+                changed = True
+            if new_country != album.country:
+                album.country = new_country
+                changed = True
+            if changed:
+                session.add(album)
+                changes += 1
+        if changes:
+            session.commit()
+    logger.warning(f"Normalizacion: {changes} albums actualizados.")
 
 
 def _run_artwork_sync():
