@@ -5,14 +5,6 @@ from links_bio.styles.styles import streaming_link_style
 def streaming_links(album: rx.Var[dict]) -> rx.Component:
     return rx.hstack(
         rx.cond(
-            album["youtube_url"] != "",
-            rx.link(
-                rx.button("YouTube", style=streaming_link_style),
-                href=album["youtube_url"],
-                is_external=True,
-            ),
-        ),
-        rx.cond(
             album["spotify_url"] != "",
             rx.link(
                 rx.button("Spotify", style=streaming_link_style),

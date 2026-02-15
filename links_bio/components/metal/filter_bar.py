@@ -1,10 +1,20 @@
 import reflex as rx
-from links_bio.styles.colors import TextColor
+from links_bio.styles.colors import Color, TextColor
 from links_bio.states.metal_archive_state import MetalArchiveState
 
 
 def filter_bar() -> rx.Component:
     return rx.hstack(
+        rx.button(
+            rx.icon("dice-5", size=18),
+            "Suerte",
+            on_click=MetalArchiveState.random_filters,
+            variant="outline",
+            color=TextColor.HEADER.value,
+            border_color=Color.PRIMARY.value,
+            _hover={"background": Color.PRIMARY.value, "color": "white"},
+            cursor="pointer",
+        ),
         rx.select(
             MetalArchiveState.genre_options,
             value=rx.cond(

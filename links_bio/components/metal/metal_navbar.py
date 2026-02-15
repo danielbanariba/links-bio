@@ -1,6 +1,6 @@
 import reflex as rx
 from links_bio.styles.styles import Size
-from links_bio.styles.colors import Color, TextColor
+from links_bio.styles.colors import Color, TextColor, LogoColor
 from links_bio.styles.fonts import Font, FontWeight
 import links_bio.constants.metal_archive as MA
 
@@ -8,14 +8,18 @@ import links_bio.constants.metal_archive as MA
 def metal_navbar() -> rx.Component:
     return rx.hstack(
         rx.link(
-            rx.text(
-                "Metal Archive",
-                font_family=Font.TITLE.value,
+            rx.hstack(
+                rx.text("{", color=LogoColor.PARENTESIS.value),
+                rx.text("daniel_banariba", color=LogoColor.PALABRAS.value),
+                rx.text("}", color=LogoColor.PARENTESIS.value),
+                rx.text(";", color=LogoColor.PUNTO_Y_COMA.value),
+                font_family=Font.LOGO.value,
                 font_weight=FontWeight.MEDIUM.value,
-                font_size=Size.LARGE.value,
-                color=TextColor.HEADER.value,
+                font_size="2.2em",
+                spacing="0",
             ),
             href=MA.METAL_ARCHIVE_HOME,
+            text_decoration="none",
         ),
         rx.spacer(),
         rx.hstack(
@@ -34,14 +38,7 @@ def metal_navbar() -> rx.Component:
                 font_size=Size.MEDIUM.value,
             ),
             rx.link(
-                "Enviar",
-                href=MA.METAL_ARCHIVE_SUBMIT,
-                color=TextColor.BODY.value,
-                _hover={"color": Color.PRIMARY.value},
-                font_size=Size.MEDIUM.value,
-            ),
-            rx.link(
-                "Promocion",
+                "Subir musica",
                 href=MA.METAL_ARCHIVE_PROMO,
                 color=TextColor.BODY.value,
                 _hover={"color": Color.PRIMARY.value},

@@ -44,36 +44,13 @@ SORT_OPTIONS = [
     ("views", "Mas vistos"),
 ]
 
-# ─── Promo Packages ──────────────────────────────────────────────────
-PROMO_PACKAGES = [
-    {
-        "name": "Basico",
-        "price": "Gratis",
-        "features": [
-            "Publicacion en el archivo",
-            "Miniatura personalizada",
-            "Descripcion del album",
-        ],
-    },
-    {
-        "name": "Profesional",
-        "price": "Contactar",
-        "features": [
-            "Todo lo del plan Basico",
-            "Video musical completo",
-            "Promocion en redes sociales",
-            "Estreno programado en YouTube",
-        ],
-    },
-    {
-        "name": "Premium",
-        "price": "Contactar",
-        "features": [
-            "Todo lo del plan Profesional",
-            "Sesion de fotos / video",
-            "Documental corto de la banda",
-            "Cobertura de evento en vivo",
-            "Contenido exclusivo para redes",
-        ],
-    },
+# ─── Release Formats ─────────────────────────────────────────────────
+RELEASE_FORMATS = [
+    "Full-length",
+    "EP",
+    "Demo",
+    "Split",
+    "Single",
+    "Compilation",
+    "Live Album",
 ]
