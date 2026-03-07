@@ -63,7 +63,7 @@ def album_grid(albums: rx.Var[list[dict]], show_load_more: bool = True) -> rx.Co
             ),
             rx.center(
                 rx.text(
-                    "No se encontraron albums.",
+                    "No albums found.",
                     color=TextColor.BODY.value,
                     font_size="1.1em",
                 ),

@@ -108,6 +108,12 @@ COUNTRY_FLAGS: dict[str, str] = {
 class MetalArchiveState(rx.State):
     """State for Metal Archive section."""
 
+    # Loading flag
+    is_loading: bool = True
+
+    # Debug diagnostico (temporal)
+    _debug_info: str = ""
+
     # Landing page
     featured_albums: list[dict] = []
     latest_albums: list[dict] = []
@@ -132,9 +138,6 @@ class MetalArchiveState(rx.State):
     live_search_query: str = ""
     live_search_results: list[dict] = []
     live_search_open: bool = False
-
-    # Navigation: stores pending filter to apply on browse page load
-    _pending_browse_filter: dict = {}
 
     # Browse / search
     albums: list[dict] = []
@@ -165,19 +168,19 @@ class MetalArchiveState(rx.State):
 
     @rx.var
     def genre_options(self) -> list[str]:
-        return ["Todos los generos"] + self.available_genres
+        return ["All genres"] + self.available_genres
 
     @rx.var
     def country_options(self) -> list[str]:
-        return ["Todos los paises"] + self.available_countries
+        return ["All countries"] + self.available_countries
 
     @rx.var
     def year_options(self) -> list[str]:
-        return ["Todos los anos"] + self.available_years
+        return ["All years"] + self.available_years
 
     @rx.var
     def release_type_options(self) -> list[str]:
-        return ["Todos los tipos"] + self.available_release_types
+        return ["All types"] + self.available_release_types
 
     def _album_to_dict(self, album: Album) -> dict:
         return {
@@ -281,79 +284,90 @@ class MetalArchiveState(rx.State):
 
     @rx.event
     def load_landing_page(self):
-        with rx.session() as session:
-            self._load_filter_options(session)
+        self.is_loading = True
+        try:
+            from links_bio.background_sync import get_diag_status
+            self._debug_info = f"Sync: {get_diag_status()}"
+        except Exception:
+            self._debug_info = "No se pudo leer estado del sync"
+        try:
+            with rx.session() as session:
+                self._load_filter_options(session)
 
-            featured = session.exec(
-                select(Album)
-                .where(Album.featured == True)
-                .order_by(col(Album.upload_date).desc())
-                .limit(10)
-            ).all()
-            self.featured_albums = [self._album_to_dict(a) for a in featured]
+                featured = session.exec(
+                    select(Album)
+                    .where(Album.featured == True)
+                    .order_by(col(Album.upload_date).desc())
+                    .limit(10)
+                ).all()
+                self.featured_albums = [self._album_to_dict(a) for a in featured]
 
-            latest = session.exec(
-                select(Album)
-                .order_by(col(Album.upload_date).desc())
-                .limit(12)
-            ).all()
-            self.latest_albums = [self._album_to_dict(a) for a in latest]
+                latest = session.exec(
+                    select(Album)
+                    .order_by(col(Album.upload_date).desc())
+                    .limit(12)
+                ).all()
+                self.latest_albums = [self._album_to_dict(a) for a in latest]
 
-            # Total albums
-            total_row = session.exec(
-                select(func.count(Album.id))
-            ).one()
-            self.total_albums = total_row
+                # Total albums
+                total_row = session.exec(
+                    select(func.count(Album.id))
+                ).one()
+                self.total_albums = total_row
 
-            # Genre counts (all for browse filters)
-            genre_rows = session.exec(
-                select(Album.genre, func.count(Album.id))
-                .where(Album.genre != "")
-                .group_by(Album.genre)
-                .order_by(func.count(Album.id).desc())
-            ).all()
-            self.genre_counts = [
-                {"genre": row[0], "count": row[1]} for row in genre_rows if row[0]
-            ]
-            self.total_genres = len(self.genre_counts)
+                # Genre counts (all for browse filters)
+                genre_rows = session.exec(
+                    select(Album.genre, func.count(Album.id))
+                    .where(Album.genre != "")
+                    .group_by(Album.genre)
+                    .order_by(func.count(Album.id).desc())
+                ).all()
+                self.genre_counts = [
+                    {"genre": row[0], "count": row[1]} for row in genre_rows if row[0]
+                ]
+                self.total_genres = len(self.genre_counts)
 
-            # Top 10 genres for landing
-            self.top_genre_counts = self.genre_counts[:10]
+                # Top 10 genres for landing
+                self.top_genre_counts = self.genre_counts[:10]
 
-            # Country counts (all for browse filters)
-            country_rows = session.exec(
-                select(Album.country, func.count(Album.id))
-                .where(Album.country != "")
-                .group_by(Album.country)
-                .order_by(func.count(Album.id).desc())
-            ).all()
-            self.country_counts = [
-                {
-                    "country": row[0],
-                    "count": row[1],
-                    "flag": COUNTRY_FLAGS.get(row[0], ""),
-                }
-                for row in country_rows if row[0]
-            ]
-            self.total_countries = len(self.country_counts)
+                # Country counts (all for browse filters)
+                country_rows = session.exec(
+                    select(Album.country, func.count(Album.id))
+                    .where(Album.country != "")
+                    .group_by(Album.country)
+                    .order_by(func.count(Album.id).desc())
+                ).all()
+                self.country_counts = [
+                    {
+                        "country": row[0],
+                        "count": row[1],
+                        "flag": COUNTRY_FLAGS.get(row[0], ""),
+                    }
+                    for row in country_rows if row[0]
+                ]
+                self.total_countries = len(self.country_counts)
 
-            # Top 10 countries for landing
-            self.top_country_counts = self.country_counts[:10]
+                # Top 10 countries for landing
+                self.top_country_counts = self.country_counts[:10]
 
-            # Year counts
-            year_rows = session.exec(
-                select(Album.year, func.count(Album.id))
-                .where(Album.year > 0)
-                .group_by(Album.year)
-                .order_by(col(Album.year).desc())
-            ).all()
-            self.year_counts = [
-                {"year": row[0], "count": row[1]} for row in year_rows if row[0]
-            ]
-            # Top years: only those with 5+ albums
-            self.top_year_counts = [
-                yc for yc in self.year_counts if yc["count"] >= 5
-            ]
+                # Year counts
+                year_rows = session.exec(
+                    select(Album.year, func.count(Album.id))
+                    .where(Album.year > 0)
+                    .group_by(Album.year)
+                    .order_by(col(Album.year).desc())
+                ).all()
+                self.year_counts = [
+                    {"year": row[0], "count": row[1]} for row in year_rows if row[0]
+                ]
+                # Top years: only those with 5+ albums
+                self.top_year_counts = [
+                    yc for yc in self.year_counts if yc["count"] >= 5
+                ]
+        except Exception as e:
+            self._debug_info = f"ERROR landing: {e} | Sync: {self._debug_info}"
+        finally:
+            self.is_loading = False
 
     @rx.event
     def toggle_all_genres(self):
@@ -402,18 +416,15 @@ class MetalArchiveState(rx.State):
 
     @rx.event
     def navigate_to_genre(self, genre: str):
-        self._pending_browse_filter = {"genre": genre}
-        return rx.redirect("/metal-archive/browse")
+        return rx.redirect(f"/metal-archive/browse?genre={genre}")
 
     @rx.event
     def navigate_to_country(self, country: str):
-        self._pending_browse_filter = {"country": country}
-        return rx.redirect("/metal-archive/browse")
+        return rx.redirect(f"/metal-archive/browse?country={country}")
 
     @rx.event
     def navigate_to_year(self, year: int):
-        self._pending_browse_filter = {"year": str(year)}
-        return rx.redirect("/metal-archive/browse")
+        return rx.redirect(f"/metal-archive/browse?year={year}")
 
     @rx.var
     def visible_genre_counts(self) -> list[dict]:
@@ -435,131 +446,154 @@ class MetalArchiveState(rx.State):
 
     @rx.event
     def load_browse_page(self):
-        pending = self._pending_browse_filter
-        self._pending_browse_filter = {}
+        self.is_loading = True
+        try:
+            self.page_offset = 0
+            self.search_query = ""
+            self.sort_order = "newest"
 
-        self.page_offset = 0
-        self.search_query = ""
-        self.sort_order = "newest"
+            # Read filters from query params (e.g. /browse?genre=Death+Metal)
+            params = self.router.page.params
+            self.filter_genre = params.get("genre", "")
+            self.filter_country = params.get("country", "")
+            self.filter_year = params.get("year", "")
+            self.filter_release_type = params.get("release_type", "")
 
-        if pending:
-            self.filter_genre = pending.get("genre", "")
-            self.filter_country = pending.get("country", "")
-            self.filter_year = pending.get("year", "")
-            self.filter_release_type = ""
-        else:
-            self.filter_genre = ""
-            self.filter_country = ""
-            self.filter_year = ""
-            self.filter_release_type = ""
-
-        with rx.session() as session:
-            self._load_filter_options(session)
-            self._fetch_albums(session)
+            with rx.session() as session:
+                self._load_filter_options(session)
+                self._fetch_albums(session)
+        except Exception:
+            pass
+        finally:
+            self.is_loading = False
 
     @rx.event
     def load_album_detail(self):
-        album_id_str = self.router.page.params.get("id", "")
-        if not album_id_str:
-            self.current_album = {}
-            return
+        self.is_loading = True
         try:
-            album_id = int(album_id_str)
-        except ValueError:
-            self.current_album = {}
-            return
-
-        with rx.session() as session:
-            album = session.get(Album, album_id)
-            if not album:
+            album_id_str = self.router.page.params.get("id", "")
+            if not album_id_str:
                 self.current_album = {}
-                self.current_tracks = []
-                self.current_similar_bands = []
-                self.similar_albums = []
+                return
+            try:
+                album_id = int(album_id_str)
+            except ValueError:
+                self.current_album = {}
                 return
 
-            self.current_album = self._album_to_dict(album)
+            with rx.session() as session:
+                album = session.get(Album, album_id)
+                if not album:
+                    self.current_album = {}
+                    self.current_tracks = []
+                    self.current_similar_bands = []
+                    self.similar_albums = []
+                    return
 
-            tracks = session.exec(
-                select(Track)
-                .where(Track.album_id == album_id)
-                .order_by(Track.track_number)
-            ).all()
-            self.current_tracks = [
-                {
-                    "track_number": t.track_number,
-                    "track_name": t.track_name,
-                    "timestamp": t.timestamp,
-                }
-                for t in tracks
-            ]
+                self.current_album = self._album_to_dict(album)
 
-            similar = session.exec(
-                select(SimilarBand).where(SimilarBand.album_id == album_id)
-            ).all()
-            self.current_similar_bands = [s.similar_band_name for s in similar]
+                tracks = session.exec(
+                    select(Track)
+                    .where(Track.album_id == album_id)
+                    .order_by(Track.track_number)
+                ).all()
+                self.current_tracks = [
+                    {
+                        "track_number": t.track_number,
+                        "track_name": t.track_name,
+                        "timestamp": t.timestamp,
+                    }
+                    for t in tracks
+                ]
 
-            # Similar albums: same genre, ordered by views
-            similar_albums = session.exec(
-                select(Album)
-                .where(Album.genre == album.genre)
-                .where(Album.id != album_id)
-                .order_by(col(Album.views).desc())
-                .limit(4)
-            ).all()
-            self.similar_albums = [self._album_to_dict(a) for a in similar_albums]
+                similar = session.exec(
+                    select(SimilarBand).where(SimilarBand.album_id == album_id)
+                ).all()
+                self.current_similar_bands = [s.similar_band_name for s in similar]
+
+                # Similar albums: same genre, ordered by views
+                similar_albums = session.exec(
+                    select(Album)
+                    .where(Album.genre == album.genre)
+                    .where(Album.id != album_id)
+                    .order_by(col(Album.views).desc())
+                    .limit(4)
+                ).all()
+                self.similar_albums = [self._album_to_dict(a) for a in similar_albums]
+        except Exception:
+            pass
+        finally:
+            self.is_loading = False
 
     @rx.event
     def load_genre_page(self):
-        genre = self.router.page.params.get("genre", "")
-        if not genre:
-            return rx.redirect("/metal-archive/browse")
-        self.filter_genre = genre
-        self.filter_country = ""
-        self.filter_year = ""
-        self.filter_release_type = ""
-        self.search_query = ""
-        self.page_offset = 0
-        self.sort_order = "newest"
-        with rx.session() as session:
-            self._load_filter_options(session)
-            self._fetch_albums(session)
+        self.is_loading = True
+        try:
+            genre = self.router.page.params.get("genre", "")
+            if not genre:
+                return rx.redirect("/metal-archive/browse")
+            self.filter_genre = genre
+            self.filter_country = ""
+            self.filter_year = ""
+            self.filter_release_type = ""
+            self.search_query = ""
+            self.page_offset = 0
+            self.sort_order = "newest"
+            with rx.session() as session:
+                self._load_filter_options(session)
+                self._fetch_albums(session)
+        except Exception:
+            pass
+        finally:
+            self.is_loading = False
 
     @rx.event
     def load_country_page(self):
-        country = self.router.page.params.get("country", "")
-        if not country:
-            return rx.redirect("/metal-archive/browse")
-        self.filter_country = country
-        self.filter_genre = ""
-        self.filter_year = ""
-        self.filter_release_type = ""
-        self.search_query = ""
-        self.page_offset = 0
-        self.sort_order = "newest"
-        with rx.session() as session:
-            self._load_filter_options(session)
-            self._fetch_albums(session)
+        self.is_loading = True
+        try:
+            country = self.router.page.params.get("country", "")
+            if not country:
+                return rx.redirect("/metal-archive/browse")
+            self.filter_country = country
+            self.filter_genre = ""
+            self.filter_year = ""
+            self.filter_release_type = ""
+            self.search_query = ""
+            self.page_offset = 0
+            self.sort_order = "newest"
+            with rx.session() as session:
+                self._load_filter_options(session)
+                self._fetch_albums(session)
+        except Exception:
+            pass
+        finally:
+            self.is_loading = False
 
     @rx.event
     def load_year_page(self):
-        year = self.router.page.params.get("year", "")
-        if not year:
-            return rx.redirect("/metal-archive/browse")
+        self.is_loading = True
         try:
-            int(year)
-        except ValueError:
-            return rx.redirect("/metal-archive/browse")
-        self.filter_year = year
-        self.filter_genre = ""
-        self.filter_country = ""
-        self.filter_release_type = ""
-        self.search_query = ""
-        self.page_offset = 0
-        self.sort_order = "newest"
-        with rx.session() as session:
-            self._load_filter_options(session)
-            self._fetch_albums(session)
+            year = self.router.page.params.get("year", "")
+            if not year:
+                return rx.redirect("/metal-archive/browse")
+            try:
+                int(year)
+            except ValueError:
+                return rx.redirect("/metal-archive/browse")
+            self.filter_year = year
+            self.filter_genre = ""
+            self.filter_country = ""
+            self.filter_release_type = ""
+            self.search_query = ""
+            self.page_offset = 0
+            self.sort_order = "newest"
+            with rx.session() as session:
+                self._load_filter_options(session)
+                self._fetch_albums(session)
+        except Exception:
+            pass
+        finally:
+            self.is_loading = False
 
     @rx.event
     def set_search_query(self, value: str):
@@ -595,32 +629,32 @@ class MetalArchiveState(rx.State):
 
     @rx.event
     def set_filter_genre_option(self, value: str):
-        """Handle genre select change (maps 'Todos los generos' to empty)."""
-        self.filter_genre = "" if value == "Todos los generos" else value
+        """Handle genre select change (maps 'All genres' to empty)."""
+        self.filter_genre = "" if value == "All genres" else value
         self.page_offset = 0
         with rx.session() as session:
             self._fetch_albums(session)
 
     @rx.event
     def set_filter_country_option(self, value: str):
-        """Handle country select change (maps 'Todos los paises' to empty)."""
-        self.filter_country = "" if value == "Todos los paises" else value
+        """Handle country select change (maps 'All countries' to empty)."""
+        self.filter_country = "" if value == "All countries" else value
         self.page_offset = 0
         with rx.session() as session:
             self._fetch_albums(session)
 
     @rx.event
     def set_filter_year_option(self, value: str):
-        """Handle year select change (maps 'Todos los anos' to empty)."""
-        self.filter_year = "" if value == "Todos los anos" else value
+        """Handle year select change (maps 'All years' to empty)."""
+        self.filter_year = "" if value == "All years" else value
         self.page_offset = 0
         with rx.session() as session:
             self._fetch_albums(session)
 
     @rx.event
     def set_filter_release_type_option(self, value: str):
-        """Handle release type select change (maps 'Todos los tipos' to empty)."""
-        self.filter_release_type = "" if value == "Todos los tipos" else value
+        """Handle release type select change (maps 'All types' to empty)."""
+        self.filter_release_type = "" if value == "All types" else value
         self.page_offset = 0
         with rx.session() as session:
             self._fetch_albums(session)
@@ -629,11 +663,11 @@ class MetalArchiveState(rx.State):
     def set_sort_option(self, value: str):
         """Handle sort select change (maps display labels to sort keys)."""
         mapping = {
-            "Mas recientes": "newest",
-            "Mas antiguos": "oldest",
+            "Newest": "newest",
+            "Oldest": "oldest",
             "A - Z": "az",
             "Z - A": "za",
-            "Mas vistos": "views",
+            "Most viewed": "views",
         }
         self.sort_order = mapping.get(value, "newest")
         self.page_offset = 0

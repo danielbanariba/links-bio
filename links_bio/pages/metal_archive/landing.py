@@ -16,6 +16,99 @@ import links_bio.constants.metal_archive as MA
 import links_bio.constants.url_social as URL
 
 
+# ─── Loading Skeleton ─────────────────────────────────────────────────
+
+def _skeleton_card() -> rx.Component:
+    return rx.box(
+        background=Color.CONTENT.value,
+        border_radius="0.8em",
+        height="80px",
+        width="100%",
+        opacity="0.5",
+        class_name="animate-pulse",
+    )
+
+
+def _loading_skeleton() -> rx.Component:
+    return rx.vstack(
+        rx.flex(
+            *[rx.box(
+                background=Color.CONTENT.value,
+                border_radius="0.8em",
+                height="80px",
+                flex="1",
+                min_width="140px",
+                opacity="0.5",
+            ) for _ in range(3)],
+            gap="1em",
+            width="100%",
+            justify_content="center",
+            flex_wrap="wrap",
+        ),
+        rx.grid(
+            *[_skeleton_card() for _ in range(8)],
+            columns=rx.breakpoints(initial="2", sm="3", md="4"),
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        spacing="5",
+    )
+
+
+# ─── Empty State ─────────────────────────────────────────────────────
+
+def _empty_state() -> rx.Component:
+    return rx.center(
+        rx.vstack(
+            rx.icon("disc-3", size=48, color=Color.PRIMARY.value, opacity="0.6"),
+            rx.heading(
+                "The archive is syncing",
+                font_size=Size.LARGE.value,
+                color=TextColor.HEADER.value,
+                text_align="center",
+            ),
+            rx.text(
+                "Albums are loading from YouTube. This may take a few minutes after a server restart.",
+                color=TextColor.BODY.value,
+                text_align="center",
+                max_width="500px",
+            ),
+            # Debug temporal
+            rx.cond(
+                MetalArchiveState._debug_info != "",
+                rx.text(
+                    MetalArchiveState._debug_info,
+                    color="orange",
+                    font_size="0.8em",
+                    text_align="center",
+                    max_width="600px",
+                    font_family="monospace",
+                ),
+            ),
+            rx.link(
+                rx.button(
+                    rx.icon("youtube", size=20),
+                    "Visit the channel in the meantime",
+                    background="#FF0000",
+                    color="white",
+                    padding_x="2em",
+                    padding_y="0.8em",
+                    border_radius="0.5em",
+                    cursor="pointer",
+                    _hover={"opacity": "0.85"},
+                ),
+                href=URL.YOUTUBE,
+                is_external=True,
+            ),
+            spacing="4",
+            align_items="center",
+        ),
+        padding_y="5em",
+        width="100%",
+    )
+
+
 # ─── Stats Banner ─────────────────────────────────────────────────────
 
 def _stat_box(value: rx.Var, label: str) -> rx.Component:
@@ -42,8 +135,8 @@ def _stat_box(value: rx.Var, label: str) -> rx.Component:
 def _stats_banner() -> rx.Component:
     return rx.flex(
         _stat_box(MetalArchiveState.total_albums.to(str), "Albums"),
-        _stat_box(MetalArchiveState.total_genres.to(str), "Generos"),
-        _stat_box(MetalArchiveState.total_countries.to(str), "Paises"),
+        _stat_box(MetalArchiveState.total_genres.to(str), "Genres"),
+        _stat_box(MetalArchiveState.total_countries.to(str), "Countries"),
         gap="1em",
         width="100%",
         justify_content="center",
@@ -62,7 +155,7 @@ def _section_header(title: str, is_expanded: rx.Var, on_toggle) -> rx.Component:
         ),
         rx.spacer(),
         rx.text(
-            rx.cond(is_expanded, "\u2190 Ver menos", "Ver todos \u2192"),
+            rx.cond(is_expanded, "\u2190 See less", "See all \u2192"),
             font_size=Size.MEDIUM.value,
             color=Color.PRIMARY.value,
             cursor="pointer",
@@ -171,7 +264,7 @@ def _landing_content() -> rx.Component:
             MetalArchiveState.top_genre_counts.length() > 0,
             rx.vstack(
                 _section_header(
-                    "Explorar por Genero",
+                    "Browse by Genre",
                     MetalArchiveState.show_all_genres,
                     MetalArchiveState.toggle_all_genres,
                 ),
@@ -198,7 +291,7 @@ def _landing_content() -> rx.Component:
             MetalArchiveState.top_country_counts.length() > 0,
             rx.vstack(
                 _section_header(
-                    "Explorar por Pais",
+                    "Browse by Country",
                     MetalArchiveState.show_all_countries,
                     MetalArchiveState.toggle_all_countries,
                 ),
@@ -225,7 +318,7 @@ def _landing_content() -> rx.Component:
             MetalArchiveState.top_year_counts.length() > 0,
             rx.vstack(
                 _section_header(
-                    "Explorar por Ano",
+                    "Browse by Year",
                     MetalArchiveState.show_all_years,
                     MetalArchiveState.toggle_all_years,
                 ),
@@ -251,7 +344,7 @@ def _landing_content() -> rx.Component:
         rx.center(
             rx.link(
                 rx.button(
-                    "Explorar todo el archivo",
+                    "Explore the full archive",
                     background=Color.PRIMARY.value,
                     color=TextColor.HEADER.value,
                     padding_x="2em",
@@ -271,7 +364,7 @@ def _landing_content() -> rx.Component:
             rx.link(
                 rx.button(
                     rx.icon("youtube", size=20),
-                    "Suscribete al canal",
+                    "Subscribe to the channel",
                     background="#FF0000",
                     color="white",
                     padding_x="2em",
@@ -299,13 +392,13 @@ def _search_results() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.heading(
-                "Resultados de busqueda",
+                "Search results",
                 font_size=Size.LARGE.value,
                 color=TextColor.HEADER.value,
             ),
             rx.spacer(),
             rx.text(
-                MetalArchiveState.live_search_results.length().to(str) + " resultados",
+                MetalArchiveState.live_search_results.length().to(str) + " results",
                 font_size=Size.MEDIUM.value,
                 color=TextColor.BODY.value,
             ),
@@ -333,7 +426,7 @@ def landing_page() -> rx.Component:
                         color=TextColor.HEADER.value,
                     ),
                     rx.text(
-                        "Archivo de metal underground hondureno. Videos musicales, bandas y mas.",
+                        "Underground Honduran metal archive. Music videos, bands and more.",
                         color=TextColor.BODY.value,
                         font_size="1.1em",
                         text_align="center",
@@ -341,7 +434,7 @@ def landing_page() -> rx.Component:
                     # Search input (always visible)
                     rx.debounce_input(
                         rx.input(
-                            placeholder="Buscar bandas, albums, generos...",
+                            placeholder="Search bands, albums, genres...",
                             value=MetalArchiveState.live_search_query,
                             on_change=MetalArchiveState.on_live_search,
                             style=search_input_style,
@@ -359,15 +452,21 @@ def landing_page() -> rx.Component:
             ),
             style=metal_hero_style,
         ),
-        # Content area: switch between landing and search results
+        # Content area: loading / search / landing
         rx.center(
             rx.box(
                 rx.cond(
-                    MetalArchiveState.live_search_open,
-                    # Searching: show album grid results
-                    _search_results(),
-                    # Not searching: show normal landing content
-                    _landing_content(),
+                    MetalArchiveState.is_loading,
+                    _loading_skeleton(),
+                    rx.cond(
+                        MetalArchiveState.live_search_open,
+                        _search_results(),
+                        rx.cond(
+                            MetalArchiveState.total_albums > 0,
+                            _landing_content(),
+                            _empty_state(),
+                        ),
+                    ),
                 ),
                 max_width=METAL_ARCHIVE_MAX_WIDTH,
                 width="100%",

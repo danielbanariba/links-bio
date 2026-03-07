@@ -237,3 +237,13 @@ stat_box_style = dict(
     flex="1",
     min_width="140px",
 )
+
+SKELETON_PULSE_CSS = """
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+}
+.animate-pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+"""

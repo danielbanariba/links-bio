@@ -18,18 +18,18 @@ def submit_page() -> rx.Component:
         rx.center(
             rx.vstack(
                 rx.heading(
-                    "Envia tu Banda",
+                    "Submit your Band",
                     font_size="2em",
                     color=TextColor.HEADER.value,
                 ),
                 rx.text(
-                    "Completa el formulario para que tu banda sea considerada para el archivo.",
+                    "Fill out the form so your band can be considered for the archive.",
                     color=TextColor.BODY.value,
                 ),
                 rx.cond(
                     FormState.submission_success,
                     rx.callout(
-                        "Tu banda ha sido enviada exitosamente! Nos pondremos en contacto pronto.",
+                        "Your band has been submitted successfully! We'll get in touch soon.",
                         icon="check",
                         color_scheme="green",
                         width="100%",
@@ -39,13 +39,13 @@ def submit_page() -> rx.Component:
                             # Band name
                             rx.vstack(
                                 rx.text(
-                                    "Nombre de la banda *",
+                                    "Band name *",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.input(
                                     name="band_name",
-                                    placeholder="Nombre de la banda",
+                                    placeholder="Band name",
                                     style=form_input_style,
                                     required=True,
                                 ),
@@ -55,13 +55,13 @@ def submit_page() -> rx.Component:
                             # Email
                             rx.vstack(
                                 rx.text(
-                                    "Email de contacto *",
+                                    "Contact email *",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.input(
                                     name="contact_email",
-                                    placeholder="email@ejemplo.com",
+                                    placeholder="email@example.com",
                                     type="email",
                                     style=form_input_style,
                                     required=True,
@@ -72,14 +72,14 @@ def submit_page() -> rx.Component:
                             # Genre
                             rx.vstack(
                                 rx.text(
-                                    "Genero *",
+                                    "Genre *",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.select(
                                     GENRES,
                                     name="genre",
-                                    placeholder="Selecciona un genero",
+                                    placeholder="Select a genre",
                                     color=TextColor.HEADER.value,
                                     required=True,
                                 ),
@@ -89,7 +89,7 @@ def submit_page() -> rx.Component:
                             # Country
                             rx.vstack(
                                 rx.text(
-                                    "Pais *",
+                                    "Country *",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
@@ -105,13 +105,13 @@ def submit_page() -> rx.Component:
                             # Album title (optional)
                             rx.vstack(
                                 rx.text(
-                                    "Titulo del album",
+                                    "Album title",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.input(
                                     name="album_title",
-                                    placeholder="Titulo del album",
+                                    placeholder="Album title",
                                     style=form_input_style,
                                 ),
                                 width="100%",
@@ -120,7 +120,7 @@ def submit_page() -> rx.Component:
                             # YouTube URL
                             rx.vstack(
                                 rx.text(
-                                    "URL de YouTube",
+                                    "YouTube URL",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
@@ -135,13 +135,13 @@ def submit_page() -> rx.Component:
                             # Bandcamp URL
                             rx.vstack(
                                 rx.text(
-                                    "URL de Bandcamp",
+                                    "Bandcamp URL",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.input(
                                     name="bandcamp_url",
-                                    placeholder="https://banda.bandcamp.com",
+                                    placeholder="https://band.bandcamp.com",
                                     style=form_input_style,
                                 ),
                                 width="100%",
@@ -150,13 +150,13 @@ def submit_page() -> rx.Component:
                             # Description
                             rx.vstack(
                                 rx.text(
-                                    "Descripcion",
+                                    "Description",
                                     color=TextColor.HEADER.value,
                                     font_size=Size.MEDIUM.value,
                                 ),
                                 rx.text_area(
                                     name="description",
-                                    placeholder="Cuentanos sobre tu banda...",
+                                    placeholder="Tell us about your band...",
                                     style=form_input_style,
                                     rows="4",
                                 ),
@@ -172,7 +172,7 @@ def submit_page() -> rx.Component:
                                 ),
                             ),
                             rx.button(
-                                "Enviar",
+                                "Submit",
                                 type="submit",
                                 style=primary_button_style,
                                 width="100%",
@@ -187,21 +187,21 @@ def submit_page() -> rx.Component:
                 # Info section
                 rx.vstack(
                     rx.heading(
-                        "Que pasa despues?",
+                        "What happens next?",
                         font_size=Size.LARGE.value,
                         color=TextColor.HEADER.value,
                     ),
                     rx.vstack(
                         rx.text(
-                            "1. Revisamos tu envio y escuchamos tu musica.",
+                            "1. We review your submission and listen to your music.",
                             color=TextColor.BODY.value,
                         ),
                         rx.text(
-                            "2. Si tu banda es seleccionada, te contactamos para coordinar.",
+                            "2. If your band is selected, we'll contact you to coordinate.",
                             color=TextColor.BODY.value,
                         ),
                         rx.text(
-                            "3. Publicamos tu album en el archivo con toda la informacion.",
+                            "3. We publish your album in the archive with all the information.",
                             color=TextColor.BODY.value,
                         ),
                         spacing="2",

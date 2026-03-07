@@ -139,7 +139,7 @@ def album_detail_page() -> rx.Component:
                         MetalArchiveState.current_similar_bands.length() > 0,
                         rx.vstack(
                             rx.heading(
-                                "Bandas similares",
+                                "Similar bands",
                                 font_size=Size.LARGE.value,
                                 color=TextColor.HEADER.value,
                             ),
@@ -165,7 +165,7 @@ def album_detail_page() -> rx.Component:
                         MetalArchiveState.similar_albums.length() > 0,
                         rx.vstack(
                             rx.heading(
-                                "Albums similares",
+                                "Similar albums",
                                 font_size=Size.LARGE.value,
                                 color=TextColor.HEADER.value,
                             ),
@@ -197,7 +197,7 @@ def album_detail_page() -> rx.Component:
             # Album not found
             rx.center(
                 rx.text(
-                    "Album no encontrado.",
+                    "Album not found.",
                     color=TextColor.BODY.value,
                     font_size="1.2em",
                 ),
