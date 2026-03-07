@@ -14,6 +14,21 @@ from datetime import datetime
 logger = logging.getLogger("background_sync")
 logger.setLevel(logging.INFO)
 
+# Estado de diagnostico accesible desde el state
+_diag_status: str = "No iniciado"
+
+
+def get_diag_status() -> str:
+    return _diag_status
+
+
+def _log(msg: str):
+    """Log + print para asegurar visibilidad en Reflex Cloud."""
+    global _diag_status
+    _diag_status = msg
+    logger.warning(msg)
+    print(f"[SYNC] {msg}", flush=True)
+
 # Intervalo por defecto: 12 horas (en segundos)
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL_HOURS", "12")) * 3600
 
@@ -31,7 +46,7 @@ def _run_sync_cycle():
         from links_bio.youtube_auth import authenticate_from_env
         youtube_client = authenticate_from_env()
     except Exception as e:
-        logger.error(f"Error de autenticacion: {e}")
+        _log(f"Error de autenticacion: {e}")
         traceback.print_exc()
         return False
 
@@ -55,9 +70,9 @@ def _run_sync_cycle():
         # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
         solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
         if not solo_nuevos:
-            logger.warning(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
+            _log(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
         else:
-            logger.warning(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
+            _log(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
 
         run_sync(
             youtube_client=youtube_client,
@@ -66,7 +81,7 @@ def _run_sync_cycle():
             featured_count=10,
         )
     except Exception as e:
-        logger.error(f"Error durante sync YouTube: {e}")
+        _log(f"Error durante sync YouTube: {e}")
         traceback.print_exc()
         return False
 
@@ -74,14 +89,14 @@ def _run_sync_cycle():
     try:
         _run_normalize()
     except Exception as e:
-        logger.error(f"Error durante normalizacion: {e}")
+        _log(f"Error durante normalizacion: {e}")
         traceback.print_exc()
 
     # Paso 3: reemplazar thumbnails de YouTube con portadas de DeathGrind
     try:
         _run_artwork_sync()
     except Exception as e:
-        logger.error(f"Error durante sync artwork: {e}")
+        _log(f"Error durante sync artwork: {e}")
         traceback.print_exc()
 
     return True
@@ -112,7 +127,7 @@ def _run_normalize():
                 changes += 1
         if changes:
             session.commit()
-    logger.warning(f"Normalizacion: {changes} albums actualizados.")
+    _log(f"Normalizacion: {changes} albums actualizados.")
 
 
 def _run_artwork_sync():
@@ -127,7 +142,7 @@ def _run_artwork_sync():
     try:
         http_session = crear_sesion()
     except Exception as e:
-        logger.error(f"Artwork sync: error de login DeathGrind: {e}")
+        _log(f"Artwork sync: error de login DeathGrind: {e}")
         return
 
     offset = 0
@@ -159,7 +174,7 @@ def _run_artwork_sync():
                         db_session.add(album)
                         found += 1
                 except Exception as e:
-                    logger.error(f"Artwork sync error for {album.band_name}: {e}")
+                    _log(f"Artwork sync error for {album.band_name}: {e}")
 
                 if i < len(albums):
                     time.sleep(1.0)
@@ -167,37 +182,53 @@ def _run_artwork_sync():
             db_session.commit()
             total_found += found
             total_processed += len(albums)
-            logger.warning(f"Artwork sync batch: {found}/{len(albums)} encontradas (total: {total_found}/{total_processed})")
+            _log(f"Artwork sync batch: {found}/{len(albums)} encontradas (total: {total_found}/{total_processed})")
 
             if len(albums) < BATCH_SIZE:
                 break
             offset += BATCH_SIZE
 
-    logger.warning(f"Artwork sync completado: {total_found}/{total_processed} portadas encontradas.")
+    _log(f"Artwork sync completado: {total_found}/{total_processed} portadas encontradas.")
+
+
+def _is_db_empty() -> bool:
+    """Verifica si la DB tiene albums."""
+    try:
+        import reflex as rx
+        from sqlmodel import select, func
+        from links_bio.models.album import Album
+        with rx.session() as session:
+            count = session.exec(select(func.count(Album.id))).one()
+            return count == 0
+    except Exception:
+        return True
 
 
 def _sync_loop():
     """Loop principal del background sync."""
-    logger.warning(f"Esperando {STARTUP_DELAY}s antes del primer sync...")
-    time.sleep(STARTUP_DELAY)
+    if _is_db_empty():
+        _log("DB vacia, iniciando sync inmediatamente...")
+    else:
+        _log(f"Esperando {STARTUP_DELAY}s antes del primer sync...")
+        time.sleep(STARTUP_DELAY)
 
     while True:
         try:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logger.warning(f"Iniciando sync: {now}")
+            _log(f"Iniciando sync: {now}")
 
             success = _run_sync_cycle()
 
             if success:
-                logger.warning("Sync completado exitosamente.")
+                _log("Sync completado exitosamente.")
             else:
-                logger.warning("Sync fallo. Se reintentara en el proximo ciclo.")
+                _log("Sync fallo. Se reintentara en el proximo ciclo.")
         except Exception as e:
-            logger.error(f"Error no esperado en sync loop: {e}")
+            _log(f"Error no esperado en sync loop: {e}")
             traceback.print_exc()
 
         hours = SYNC_INTERVAL // 3600
-        logger.warning(f"Proximo sync en {hours} horas.")
+        _log(f"Proximo sync en {hours} horas.")
         time.sleep(SYNC_INTERVAL)
 
 
@@ -208,13 +239,16 @@ def start_background_sync():
     if _started:
         return
 
-    # Solo activar si hay credenciales de YouTube configuradas
+    # Verificar credenciales de YouTube
     refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
     if not refresh_token:
-        logger.warning("YOUTUBE_REFRESH_TOKEN no configurado. Background sync desactivado.")
+        _log("YOUTUBE_REFRESH_TOKEN no configurado. Background sync desactivado.")
+        # Log all env var keys for debugging (no values for security)
+        env_keys = sorted([k for k in os.environ.keys() if "YOUTUBE" in k.upper() or "GMAIL" in k.upper()])
+        _log(f"Env vars relevantes encontradas: {env_keys if env_keys else 'ninguna'}")
         return
 
     _started = True
     _sync_thread = threading.Thread(target=_sync_loop, daemon=True, name="youtube-sync")
     _sync_thread.start()
-    logger.warning("Hilo de sincronizacion iniciado.")
+    _log("Hilo de sincronizacion iniciado.")

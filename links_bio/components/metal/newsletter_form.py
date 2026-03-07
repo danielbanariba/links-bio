@@ -10,7 +10,7 @@ def newsletter_form_inline() -> rx.Component:
             FormState.newsletter_success,
             rx.center(
                 rx.text(
-                    "Gracias por suscribirte!",
+                    "Thanks for subscribing!",
                     color=Color.PRIMARY.value,
                     font_size="1.1em",
                     font_weight="500",
@@ -20,14 +20,14 @@ def newsletter_form_inline() -> rx.Component:
             rx.form(
                 rx.hstack(
                     rx.input(
-                        placeholder="Tu email",
+                        placeholder="Your email",
                         name="email",
                         type="email",
                         style=form_input_style,
                         size="3",
                     ),
                     rx.button(
-                        "Suscribirme",
+                        "Subscribe",
                         type="submit",
                         style=primary_button_style,
                     ),

@@ -17,7 +17,7 @@ def newsletter_page() -> rx.Component:
                     color=TextColor.HEADER.value,
                 ),
                 rx.text(
-                    "Suscribete para recibir noticias sobre nuevos albums, bandas y eventos del metal underground.",
+                    "Subscribe to receive news about new albums, bands and events from the underground metal scene.",
                     color=TextColor.BODY.value,
                     text_align="center",
                     max_width="600px",

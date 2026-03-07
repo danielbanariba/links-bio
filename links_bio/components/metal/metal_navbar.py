@@ -24,21 +24,21 @@ def metal_navbar() -> rx.Component:
         rx.spacer(),
         rx.hstack(
             rx.link(
-                "Inicio",
+                "Home",
                 href=MA.METAL_ARCHIVE_HOME,
                 color=TextColor.BODY.value,
                 _hover={"color": Color.PRIMARY.value},
                 font_size=Size.MEDIUM.value,
             ),
             rx.link(
-                "Explorar",
+                "Browse",
                 href=MA.METAL_ARCHIVE_BROWSE,
                 color=TextColor.BODY.value,
                 _hover={"color": Color.PRIMARY.value},
                 font_size=Size.MEDIUM.value,
             ),
             rx.link(
-                "Subir musica",
+                "Submit music",
                 href=MA.METAL_ARCHIVE_PROMO,
                 color=TextColor.BODY.value,
                 _hover={"color": Color.PRIMARY.value},

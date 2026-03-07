@@ -72,7 +72,7 @@ class FormState(rx.State):
 
     @rx.event
     def set_promo_genre(self, value: str):
-        self.promo_show_custom_genre = value == "Otro"
+        self.promo_show_custom_genre = value == "Other"
 
     @rx.event
     def handle_submission(self, form_data: dict):
@@ -85,7 +85,7 @@ class FormState(rx.State):
         country = form_data.get("country", "").strip()
 
         if not band_name or not contact_email or not genre or not country:
-            self.submission_error = "Por favor completa todos los campos obligatorios."
+            self.submission_error = "Please fill in all required fields."
             return
 
         try:
@@ -103,7 +103,7 @@ class FormState(rx.State):
                 session.add(submission)
                 session.commit()
         except Exception:
-            self.submission_error = "Error al guardar. Intenta de nuevo."
+            self.submission_error = "Error saving. Please try again."
             return
 
         self.submission_success = True
@@ -115,7 +115,7 @@ class FormState(rx.State):
 
         email = form_data.get("email", "").strip()
         if not email or "@" not in email:
-            self.newsletter_error = "Por favor ingresa un email valido."
+            self.newsletter_error = "Please enter a valid email."
             return
 
         try:
@@ -126,14 +126,14 @@ class FormState(rx.State):
                     )
                 ).first()
                 if existing:
-                    self.newsletter_error = "Este email ya esta suscrito."
+                    self.newsletter_error = "This email is already subscribed."
                     return
 
                 subscriber = NewsletterSubscriber(email=email)
                 session.add(subscriber)
                 session.commit()
         except Exception:
-            self.newsletter_error = "Error al suscribir. Intenta de nuevo."
+            self.newsletter_error = "Error subscribing. Please try again."
             return
 
         self.newsletter_success = True
@@ -148,7 +148,7 @@ class FormState(rx.State):
         album_title = form_data.get("album_title", "").strip()
 
         if not band_name or not email or not album_title:
-            self.contact_error = "Por favor completa todos los campos obligatorios."
+            self.contact_error = "Please fill in all required fields."
             return
 
         # Genre: custom or selected
@@ -156,7 +156,7 @@ class FormState(rx.State):
         if not genre:
             genre = form_data.get("genre", "").strip()
         if not genre:
-            self.contact_error = "Por favor selecciona un genero."
+            self.contact_error = "Please select a genre."
             return
 
         country = form_data.get("country", "").strip()
@@ -175,7 +175,7 @@ class FormState(rx.State):
                 links.append(val.strip())
 
         if not links:
-            self.contact_error = "Por favor agrega al menos un link."
+            self.contact_error = "Please add at least one link."
             return
 
         # Save to DB
@@ -191,7 +191,7 @@ class FormState(rx.State):
                 session.add(contact)
                 session.commit()
         except Exception:
-            self.contact_error = "Error al enviar. Intenta de nuevo."
+            self.contact_error = "Error submitting. Please try again."
             return
 
         # Send email notification
@@ -208,13 +208,10 @@ class FormState(rx.State):
             f"Album: {album_title}\n\n"
             f"Links:\n{links_text}\n"
         )
-        email_error = _send_email_notification(
+        _send_email_notification(
             subject=f"Metal Archive: {band_name} - {album_title}",
             body=email_body,
         )
-        if email_error:
-            self.contact_error = f"Guardado pero error al enviar email: {email_error}"
-            return
 
         # Reset extra links
         self.promo_extra_links = []

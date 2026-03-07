@@ -11,7 +11,7 @@ METAL_ARCHIVE_YEAR = "/metal-archive/year/[year]"
 
 # ─── Page Metadata ────────────────────────────────────────────────────
 META_TITLE = "Metal Archive | Daniel Banariba"
-META_DESCRIPTION = "Archivo de metal underground hondureno. Videos musicales, bandas, albumes y mas."
+META_DESCRIPTION = "Underground Honduran metal archive. Music videos, bands, albums and more."
 
 # ─── Genres ───────────────────────────────────────────────────────────
 GENRES = [
@@ -22,7 +22,7 @@ GENRES = [
     "Grindcore",
     "Power Metal",
     "Heavy Metal",
-    "Death Metal Melodico",
+    "Melodic Death Metal",
     "Grind/Death Metal",
     "Punk Rock",
     "Metalcore",
@@ -37,11 +37,11 @@ GENRES = [
 
 # ─── Sort Options ─────────────────────────────────────────────────────
 SORT_OPTIONS = [
-    ("newest", "Mas recientes"),
-    ("oldest", "Mas antiguos"),
+    ("newest", "Newest"),
+    ("oldest", "Oldest"),
     ("az", "A - Z"),
     ("za", "Z - A"),
-    ("views", "Mas vistos"),
+    ("views", "Most viewed"),
 ]
 
 # ─── Release Formats ─────────────────────────────────────────────────
