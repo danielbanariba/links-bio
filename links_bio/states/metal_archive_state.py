@@ -109,14 +109,9 @@ class MetalArchiveState(rx.State):
     """State for Metal Archive section."""
 
     # Loading flag
-    is_loading: bool = True
-
-    # Debug diagnostico (temporal)
-    _debug_info: str = ""
+    is_loading: bool = False
 
     # Landing page
-    featured_albums: list[dict] = []
-    latest_albums: list[dict] = []
     genre_counts: list[dict] = []
     country_counts: list[dict] = []
     year_counts: list[dict] = []
@@ -128,6 +123,12 @@ class MetalArchiveState(rx.State):
     total_albums: int = 0
     total_genres: int = 0
     total_countries: int = 0
+
+    # Landing page lazy-load flags
+    _stats_loaded: bool = False
+    _genres_loaded: bool = False
+    _countries_loaded: bool = False
+    _years_loaded: bool = False
 
     # Landing page "Ver todos" toggles
     show_all_genres: bool = False
@@ -283,102 +284,112 @@ class MetalArchiveState(rx.State):
             self.albums = album_dicts
 
     @rx.event
-    def load_landing_page(self):
-        self.is_loading = True
-        try:
-            from links_bio.background_sync import get_diag_status
-            self._debug_info = f"Sync: {get_diag_status()}"
-        except Exception:
-            self._debug_info = "No se pudo leer estado del sync"
-        try:
-            with rx.session() as session:
-                self._load_filter_options(session)
+    def load_landing_stats(self):
+        with rx.session() as s:
+            self.total_albums = s.exec(select(func.count(Album.id))).one()
+            self.total_genres = s.exec(
+                select(func.count(func.distinct(Album.genre))).where(Album.genre != "")
+            ).one()
+            self.total_countries = s.exec(
+                select(func.count(func.distinct(Album.country))).where(Album.country != "")
+            ).one()
+        self._stats_loaded = True
 
-                featured = session.exec(
-                    select(Album)
-                    .where(Album.featured == True)
-                    .order_by(col(Album.upload_date).desc())
-                    .limit(10)
-                ).all()
-                self.featured_albums = [self._album_to_dict(a) for a in featured]
+    @rx.event
+    def load_landing_top_lists(self):
+        with rx.session() as s:
+            gr = s.exec(
+                select(Album.genre, func.count(Album.id).label("cnt"))
+                .where(Album.genre != "")
+                .group_by(Album.genre)
+                .order_by(func.count(Album.id).desc())
+                .limit(10)
+            ).all()
+            self.top_genre_counts = [{"genre": r[0], "count": r[1]} for r in gr]
 
-                latest = session.exec(
-                    select(Album)
-                    .order_by(col(Album.upload_date).desc())
-                    .limit(12)
-                ).all()
-                self.latest_albums = [self._album_to_dict(a) for a in latest]
+            cr = s.exec(
+                select(Album.country, func.count(Album.id).label("cnt"))
+                .where(Album.country != "")
+                .group_by(Album.country)
+                .order_by(func.count(Album.id).desc())
+                .limit(10)
+            ).all()
+            self.top_country_counts = [
+                {"country": r[0], "count": r[1], "flag": COUNTRY_FLAGS.get(r[0], "")}
+                for r in cr
+            ]
 
-                # Total albums
-                total_row = session.exec(
-                    select(func.count(Album.id))
-                ).one()
-                self.total_albums = total_row
+            yr = s.exec(
+                select(Album.year, func.count(Album.id).label("cnt"))
+                .where(Album.year > 0)
+                .group_by(Album.year)
+                .order_by(func.count(Album.id).desc())
+                .limit(10)
+            ).all()
+            self.top_year_counts = [{"year": r[0], "count": r[1]} for r in yr]
 
-                # Genre counts (all for browse filters)
-                genre_rows = session.exec(
-                    select(Album.genre, func.count(Album.id))
-                    .where(Album.genre != "")
-                    .group_by(Album.genre)
-                    .order_by(func.count(Album.id).desc())
-                ).all()
-                self.genre_counts = [
-                    {"genre": row[0], "count": row[1]} for row in genre_rows if row[0]
-                ]
-                self.total_genres = len(self.genre_counts)
+        self._genres_loaded = True
+        self._countries_loaded = True
+        self._years_loaded = True
 
-                # Top 10 genres for landing
-                self.top_genre_counts = self.genre_counts[:10]
+    @rx.event
+    def load_all_genres(self):
+        if self.genre_counts:
+            return
+        with rx.session() as s:
+            rows = s.exec(
+                select(Album.genre, func.count(Album.id).label("cnt"))
+                .where(Album.genre != "")
+                .group_by(Album.genre)
+                .order_by(func.count(Album.id).desc())
+            ).all()
+            self.genre_counts = [{"genre": r[0], "count": r[1]} for r in rows]
 
-                # Country counts (all for browse filters)
-                country_rows = session.exec(
-                    select(Album.country, func.count(Album.id))
-                    .where(Album.country != "")
-                    .group_by(Album.country)
-                    .order_by(func.count(Album.id).desc())
-                ).all()
-                self.country_counts = [
-                    {
-                        "country": row[0],
-                        "count": row[1],
-                        "flag": COUNTRY_FLAGS.get(row[0], ""),
-                    }
-                    for row in country_rows if row[0]
-                ]
-                self.total_countries = len(self.country_counts)
+    @rx.event
+    def load_all_countries(self):
+        if self.country_counts:
+            return
+        with rx.session() as s:
+            rows = s.exec(
+                select(Album.country, func.count(Album.id).label("cnt"))
+                .where(Album.country != "")
+                .group_by(Album.country)
+                .order_by(func.count(Album.id).desc())
+            ).all()
+            self.country_counts = [
+                {"country": r[0], "count": r[1], "flag": COUNTRY_FLAGS.get(r[0], "")}
+                for r in rows
+            ]
 
-                # Top 10 countries for landing
-                self.top_country_counts = self.country_counts[:10]
-
-                # Year counts
-                year_rows = session.exec(
-                    select(Album.year, func.count(Album.id))
-                    .where(Album.year > 0)
-                    .group_by(Album.year)
-                    .order_by(col(Album.year).desc())
-                ).all()
-                self.year_counts = [
-                    {"year": row[0], "count": row[1]} for row in year_rows if row[0]
-                ]
-                # Top years: only those with 5+ albums
-                self.top_year_counts = [
-                    yc for yc in self.year_counts if yc["count"] >= 5
-                ]
-        except Exception as e:
-            self._debug_info = f"ERROR landing: {e} | Sync: {self._debug_info}"
-        finally:
-            self.is_loading = False
+    @rx.event
+    def load_all_years(self):
+        if self.year_counts:
+            return
+        with rx.session() as s:
+            rows = s.exec(
+                select(Album.year, func.count(Album.id).label("cnt"))
+                .where(Album.year > 0)
+                .group_by(Album.year)
+                .order_by(func.count(Album.id).desc())
+            ).all()
+            self.year_counts = [{"year": r[0], "count": r[1]} for r in rows]
 
     @rx.event
     def toggle_all_genres(self):
+        if not self.show_all_genres and not self.genre_counts:
+            yield MetalArchiveState.load_all_genres
         self.show_all_genres = not self.show_all_genres
 
     @rx.event
     def toggle_all_countries(self):
+        if not self.show_all_countries and not self.country_counts:
+            yield MetalArchiveState.load_all_countries
         self.show_all_countries = not self.show_all_countries
 
     @rx.event
     def toggle_all_years(self):
+        if not self.show_all_years and not self.year_counts:
+            yield MetalArchiveState.load_all_years
         self.show_all_years = not self.show_all_years
 
     # ─── Live search ──────────────────────────────────────────────────

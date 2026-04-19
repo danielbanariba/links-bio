@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal portfolio website for Daniel Banariba built with **Reflex 0.8.26** (Python web framework). Two main sections:
+Personal portfolio website for Daniel Banariba built with **Reflex 0.8.28.post1** (Python web framework). Two main sections:
 1. **Portfolio/Bio** — social links, audiovisual projects (music videos), contact info
 2. **Metal Archive** — database-driven catalog of underground metal albums with search, filtering, band submissions, newsletter, and promo packages
 

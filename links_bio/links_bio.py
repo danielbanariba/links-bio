@@ -74,7 +74,7 @@ app.add_page(
     route=MA.METAL_ARCHIVE_HOME,
     title=MA.META_TITLE,
     description=MA.META_DESCRIPTION,
-    on_load=MetalArchiveState.load_landing_page,
+    on_load=[MetalArchiveState.load_landing_stats, MetalArchiveState.load_landing_top_lists],
     meta=[
         {"property": "og:type", "content": "website"},
         {"property": "og:title", "content": MA.META_TITLE},
