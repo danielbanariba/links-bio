@@ -279,13 +279,13 @@ def _landing_content() -> rx.Component:
     return rx.vstack(
         # Stats banner — skeleton until stats loaded
         rx.cond(
-            MetalArchiveState._stats_loaded,
+            MetalArchiveState.stats_loaded,
             _stats_banner(),
             _stats_skeleton(),
         ),
         # Explorar por genero — skeleton until genres loaded
         rx.cond(
-            MetalArchiveState._genres_loaded,
+            MetalArchiveState.genres_loaded,
             rx.cond(
                 MetalArchiveState.top_genre_counts.length() > 0,
                 rx.vstack(
@@ -316,7 +316,7 @@ def _landing_content() -> rx.Component:
         ),
         # Explorar por pais — skeleton until countries loaded
         rx.cond(
-            MetalArchiveState._countries_loaded,
+            MetalArchiveState.countries_loaded,
             rx.cond(
                 MetalArchiveState.top_country_counts.length() > 0,
                 rx.vstack(
@@ -347,7 +347,7 @@ def _landing_content() -> rx.Component:
         ),
         # Explorar por ano — skeleton until years loaded
         rx.cond(
-            MetalArchiveState._years_loaded,
+            MetalArchiveState.years_loaded,
             rx.cond(
                 MetalArchiveState.top_year_counts.length() > 0,
                 rx.vstack(
@@ -495,7 +495,7 @@ def landing_page() -> rx.Component:
                     MetalArchiveState.live_search_open,
                     _search_results(),
                     rx.cond(
-                        MetalArchiveState._stats_loaded & (MetalArchiveState.total_albums == 0),
+                        MetalArchiveState.stats_loaded & (MetalArchiveState.total_albums == 0),
                         _empty_state(),
                         _landing_content(),
                     ),
