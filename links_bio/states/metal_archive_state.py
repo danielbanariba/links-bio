@@ -1,5 +1,6 @@
 import random
 import reflex as rx
+from sqlalchemy import distinct
 from sqlmodel import select, col, func
 from links_bio.models.album import Album
 from links_bio.models.track import Track
@@ -285,52 +286,59 @@ class MetalArchiveState(rx.State):
 
     @rx.event
     def load_landing_stats(self):
-        with rx.session() as s:
-            self.total_albums = s.exec(select(func.count(Album.id))).one()
-            self.total_genres = s.exec(
-                select(func.count(func.distinct(Album.genre))).where(Album.genre != "")
-            ).one()
-            self.total_countries = s.exec(
-                select(func.count(func.distinct(Album.country))).where(Album.country != "")
-            ).one()
-        self._stats_loaded = True
+        try:
+            with rx.session() as s:
+                self.total_albums = s.exec(select(func.count(Album.id))).one()
+                self.total_genres = s.exec(
+                    select(func.count(distinct(Album.genre))).where(Album.genre != "")
+                ).one()
+                self.total_countries = s.exec(
+                    select(func.count(distinct(Album.country))).where(Album.country != "")
+                ).one()
+        except Exception:
+            pass
+        finally:
+            self._stats_loaded = True
 
     @rx.event
     def load_landing_top_lists(self):
-        with rx.session() as s:
-            gr = s.exec(
-                select(Album.genre, func.count(Album.id).label("cnt"))
-                .where(Album.genre != "")
-                .group_by(Album.genre)
-                .order_by(func.count(Album.id).desc())
-                .limit(10)
-            ).all()
-            self.top_genre_counts = [{"genre": r[0], "count": r[1]} for r in gr]
+        try:
+            with rx.session() as s:
+                gr = s.exec(
+                    select(Album.genre, func.count(Album.id).label("cnt"))
+                    .where(Album.genre != "")
+                    .group_by(Album.genre)
+                    .order_by(func.count(Album.id).desc())
+                    .limit(10)
+                ).all()
+                self.top_genre_counts = [{"genre": r[0], "count": r[1]} for r in gr]
 
-            cr = s.exec(
-                select(Album.country, func.count(Album.id).label("cnt"))
-                .where(Album.country != "")
-                .group_by(Album.country)
-                .order_by(func.count(Album.id).desc())
-                .limit(10)
-            ).all()
-            self.top_country_counts = [
-                {"country": r[0], "count": r[1], "flag": COUNTRY_FLAGS.get(r[0], "")}
-                for r in cr
-            ]
+                cr = s.exec(
+                    select(Album.country, func.count(Album.id).label("cnt"))
+                    .where(Album.country != "")
+                    .group_by(Album.country)
+                    .order_by(func.count(Album.id).desc())
+                    .limit(10)
+                ).all()
+                self.top_country_counts = [
+                    {"country": r[0], "count": r[1], "flag": COUNTRY_FLAGS.get(r[0], "")}
+                    for r in cr
+                ]
 
-            yr = s.exec(
-                select(Album.year, func.count(Album.id).label("cnt"))
-                .where(Album.year > 0)
-                .group_by(Album.year)
-                .order_by(func.count(Album.id).desc())
-                .limit(10)
-            ).all()
-            self.top_year_counts = [{"year": r[0], "count": r[1]} for r in yr]
-
-        self._genres_loaded = True
-        self._countries_loaded = True
-        self._years_loaded = True
+                yr = s.exec(
+                    select(Album.year, func.count(Album.id).label("cnt"))
+                    .where(Album.year > 0)
+                    .group_by(Album.year)
+                    .order_by(func.count(Album.id).desc())
+                    .limit(10)
+                ).all()
+                self.top_year_counts = [{"year": r[0], "count": r[1]} for r in yr]
+        except Exception:
+            pass
+        finally:
+            self._genres_loaded = True
+            self._countries_loaded = True
+            self._years_loaded = True
 
     @rx.event
     def load_all_genres(self):
