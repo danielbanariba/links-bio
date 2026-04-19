@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "links-bio": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "cd /home/banar/Desktop/links-bio && env/bin/python mcp/server.py"
+      ]
+    }
+  }
+}

@@ -16,43 +16,75 @@ import links_bio.constants.metal_archive as MA
 import links_bio.constants.url_social as URL
 
 
-# ─── Loading Skeleton ─────────────────────────────────────────────────
+# ─── Loading Skeletons ────────────────────────────────────────────────
 
-def _skeleton_card() -> rx.Component:
+def _skeleton_box(height: str = "80px", flex: str = "1", min_width: str = "140px") -> rx.Component:
     return rx.box(
         background=Color.CONTENT.value,
         border_radius="0.8em",
-        height="80px",
-        width="100%",
+        height=height,
+        flex=flex,
+        min_width=min_width,
         opacity="0.5",
         class_name="animate-pulse",
     )
 
 
-def _loading_skeleton() -> rx.Component:
-    return rx.vstack(
-        rx.flex(
-            *[rx.box(
-                background=Color.CONTENT.value,
-                border_radius="0.8em",
-                height="80px",
-                flex="1",
-                min_width="140px",
-                opacity="0.5",
-            ) for _ in range(3)],
-            gap="1em",
-            width="100%",
-            justify_content="center",
-            flex_wrap="wrap",
-        ),
-        rx.grid(
-            *[_skeleton_card() for _ in range(8)],
-            columns=rx.breakpoints(initial="2", sm="3", md="4"),
-            spacing="3",
-            width="100%",
-        ),
+def _stats_skeleton() -> rx.Component:
+    return rx.flex(
+        *[_skeleton_box(height="80px", flex="1", min_width="140px") for _ in range(3)],
+        gap="1em",
         width="100%",
-        spacing="5",
+        justify_content="center",
+        flex_wrap="wrap",
+    )
+
+
+def _genres_skeleton() -> rx.Component:
+    return rx.grid(
+        *[rx.box(
+            background=Color.CONTENT.value,
+            border_radius="0.8em",
+            height="72px",
+            width="100%",
+            opacity="0.5",
+            class_name="animate-pulse",
+        ) for _ in range(8)],
+        columns=rx.breakpoints(initial="2", sm="3", md="4", lg="5"),
+        spacing="3",
+        width="100%",
+    )
+
+
+def _countries_skeleton() -> rx.Component:
+    return rx.grid(
+        *[rx.box(
+            background=Color.CONTENT.value,
+            border_radius="0.8em",
+            height="88px",
+            width="100%",
+            opacity="0.5",
+            class_name="animate-pulse",
+        ) for _ in range(8)],
+        columns=rx.breakpoints(initial="2", sm="3", md="4", lg="5"),
+        spacing="3",
+        width="100%",
+    )
+
+
+def _years_skeleton() -> rx.Component:
+    return rx.grid(
+        *[rx.box(
+            background=Color.CONTENT.value,
+            border_radius="0.8em",
+            height="64px",
+            width="100%",
+            opacity="0.5",
+            class_name="animate-pulse",
+        ) for _ in range(8)],
+        columns=rx.breakpoints(initial="3", sm="4", md="5", lg="6"),
+        spacing="3",
+        width="100%",
     )
 
 
@@ -73,18 +105,6 @@ def _empty_state() -> rx.Component:
                 color=TextColor.BODY.value,
                 text_align="center",
                 max_width="500px",
-            ),
-            # Debug temporal
-            rx.cond(
-                MetalArchiveState._debug_info != "",
-                rx.text(
-                    MetalArchiveState._debug_info,
-                    color="orange",
-                    font_size="0.8em",
-                    text_align="center",
-                    max_width="600px",
-                    font_family="monospace",
-                ),
             ),
             rx.link(
                 rx.button(
@@ -257,88 +277,104 @@ def _year_card(item: dict) -> rx.Component:
 def _landing_content() -> rx.Component:
     """Stats, genres, countries, years, newsletter — the default view."""
     return rx.vstack(
-        # Stats banner
-        _stats_banner(),
-        # Explorar por genero
+        # Stats banner — skeleton until stats loaded
         rx.cond(
-            MetalArchiveState.top_genre_counts.length() > 0,
-            rx.vstack(
-                _section_header(
-                    "Browse by Genre",
-                    MetalArchiveState.show_all_genres,
-                    MetalArchiveState.toggle_all_genres,
-                ),
-                rx.grid(
-                    rx.foreach(
-                        MetalArchiveState.visible_genre_counts,
-                        _genre_card,
-                    ),
-                    columns=rx.breakpoints(
-                        initial="2",
-                        sm="3",
-                        md="4",
-                        lg="5",
-                    ),
-                    spacing="3",
-                    width="100%",
-                ),
-                width="100%",
-                spacing="3",
-            ),
+            MetalArchiveState._stats_loaded,
+            _stats_banner(),
+            _stats_skeleton(),
         ),
-        # Explorar por pais
+        # Explorar por genero — skeleton until genres loaded
         rx.cond(
-            MetalArchiveState.top_country_counts.length() > 0,
-            rx.vstack(
-                _section_header(
-                    "Browse by Country",
-                    MetalArchiveState.show_all_countries,
-                    MetalArchiveState.toggle_all_countries,
-                ),
-                rx.grid(
-                    rx.foreach(
-                        MetalArchiveState.visible_country_counts,
-                        _country_card,
+            MetalArchiveState._genres_loaded,
+            rx.cond(
+                MetalArchiveState.top_genre_counts.length() > 0,
+                rx.vstack(
+                    _section_header(
+                        "Browse by Genre",
+                        MetalArchiveState.show_all_genres,
+                        MetalArchiveState.toggle_all_genres,
                     ),
-                    columns=rx.breakpoints(
-                        initial="2",
-                        sm="3",
-                        md="4",
-                        lg="5",
+                    rx.grid(
+                        rx.foreach(
+                            MetalArchiveState.visible_genre_counts,
+                            _genre_card,
+                        ),
+                        columns=rx.breakpoints(
+                            initial="2",
+                            sm="3",
+                            md="4",
+                            lg="5",
+                        ),
+                        spacing="3",
+                        width="100%",
                     ),
-                    spacing="3",
                     width="100%",
+                    spacing="3",
                 ),
-                width="100%",
-                spacing="3",
             ),
+            _genres_skeleton(),
         ),
-        # Explorar por ano
+        # Explorar por pais — skeleton until countries loaded
         rx.cond(
-            MetalArchiveState.top_year_counts.length() > 0,
-            rx.vstack(
-                _section_header(
-                    "Browse by Year",
-                    MetalArchiveState.show_all_years,
-                    MetalArchiveState.toggle_all_years,
-                ),
-                rx.grid(
-                    rx.foreach(
-                        MetalArchiveState.visible_year_counts,
-                        _year_card,
+            MetalArchiveState._countries_loaded,
+            rx.cond(
+                MetalArchiveState.top_country_counts.length() > 0,
+                rx.vstack(
+                    _section_header(
+                        "Browse by Country",
+                        MetalArchiveState.show_all_countries,
+                        MetalArchiveState.toggle_all_countries,
                     ),
-                    columns=rx.breakpoints(
-                        initial="3",
-                        sm="4",
-                        md="5",
-                        lg="6",
+                    rx.grid(
+                        rx.foreach(
+                            MetalArchiveState.visible_country_counts,
+                            _country_card,
+                        ),
+                        columns=rx.breakpoints(
+                            initial="2",
+                            sm="3",
+                            md="4",
+                            lg="5",
+                        ),
+                        spacing="3",
+                        width="100%",
                     ),
-                    spacing="3",
                     width="100%",
+                    spacing="3",
                 ),
-                width="100%",
-                spacing="3",
             ),
+            _countries_skeleton(),
+        ),
+        # Explorar por ano — skeleton until years loaded
+        rx.cond(
+            MetalArchiveState._years_loaded,
+            rx.cond(
+                MetalArchiveState.top_year_counts.length() > 0,
+                rx.vstack(
+                    _section_header(
+                        "Browse by Year",
+                        MetalArchiveState.show_all_years,
+                        MetalArchiveState.toggle_all_years,
+                    ),
+                    rx.grid(
+                        rx.foreach(
+                            MetalArchiveState.visible_year_counts,
+                            _year_card,
+                        ),
+                        columns=rx.breakpoints(
+                            initial="3",
+                            sm="4",
+                            md="5",
+                            lg="6",
+                        ),
+                        spacing="3",
+                        width="100%",
+                    ),
+                    width="100%",
+                    spacing="3",
+                ),
+            ),
+            _years_skeleton(),
         ),
         # Browse link
         rx.center(
@@ -452,20 +488,16 @@ def landing_page() -> rx.Component:
             ),
             style=metal_hero_style,
         ),
-        # Content area: loading / search / landing
+        # Content area: search results or landing content
         rx.center(
             rx.box(
                 rx.cond(
-                    MetalArchiveState.is_loading,
-                    _loading_skeleton(),
+                    MetalArchiveState.live_search_open,
+                    _search_results(),
                     rx.cond(
-                        MetalArchiveState.live_search_open,
-                        _search_results(),
-                        rx.cond(
-                            MetalArchiveState.total_albums > 0,
-                            _landing_content(),
-                            _empty_state(),
-                        ),
+                        MetalArchiveState._stats_loaded & (MetalArchiveState.total_albums == 0),
+                        _empty_state(),
+                        _landing_content(),
                     ),
                 ),
                 max_width=METAL_ARCHIVE_MAX_WIDTH,
