@@ -1,0 +1,12 @@
+# ~/.cloudflared/config.yml
+# Reemplazá TUNNEL_ID con el ID que devuelve: cloudflared tunnel create links-bio
+
+tunnel: TUNNEL_ID
+credentials-file: /home/banar/.cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: danielbanariba.com
+    service: http://localhost:8080
+    originRequest:
+      httpHostHeader: danielbanariba.com
+  - service: http_status:404

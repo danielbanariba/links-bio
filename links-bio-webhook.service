@@ -1,0 +1,16 @@
+[Unit]
+Description=Links Bio — GitHub webhook receiver
+After=network.target
+
+[Service]
+Type=simple
+User=banar
+WorkingDirectory=/home/banar/Desktop/links-bio
+ExecStart=/home/banar/Desktop/links-bio/env/bin/python /home/banar/Desktop/links-bio/webhook.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -71,28 +71,17 @@ def header() -> rx.Component:
         ),
         
         rx.hstack(
-            info_text(
-                f"{experiencePrograming()}+",
-                "Años de experiencia programando"
-            ),
+            info_text("40+", "Music videos produced"),
             rx.spacer(),
-            info_text(
-                f"{experienceEditorVideo()}+", 
-                "Años de experiencia editando y filmando videos"
-            ),
+            info_text("100+", "Bands worked with"),
             rx.spacer(),
-            info_text(
-                "+6000 ", 
-                "Suscriptores en Youtube"
-            ),
+            info_text("+6000", "YouTube Subscribers"),
             width="100%",
             padding_right=Size.BIG.value,
         ),
         rx.text(
-            """Soy un programador amante de la música extrema y la música en general, me encanta el septimo arte
-            y todo lo que conlleva que sea edicion, filmacion, y direccion, he trabajado con multiples bandas al rededor de mi carrera
-            haciendo trabajos como videos músicales, live seccion, grabaciones en vivo y documentales.
-            """,
+            "I produce music videos, live sessions and documentaries for metal bands in Honduras and Latin America. "
+            "I also design and build websites to promote your band. Your music deserves an image that represents it.",
             font_size=Size.ALGO_GRANDE.value,
             color=TextColor.BODY.value,
             width="100%",

@@ -1,0 +1,17 @@
+[Unit]
+Description=Links Bio — Reflex app (Metal Archive)
+After=network.target
+
+[Service]
+Type=simple
+User=banar
+WorkingDirectory=/home/banar/Desktop/links-bio
+ExecStart=/home/banar/Desktop/links-bio/env/bin/reflex run --env prod
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PATH=/home/banar/Desktop/links-bio/env/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

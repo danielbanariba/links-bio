@@ -1,0 +1,21 @@
+# Agregar esto al /etc/caddy/Caddyfile
+# (después de la línea del bloque navidrome.localhost)
+
+:8080 {
+    # WebSocket y API del backend de Reflex
+    handle /_event* {
+        reverse_proxy localhost:8000 {
+            header_up Connection {>Connection}
+            header_up Upgrade {>Upgrade}
+        }
+    }
+
+    handle /ping {
+        reverse_proxy localhost:8000
+    }
+
+    # Todo lo demás va al frontend compilado
+    handle {
+        reverse_proxy localhost:3000
+    }
+}
