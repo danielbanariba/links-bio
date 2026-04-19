@@ -10,7 +10,6 @@ from links_bio.components.link_proyects import link_proyects
 
 def links() -> rx.Component:
     return rx.vstack(
-        # Metal Archive link
         title("Metal Archive"),
         rx.link(
             rx.button(
@@ -19,7 +18,7 @@ def links() -> rx.Component:
                     rx.vstack(
                         rx.text("Metal Archive", style=styles.button_title_style),
                         rx.text(
-                            "Explora el archivo de metal underground hondureno",
+                            "Explore the Honduran underground metal archive",
                             style=styles.button_body_style,
                         ),
                         align_items="start",
@@ -34,10 +33,10 @@ def links() -> rx.Component:
             is_external=False,
             width="100%",
         ),
-        title("Proyectos audiovisuales"),
+        title("Audiovisual Projects"),
         link_video(
             "Blasfemia - Inmaculada Concepción",
-            "Blasfemia es una banda de Brutal Death Metal originario de Tegucigalpa, Honduras.",
+            "Blasfemia is a Brutal Death Metal band from Tegucigalpa, Honduras.",
             IMG.LOGO_BLASFEMIA,
             "50%",
             IMG.IMG_BLASFEMIA,
@@ -45,7 +44,7 @@ def links() -> rx.Component:
         ),
         link_video(
             "Sobreporrosis - Acá no es Party Sesiones",
-            "Sobreporrosis es una banda de Punk Rock originario de Tegucigalpa, Honduras.",
+            "Sobreporrosis is a Punk Rock band from Tegucigalpa, Honduras.",
             IMG.LOGO_SOBREPORROSIS,
             "70%",
             IMG.IMG_SOBREPORROSIS,
@@ -53,7 +52,7 @@ def links() -> rx.Component:
         ),
         link_video(
             "Lesath - El Enviado de Satán",
-            "Lesath es una banda de Death Metal Melódico originario de Tegucigalpa, Honduras.",
+            "Lesath is a Melodic Death Metal band from Tegucigalpa, Honduras.",
             IMG.LOGO_LESATH,
             "30%",
             IMG.IMG_LESATH,
@@ -61,7 +60,7 @@ def links() -> rx.Component:
         ),
         link_video(
             "Desmembramiento - Maldita Enfermedad",
-            "Desmembramiento es una banda de Death Metal originario de Tegucigalpa, Honduras.",
+            "Desmembramiento is a Death Metal band from Tegucigalpa, Honduras.",
             IMG.LOGO_DESMEMBRAMIENTO,
             "70%",
             IMG.IMG_DESMEMBRAMIENTO,
@@ -69,19 +68,18 @@ def links() -> rx.Component:
         ),
         link_video(
             "Krisis - Johd Ass",
-            "Krisis es una banda de Grind/Death metal originario de San Pedro Sula, Honduras.",
+            "Krisis is a Grind/Death Metal band from San Pedro Sula, Honduras.",
             IMG.LOGO_KRISIS,
             "50%",
             IMG.IMG_KRISIS,
-            "https://youtu.be/548LqsbFhSw"
+            "https://youtu.be/548LqsbFhSw",
         ),
-        #TODO Aqui o en la primera parte van a ir mis proyectos de programación
-        title("Contacto"),
+        title("Contact"),
         link_button(
             "Email",
             URL.EMAIL,
             IMG.ICON_EMAIL,
-            f"mailto:{URL.EMAIL}"
+            f"mailto:{URL.EMAIL}",
         ),
         width="100%",
         spacing=Size.DEFAULT_SPACING.value,

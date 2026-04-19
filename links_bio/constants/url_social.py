@@ -1,3 +1,6 @@
+YOUTUBE_CHANNEL_ID = "UCa5U18nMgHUsqg-zsE1779Q"
+YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@danielbanariba"
+
 GITHUB = "https://github.com/danielbanariba"
 LINKEDIN = "https://www.linkedin.com/in/danielbanariba/"
 FACEBOOK = "https://www.facebook.com/profile.php?id=100063668491929"
