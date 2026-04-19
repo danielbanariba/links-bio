@@ -125,11 +125,11 @@ class MetalArchiveState(rx.State):
     total_genres: int = 0
     total_countries: int = 0
 
-    # Landing page lazy-load flags
-    _stats_loaded: bool = False
-    _genres_loaded: bool = False
-    _countries_loaded: bool = False
-    _years_loaded: bool = False
+    # Landing page lazy-load flags (no underscore = synced to frontend)
+    stats_loaded: bool = False
+    genres_loaded: bool = False
+    countries_loaded: bool = False
+    years_loaded: bool = False
 
     # Landing page "Ver todos" toggles
     show_all_genres: bool = False
@@ -298,7 +298,7 @@ class MetalArchiveState(rx.State):
         except Exception:
             pass
         finally:
-            self._stats_loaded = True
+            self.stats_loaded = True
 
     @rx.event
     def load_landing_top_lists(self):
@@ -336,9 +336,9 @@ class MetalArchiveState(rx.State):
         except Exception:
             pass
         finally:
-            self._genres_loaded = True
-            self._countries_loaded = True
-            self._years_loaded = True
+            self.genres_loaded = True
+            self.countries_loaded = True
+            self.years_loaded = True
 
     @rx.event
     def load_all_genres(self):
