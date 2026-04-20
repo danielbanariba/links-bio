@@ -1,0 +1,1 @@
+var e={PING:`https://app.danielbanariba.com/ping`,EVENT:`wss://app.danielbanariba.com/_event`,UPLOAD:`https://app.danielbanariba.com/_upload`,AUTH_CODESPACE:`https://app.danielbanariba.com/auth-codespace`,HEALTH:`https://app.danielbanariba.com/_health`,ALL_ROUTES:`https://app.danielbanariba.com/_all_routes`,TRANSPORT:`websocket`,TEST_MODE:!1};export{e as t};

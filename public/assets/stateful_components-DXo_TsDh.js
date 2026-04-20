@@ -1,0 +1,21 @@
+import{r as e}from"./rolldown-runtime-o1kDnhdS.js";import{j as t,r as n}from"./chunk-JZWAC4HX-C1ACt4Fr.js";import{H as r,N as i,R as a,S as o,V as s,_ as c,f as l,j as u,l as d,v as f}from"./esm-D4z_QYyd.js";import{n as p}from"./emotion-react.browser.esm-Cq4F6T98.js";import{t as m}from"./Helmet-6PeD8PVZ.js";var h=e(t(),1);function g(){let e=(0,h.useContext)(i.reflex___state____state__links_bio___states___metal_archive_state____metal_archive_state);return p(l,{columns:{initial:`1`,sm:e.albums_rx_state_.length<2?`1`:`2`,md:e.albums_rx_state_.length<3?`reflex___state____state__links_bio___states___metal_archive_state____metal_archive_state.albums_rx_state_.length`:`3`,lg:e.albums_rx_state_.length<4?`reflex___state____state__links_bio___states___metal_archive_state____metal_archive_state.albums_rx_state_.length`:`4`},css:{width:e.albums_rx_state_.length?.valueOf?.()===1?.valueOf?.()?`auto`:`100%`,justifyContent:`center`},gap:`4`},Array.prototype.map.call(e.albums_rx_state_??[],((e,t)=>p(d,{asChild:!0,css:{textDecoration:`none`,"&:hover":{color:`var(--accent-8)`}},key:t},p(n,{to:s(e?.id)?`/metal-archive/album/`+e?.id:`#`},p(f,{css:{background:`#0a121f`,borderRadius:`0.8em`,overflow:`hidden`,transition:`transform 0.2s, box-shadow 0.2s`,"&:hover":{transform:`scale(1.03)`,boxShadow:`0 0 20px #0073a840`},cursor:`pointer`,width:`100%`}},p(`img`,{alt:e?.album_title,css:{width:`100%`,aspectRatio:`1`,objectFit:`cover`},loading:`lazy`,src:e?.album_artwork_url?.valueOf?.()===``?.valueOf?.()?`img_video/default_album.jpg`:e?.album_artwork_url}),p(c,{align:`start`,className:`rx-Stack`,css:{padding:`0.8em`,width:`100%`},direction:`column`,gap:`1`},p(o,{as:`p`,css:{fontWeight:`500`,fontSize:`1em`,color:`#fff8ee`,noOfLines:1}},e?.band_name),p(o,{as:`p`,css:{fontSize:`0.8em`,color:`#ccc6be`,noOfLines:1}},e?.album_title),p(c,{align:`start`,className:`rx-Stack`,css:{width:`100%`},direction:`row`,gap:`3`},p(o,{as:`p`,css:{fontSize:`0.7em`,color:`#0073a8`}},e?.genre),p(c,{css:{flex:1,justifySelf:`stretch`,alignSelf:`stretch`}}),p(o,{as:`p`,css:{fontSize:`0.7em`,color:`#99948e`}},e?.year)))))))))}function _(){return p(h.Fragment,{},(0,h.useContext)(i.reflex___state____state__links_bio___states___metal_archive_state____metal_archive_state).albums_rx_state_.length>0?p(h.Fragment,{},p(f,{css:{width:`100%`,display:`flex`,justifyContent:`center`}},p(g,{}))):p(h.Fragment,{},p(c,{css:{display:`flex`,alignItems:`center`,justifyContent:`center`,paddingTop:`3em`,paddingBottom:`3em`,width:`100%`}},p(o,{as:`p`,css:{color:`#ccc6be`,fontSize:`1.1em`}},`No albums found.`))))}function v(){let e=(0,h.useRef)(null);r.ref_load_more_trigger=e;let[t,n]=(0,h.useContext)(u);return p(`button`,{css:{position:`absolute`,opacity:`0`,height:`0`,width:`0`,overflow:`hidden`,pointerEvents:`none`,padding:`0`,border:`none`},id:`load-more-trigger`,onClick:(0,h.useCallback)((e=>t([a(`reflex___state____state.links_bio___states___metal_archive_state____metal_archive_state.load_more_albums`,{},{})],[e],{})),[t,a]),ref:e})}function y(){let e=(0,h.useContext)(i.reflex___state____state__links_bio___states___metal_archive_state____metal_archive_state),t=(0,h.useRef)(null);return r.ref_scroll_sentinel=t,p(h.Fragment,{},e.has_more_rx_state_?p(h.Fragment,{},p(f,{css:{height:`1px`}},p(v,{}),p(`div`,{id:`scroll-sentinel`,ref:t}),p(m,{},p(`script`,{},`
+(function() {
+    let debounce = false;
+    const io = new IntersectionObserver((entries) => {
+        if (entries[0] && entries[0].isIntersecting && !debounce) {
+            debounce = true;
+            const btn = document.getElementById('load-more-trigger');
+            if (btn) btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            setTimeout(() => { debounce = false; }, 2500);
+        }
+    }, { rootMargin: '300px' });
+
+    function observe() {
+        const el = document.getElementById('scroll-sentinel');
+        if (el) io.observe(el);
+    }
+
+    new MutationObserver(observe).observe(document.body, { childList: true, subtree: true });
+    observe();
+})();
+`)))):p(h.Fragment,{}))}export{y as n,_ as t};
