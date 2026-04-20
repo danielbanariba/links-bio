@@ -10,3 +10,6 @@ bandas.txt
 discografias.txt
 env
 .env
+public/
+frontend.zip
+.vercel/
