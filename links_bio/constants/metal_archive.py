@@ -11,7 +11,9 @@ METAL_ARCHIVE_YEAR = "/metal-archive/year/[year]"
 
 # ─── Page Metadata ────────────────────────────────────────────────────
 META_TITLE = "Metal Archive | Daniel Banariba"
-META_DESCRIPTION = "Underground Honduran metal archive. Music videos, bands, albums and more."
+META_DESCRIPTION = "Discover underground metal bands, full albums, playlists, and videos organized by genre, country, and release format."
+SUBMIT_META_DESCRIPTION = "Submit your band or album to be considered for a free feature in the Metal Archive and on the Daniel Banariba YouTube channel."
+PROMO_META_DESCRIPTION = "Promote your band, album, or label to an extreme metal audience through featured placements in the Metal Archive and related channels."
 
 # ─── Genres ───────────────────────────────────────────────────────────
 GENRES = [

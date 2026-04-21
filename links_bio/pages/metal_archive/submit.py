@@ -23,7 +23,7 @@ def submit_page() -> rx.Component:
                     color=TextColor.HEADER.value,
                 ),
                 rx.text(
-                    "Fill out the form so your band can be considered for the archive.",
+                    "Send your band or album for review and possible free inclusion in the archive.",
                     color=TextColor.BODY.value,
                 ),
                 rx.cond(
