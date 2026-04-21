@@ -462,7 +462,7 @@ def landing_page() -> rx.Component:
                         color=TextColor.HEADER.value,
                     ),
                     rx.text(
-                        "Underground Honduran metal archive. Music videos, bands and more.",
+                        "Explore underground metal albums, bands, playlists, and full videos by genre, country, and format.",
                         color=TextColor.BODY.value,
                         font_size="1.1em",
                         text_align="center",

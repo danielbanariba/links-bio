@@ -120,13 +120,13 @@ app.add_page(
     submit_page,
     route=MA.METAL_ARCHIVE_SUBMIT,
     title=f"Submit your Band | {MA.META_TITLE}",
-    description="Submit your band to be featured on the Metal Archive.",
+    description=MA.SUBMIT_META_DESCRIPTION,
 )
 app.add_page(
     promo_page,
     route=MA.METAL_ARCHIVE_PROMO,
-    title=f"Submit | {MA.META_TITLE}",
-    description="Submit your music to the Metal Archive.",
+    title=f"Promote your Music | {MA.META_TITLE}",
+    description=MA.PROMO_META_DESCRIPTION,
 )
 app.add_page(
     newsletter_page,

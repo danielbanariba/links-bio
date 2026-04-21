@@ -320,13 +320,13 @@ def promo_page() -> rx.Component:
                 rx.vstack(
                     rx.icon("disc-3", size=48, color=Color.PRIMARY.value),
                     rx.heading(
-                        "Submit your music",
+                        "Promote your music",
                         font_size="2.2em",
                         color=TextColor.HEADER.value,
                         text_align="center",
                     ),
                     rx.text(
-                        "Send us your band or album info and we'll feature it on the channel.",
+                        "Reach an engaged extreme metal audience with featured placements for your band, album, or label.",
                         color=TextColor.BODY.value,
                         text_align="center",
                         max_width="550px",
