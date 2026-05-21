@@ -1,10 +1,15 @@
 """
-Autenticacion con YouTube API usando variables de entorno.
+Autenticacion con YouTube API.
 
-Variables requeridas:
-    YOUTUBE_CLIENT_ID
-    YOUTUBE_CLIENT_SECRET
-    YOUTUBE_REFRESH_TOKEN
+Dos modos soportados (en orden de preferencia):
+
+1. API Key (recomendado, no expira):
+       YOUTUBE_API_KEY
+
+2. OAuth refresh token (legacy, expira y requiere re-consent):
+       YOUTUBE_CLIENT_ID
+       YOUTUBE_CLIENT_SECRET
+       YOUTUBE_REFRESH_TOKEN
 """
 
 import os
@@ -18,8 +23,16 @@ SCOPES = [
 ]
 
 
+def authenticate_from_api_key():
+    """Crea cliente YouTube usando una API Key. No expira, sin OAuth."""
+    api_key = os.environ.get("YOUTUBE_API_KEY")
+    if not api_key:
+        raise RuntimeError("YOUTUBE_API_KEY no configurado.")
+    return build("youtube", "v3", developerKey=api_key, cache_discovery=False)
+
+
 def authenticate_from_env():
-    """Crea un cliente de YouTube API usando variables de entorno."""
+    """Crea cliente YouTube usando OAuth refresh token (modo legacy)."""
     client_id = os.environ.get("YOUTUBE_CLIENT_ID")
     client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
     refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
@@ -46,3 +59,53 @@ def authenticate_from_env():
     )
 
     return build("youtube", "v3", credentials=credentials)
+
+
+def authenticate_auto():
+    """Elige automaticamente API Key si esta, sino OAuth."""
+    if os.environ.get("YOUTUBE_API_KEY"):
+        return authenticate_from_api_key()
+    return authenticate_from_env()
+
+
+def get_channel_id_from_env_or_derive(youtube_client):
+    """
+    Retorna el Channel ID. Prioridad:
+    1. YOUTUBE_CHANNEL_ID del env
+    2. Derivado del cliente OAuth (mine=True) — solo funciona con OAuth
+    3. Derivado del primer video en la DB via videos.list — funciona con API Key
+    """
+    channel_id = os.environ.get("YOUTUBE_CHANNEL_ID")
+    if channel_id:
+        return channel_id
+
+    # Si es OAuth, podemos usar mine=True
+    if os.environ.get("YOUTUBE_REFRESH_TOKEN") and not os.environ.get("YOUTUBE_API_KEY"):
+        resp = youtube_client.channels().list(part="id", mine=True, maxResults=1).execute()
+        items = resp.get("items", [])
+        if items:
+            return items[0]["id"]
+
+    # Fallback: derivar del primer video en la DB
+    try:
+        import reflex as rx
+        from sqlmodel import select
+        from links_bio.models.album import Album
+        with rx.session() as session:
+            album = session.exec(
+                select(Album).where(Album.youtube_video_id != "").limit(1)
+            ).first()
+        if album and album.youtube_video_id:
+            resp = youtube_client.videos().list(
+                part="snippet", id=album.youtube_video_id
+            ).execute()
+            items = resp.get("items", [])
+            if items:
+                return items[0]["snippet"]["channelId"]
+    except Exception:
+        pass
+
+    raise RuntimeError(
+        "No se pudo determinar Channel ID. "
+        "Configura YOUTUBE_CHANNEL_ID o usa OAuth."
+    )

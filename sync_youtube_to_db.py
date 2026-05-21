@@ -37,10 +37,22 @@ from links_bio.models.track import Track
 from links_bio.models.similar_band import SimilarBand
 from scripts.normalize_db import normalize_genre, normalize_country
 
-# Autenticacion: preferir env vars, fallback a modulo local
+# Autenticacion: API Key (recomendado) > OAuth env vars > modulo local
 def _get_authenticate_functions():
     """Retorna (authenticate, authenticate_next) segun el entorno."""
-    # Si hay env vars de YouTube, usar auth por env vars
+    # Prioridad 1: API Key (no expira, sin OAuth)
+    if os.environ.get("YOUTUBE_API_KEY"):
+        from links_bio.youtube_auth import authenticate_from_api_key
+
+        def auth_apikey(prefix=None):
+            return authenticate_from_api_key()
+
+        def auth_next_apikey(prefix=None):
+            return None  # No hay rotacion con API Key
+
+        return auth_apikey, auth_next_apikey
+
+    # Prioridad 2: OAuth refresh token (legacy)
     if os.environ.get("YOUTUBE_REFRESH_TOKEN"):
         from links_bio.youtube_auth import authenticate_from_env
 
@@ -60,7 +72,7 @@ def _get_authenticate_functions():
     except ImportError:
         raise RuntimeError(
             "No se encontraron credenciales de YouTube. "
-            "Configura YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN "
+            "Configura YOUTUBE_API_KEY (recomendado) o YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN, "
             "o instala el modulo authenticate de click-auto-editor."
         )
 
@@ -100,14 +112,33 @@ def yt_execute(request_fn):
 
 
 def get_uploads_playlist_id():
-    """Obtener ID de la playlist de uploads del canal."""
-    response = yt_execute(
-        lambda yt: yt.channels().list(
-            part="contentDetails",
-            mine=True,
-            maxResults=1,
+    """
+    Obtener ID de la playlist de uploads del canal.
+
+    Con API Key: requiere YOUTUBE_CHANNEL_ID (o se deriva de un video en DB).
+    Con OAuth: usa mine=True.
+    """
+    using_api_key = bool(os.environ.get("YOUTUBE_API_KEY"))
+
+    if using_api_key:
+        from links_bio.youtube_auth import get_channel_id_from_env_or_derive
+        channel_id = get_channel_id_from_env_or_derive(_yt["client"])
+        response = yt_execute(
+            lambda yt, cid=channel_id: yt.channels().list(
+                part="contentDetails",
+                id=cid,
+                maxResults=1,
+            )
         )
-    )
+    else:
+        response = yt_execute(
+            lambda yt: yt.channels().list(
+                part="contentDetails",
+                mine=True,
+                maxResults=1,
+            )
+        )
+
     items = response.get("items", [])
     if not items:
         return None
@@ -346,13 +377,24 @@ def parse_description_metadata(description):
             if genre:
                 metadata["genre"] = clean_text(genre)
 
-        # Parse tracklist: [00:08] ► Track Name
+        # Parse tracklist formato nuevo: [00:08] ► Track Name
         tracklist_match = re.match(r"\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*[►▶>]\s*(.+)", text)
         if tracklist_match:
             metadata["tracklist"].append({
                 "timestamp": tracklist_match.group(1),
                 "name": clean_text(tracklist_match.group(2)),
             })
+        else:
+            # Parse tracklist formato viejo: "0 - Intro (00:00)" o "12 - Track Name (07:35)"
+            old_match = re.match(
+                r"^\d+\s*[-–—]\s*(.+?)\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*$",
+                text,
+            )
+            if old_match:
+                metadata["tracklist"].append({
+                    "timestamp": old_match.group(2),
+                    "name": clean_text(old_match.group(1)),
+                })
 
         # Parse streaming links (emoji + Platform: URL)
         link_match = re.match(
@@ -581,6 +623,62 @@ def update_view_counts(session):
     print(f"   {updated} albums actualizados con view counts")
 
 
+def cleanup_orphan_albums(session, active_video_ids, dry_run=False, safety_threshold=0.05):
+    """
+    Elimina de la DB los albums cuyo youtube_video_id ya no aparece en active_video_ids.
+
+    Args:
+        session: SQLModel session.
+        active_video_ids: set/iterable de IDs de videos actualmente activos en el canal.
+        dry_run: si True, no borra, solo retorna el plan.
+        safety_threshold: si la fraccion de albums a borrar supera esto, aborta.
+
+    Returns:
+        dict: {'orphans': [...], 'deleted': int, 'aborted': bool, 'reason': str}
+    """
+    from sqlmodel import delete
+
+    active_set = set(active_video_ids)
+    db_albums = session.exec(
+        select(Album).where(Album.youtube_video_id != "")
+    ).all()
+    total = len(db_albums)
+
+    if total == 0:
+        return {"orphans": [], "deleted": 0, "aborted": False, "reason": "DB sin videos"}
+
+    orphans = [a for a in db_albums if a.youtube_video_id not in active_set]
+    n_orphans = len(orphans)
+
+    if n_orphans == 0:
+        return {"orphans": [], "deleted": 0, "aborted": False, "reason": "Sin huerfanos"}
+
+    fraction = n_orphans / total
+    if fraction > safety_threshold:
+        return {
+            "orphans": orphans,
+            "deleted": 0,
+            "aborted": True,
+            "reason": (
+                f"Aborto por seguridad: {n_orphans}/{total} ({fraction*100:.1f}%) "
+                f"supera threshold {safety_threshold*100:.1f}%. "
+                "Posible fetch incompleto. Revisa los logs."
+            ),
+        }
+
+    if dry_run:
+        return {"orphans": orphans, "deleted": 0, "aborted": False, "reason": "dry_run"}
+
+    orphan_ids = [a.id for a in orphans]
+    session.exec(delete(Track).where(col(Track.album_id).in_(orphan_ids)))
+    session.exec(delete(SimilarBand).where(col(SimilarBand.album_id).in_(orphan_ids)))
+    for a in orphans:
+        session.delete(a)
+    session.commit()
+
+    return {"orphans": orphans, "deleted": n_orphans, "aborted": False, "reason": "ok"}
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════
@@ -591,6 +689,8 @@ def run_sync(
     mark_featured=True,
     featured_count=10,
     limite=None,
+    cleanup_orphans=True,
+    cleanup_threshold=0.05,
 ):
     """
     Sincroniza videos de YouTube con la DB. Puede ser llamado desde CLI o background task.
@@ -601,6 +701,9 @@ def run_sync(
         mark_featured: Marcar top albums como featured despues de sincronizar.
         featured_count: Cantidad de albums a marcar como featured.
         limite: Cantidad maxima de videos a procesar.
+        cleanup_orphans: Eliminar de la DB albums cuyos videos ya no estan en el canal.
+            Solo se ejecuta cuando limite is None (fetch completo).
+        cleanup_threshold: Maxima fraccion de la DB a eliminar antes de abortar (default 5%).
     """
     print("=" * 60)
     print(" SYNC YOUTUBE -> METAL ARCHIVE DATABASE")
@@ -699,10 +802,33 @@ def run_sync(
 
         session.commit()
 
-        # 6. Marcar featured
+        # 6a. Cleanup huerfanos: albums cuyos videos ya no estan en el canal
+        cleanup_result = {"deleted": 0, "aborted": False, "reason": "skipped"}
+        if cleanup_orphans and limite is None and errors == 0:
+            print()
+            print("[6/7] Limpiando albums huerfanos (videos eliminados)...")
+            active_ids = {v["video_id"] for v in videos if v.get("video_id")}
+            cleanup_result = cleanup_orphan_albums(
+                session, active_ids, dry_run=False, safety_threshold=cleanup_threshold
+            )
+            if cleanup_result["aborted"]:
+                print(f"   {cleanup_result['reason']}")
+            elif cleanup_result["deleted"] > 0:
+                print(f"   {cleanup_result['deleted']} albums huerfanos eliminados")
+                for a in cleanup_result["orphans"][:10]:
+                    print(f"     - {a.band_name} - {a.album_title} ({a.youtube_video_id})")
+                if cleanup_result["deleted"] > 10:
+                    print(f"     ... y {cleanup_result['deleted'] - 10} mas")
+            else:
+                print("   Sin albums huerfanos")
+        elif errors > 0:
+            print()
+            print("[6/7] Cleanup omitido (hubo errores en el procesado).")
+
+        # 6b. Marcar featured
         if mark_featured:
             print()
-            print("[6/6] Marcando albums featured...")
+            print("[7/7] Marcando albums featured...")
             mark_featured_albums(session, featured_count)
 
     finally:
@@ -717,6 +843,7 @@ def run_sync(
     print(f"  Insertados: {inserted}")
     print(f"  Actualizados: {updated}")
     print(f"  Omitidos: {skipped}")
+    print(f"  Huerfanos eliminados: {cleanup_result['deleted']}")
     print(f"  Errores: {errors}")
     print("=" * 60)
     print()
@@ -749,7 +876,52 @@ def main():
         "--featured-count", type=int, default=10,
         help="Cantidad de albums a marcar como featured (default: 10)"
     )
+    parser.add_argument(
+        "--no-cleanup-orphans", action="store_true",
+        help="Deshabilita la eliminacion automatica de albums huerfanos"
+    )
+    parser.add_argument(
+        "--cleanup-threshold", type=float, default=0.05,
+        help="Fraccion maxima de la DB a eliminar antes de abortar (default: 0.05 = 5%%)"
+    )
+    parser.add_argument(
+        "--cleanup-dry-run", action="store_true",
+        help="Solo lista los albums huerfanos sin eliminarlos"
+    )
     args = parser.parse_args()
+
+    # Modo: dry-run de cleanup (no toca DB)
+    if args.cleanup_dry_run:
+        print("[*] Autenticando...")
+        _yt["client"] = _authenticate(prefix="playlists")
+        print("[*] Obteniendo lista de uploads activos del canal...")
+        uploads_id = get_uploads_playlist_id()
+        if not uploads_id:
+            print("ERROR: No se encontro la playlist de uploads.")
+            return
+        videos = fetch_all_videos(uploads_id)
+        active_ids = {v["video_id"] for v in videos if v.get("video_id")}
+        print(f"[*] {len(active_ids)} videos activos en el canal")
+        with rx.session() as session:
+            result = cleanup_orphan_albums(
+                session, active_ids, dry_run=True,
+                safety_threshold=args.cleanup_threshold,
+            )
+        print()
+        print("=" * 60)
+        print(" CLEANUP DRY-RUN")
+        print("=" * 60)
+        print(f"  Albums huerfanos: {len(result['orphans'])}")
+        print(f"  Aborto por threshold: {result['aborted']}")
+        if result["reason"]:
+            print(f"  Estado: {result['reason']}")
+        print("=" * 60)
+        if result["orphans"]:
+            print()
+            print(" Albums a eliminar:")
+            for a in result["orphans"]:
+                print(f"  - [{a.id}] {a.band_name} - {a.album_title} ({a.youtube_video_id})")
+        return
 
     # Modo: solo actualizar views
     if args.update_views:
@@ -796,6 +968,8 @@ def main():
         solo_nuevos=args.solo_nuevos,
         mark_featured=args.mark_featured,
         featured_count=args.featured_count,
+        cleanup_orphans=not args.no_cleanup_orphans,
+        cleanup_threshold=args.cleanup_threshold,
         limite=args.limite,
     )
 
