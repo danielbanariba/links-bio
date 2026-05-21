@@ -7,6 +7,8 @@ from links_bio.components.title import title
 import links_bio.styles.styles as styles
 from links_bio.styles.styles import Size
 from links_bio.components.link_proyects import link_proyects
+from links_bio.components.contact_form import contact_form
+from links_bio.components import icons
 
 def links() -> rx.Component:
     return rx.vstack(
@@ -14,7 +16,7 @@ def links() -> rx.Component:
         rx.link(
             rx.button(
                 rx.hstack(
-                    rx.icon("disc-3", size=24, color="#0073a8"),
+                    icons.icon_disc_3(size=24, color="#0073a8"),
                     rx.vstack(
                         rx.text("Metal Archive", style=styles.button_title_style),
                         rx.text(
@@ -74,13 +76,14 @@ def links() -> rx.Component:
             IMG.IMG_KRISIS,
             "https://youtu.be/548LqsbFhSw",
         ),
-        title("Contact"),
+        title("Contacto"),
         link_button(
             "Email",
             URL.EMAIL,
             IMG.ICON_EMAIL,
             f"mailto:{URL.EMAIL}",
         ),
+        contact_form(),
         width="100%",
         spacing=Size.DEFAULT_SPACING.value,
         padding_right=Size.BIG.value,

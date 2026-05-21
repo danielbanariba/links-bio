@@ -53,6 +53,10 @@ class FormState(rx.State):
     contact_success: bool = False
     contact_error: str = ""
 
+    # Portfolio contact form
+    portfolio_contact_success: bool = False
+    portfolio_contact_error: str = ""
+
     # Promo form: dynamic links
     promo_extra_links: list[str] = []
 
@@ -217,3 +221,57 @@ class FormState(rx.State):
         self.promo_extra_links = []
         self.promo_show_custom_genre = False
         self.contact_success = True
+
+    @rx.event
+    def send_contact_message(self, form_data: dict):
+        import re
+
+        self.portfolio_contact_success = False
+        self.portfolio_contact_error = ""
+
+        nombre = form_data.get("nombre", "").strip()
+        email = form_data.get("email", "").strip()
+        asunto = form_data.get("asunto", "").strip()
+        mensaje = form_data.get("mensaje", "").strip()
+
+        if not nombre or not email or not mensaje:
+            self.portfolio_contact_error = "Nombre, email y mensaje son obligatorios."
+            return
+
+        if not re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            self.portfolio_contact_error = "El email no parece valido."
+            return
+
+        if len(mensaje) < 20:
+            self.portfolio_contact_error = "El mensaje debe tener al menos 20 caracteres."
+            return
+
+        try:
+            with rx.session() as session:
+                contact = ContactMessage(
+                    name=nombre,
+                    email=email,
+                    company=asunto,
+                    message=mensaje,
+                    package_interest="portfolio",
+                )
+                session.add(contact)
+                session.commit()
+        except Exception:
+            self.portfolio_contact_error = "Hubo un error. Probá de nuevo."
+            return
+
+        email_body = (
+            f"Nuevo mensaje de contacto (portfolio)\n"
+            f"{'=' * 50}\n\n"
+            f"Nombre: {nombre}\n"
+            f"Email: {email}\n"
+            f"Asunto: {asunto or '(sin asunto)'}\n\n"
+            f"Mensaje:\n{mensaje}\n"
+        )
+        _send_email_notification(
+            subject=f"Contacto portfolio: {nombre}",
+            body=email_body,
+        )
+
+        self.portfolio_contact_success = True

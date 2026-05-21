@@ -10,6 +10,7 @@ from links_bio.states.form_state import FormState
 from links_bio.components.metal.metal_navbar import metal_navbar
 from links_bio.components.footer import footer
 from links_bio.constants.metal_archive import GENRES, RELEASE_FORMATS
+from links_bio.components import icons
 
 
 def _form_field(label: str, component: rx.Component, required: bool = False) -> rx.Component:
@@ -52,7 +53,7 @@ def _extra_link_row(link: rx.Var[str], index: rx.Var[int]) -> rx.Component:
             width="100%",
         ),
         rx.icon_button(
-            rx.icon("x", size=14),
+            icons.icon_x(size=14),
             on_click=FormState.remove_promo_link(index),
             variant="ghost",
             color=TextColor.FOOTER.value,
@@ -65,10 +66,10 @@ def _extra_link_row(link: rx.Var[str], index: rx.Var[int]) -> rx.Component:
     )
 
 
-def _step_item(number: str, title: str, desc: str, icon_name: str) -> rx.Component:
+def _step_item(number: str, title: str, desc: str, icon: rx.Component) -> rx.Component:
     return rx.hstack(
         rx.center(
-            rx.icon(icon_name, size=20, color=TextColor.HEADER.value),
+            icon,
             width="3em",
             height="3em",
             border_radius="50%",
@@ -88,7 +89,7 @@ def _step_item(number: str, title: str, desc: str, icon_name: str) -> rx.Compone
 
 def _success_state() -> rx.Component:
     return rx.vstack(
-        rx.icon("circle-check", size=56, color=Color.PRIMARY.value),
+        icons.icon_circle_check(size=56, color=Color.PRIMARY.value),
         rx.heading(
             "Submission received!",
             font_size="1.6em",
@@ -102,7 +103,7 @@ def _success_state() -> rx.Component:
         ),
         rx.link(
             rx.button(
-                rx.icon("arrow-left", size=16),
+                icons.icon_arrow_left(size=16),
                 "Back to archive",
                 variant="outline",
                 color=TextColor.BODY.value,
@@ -233,7 +234,7 @@ def _form_content() -> rx.Component:
                 _two_col(
                     rx.vstack(
                         rx.hstack(
-                            rx.icon("youtube", size=16, color="#FF0000"),
+                            icons.icon_youtube(size=16, color="#FF0000"),
                             rx.text("YouTube", color=TextColor.BODY.value, font_size=Size.MEDIUM.value),
                             spacing="1",
                         ),
@@ -247,7 +248,7 @@ def _form_content() -> rx.Component:
                     ),
                     rx.vstack(
                         rx.hstack(
-                            rx.icon("music", size=16, color="#1DB954"),
+                            icons.icon_music(size=16, color="#1DB954"),
                             rx.text("Bandcamp / Spotify", color=TextColor.BODY.value, font_size=Size.MEDIUM.value),
                             spacing="1",
                         ),
@@ -269,7 +270,7 @@ def _form_content() -> rx.Component:
                 rx.cond(
                     FormState.promo_extra_links.length() < 5,
                     rx.button(
-                        rx.icon("plus", size=14),
+                        icons.icon_plus(size=14),
                         "Add another link",
                         on_click=FormState.add_promo_link,
                         variant="outline",
@@ -286,16 +287,16 @@ def _form_content() -> rx.Component:
             # Error
             rx.cond(
                 FormState.contact_error != "",
-                rx.callout(
-                    FormState.contact_error,
-                    icon="triangle_alert",
+                rx.callout.root(
+                    rx.callout.icon(icons.icon_triangle_alert(size=18)),
+                    rx.callout.text(FormState.contact_error),
                     color_scheme="red",
                     width="100%",
                 ),
             ),
             # Submit
             rx.button(
-                rx.icon("send", size=16),
+                icons.icon_send(size=16),
                 "Submit",
                 type="submit",
                 style=primary_button_style,
@@ -318,7 +319,7 @@ def promo_page() -> rx.Component:
             rx.vstack(
                 # Header
                 rx.vstack(
-                    rx.icon("disc-3", size=48, color=Color.PRIMARY.value),
+                    icons.icon_disc_3(size=48, color=Color.PRIMARY.value),
                     rx.heading(
                         "Promote your music",
                         font_size="2.2em",
@@ -359,9 +360,9 @@ def promo_page() -> rx.Component:
                         font_size=Size.LARGE.value,
                         color=TextColor.HEADER.value,
                     ),
-                    _step_item("1", "We review your submission", "We listen to your music and verify the information.", "headphones"),
-                    _step_item("2", "We produce the video", "We create the video with cover art, tracklist and audio spectrum.", "video"),
-                    _step_item("3", "We publish it", "Your album goes live on YouTube and the Metal Archive.", "rocket"),
+                    _step_item("1", "We review your submission", "We listen to your music and verify the information.", icons.icon_headphones(size=20, color=TextColor.HEADER.value)),
+                    _step_item("2", "We produce the video", "We create the video with cover art, tracklist and audio spectrum.", icons.icon_video(size=20, color=TextColor.HEADER.value)),
+                    _step_item("3", "We publish it", "Your album goes live on YouTube and the Metal Archive.", icons.icon_rocket(size=20, color=TextColor.HEADER.value)),
                     width="100%",
                     max_width="700px",
                     spacing="4",

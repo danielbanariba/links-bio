@@ -6,9 +6,13 @@ from links_bio.constants.images import DEFAULT_ALBUM_ARTWORK
 
 def album_card(album: dict) -> rx.Component:
     artwork = rx.cond(
-        album["album_artwork_url"] != "",
-        album["album_artwork_url"],
-        DEFAULT_ALBUM_ARTWORK,
+        album["album_artwork_thumb"] != "",
+        album["album_artwork_thumb"],
+        rx.cond(
+            album["album_artwork_url"] != "",
+            album["album_artwork_url"],
+            DEFAULT_ALBUM_ARTWORK,
+        ),
     )
     return rx.link(
         rx.box(

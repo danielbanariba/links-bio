@@ -1,10 +1,30 @@
 import random
+from datetime import datetime, timedelta
+from typing import Any
 import reflex as rx
 from sqlalchemy import distinct
 from sqlmodel import select, col, func
 from links_bio.models.album import Album
 from links_bio.models.track import Track
 from links_bio.models.similar_band import SimilarBand
+from links_bio.utils.timestamp import parse_timestamp_to_seconds
+
+
+def _relative_time(upload_date) -> str:
+    if not upload_date:
+        return ""
+    now = datetime.now()
+    diff = now - upload_date
+    days = diff.days
+    if days <= 0:
+        return "hoy"
+    if days == 1:
+        return "ayer"
+    if days < 7:
+        return f"hace {days} días"
+    if days < 30:
+        return f"hace {days // 7} semanas"
+    return upload_date.strftime("%d %b %Y")
 
 # Mapping de pais (espanol) -> bandera emoji
 COUNTRY_FLAGS: dict[str, str] = {
@@ -141,6 +161,23 @@ class MetalArchiveState(rx.State):
     live_search_results: list[dict] = []
     live_search_open: bool = False
 
+    # Home (Spotify-style) layout
+    home_featured_album: dict[str, Any] = {}
+    home_recent_albums: list[dict[str, Any]] = []
+    home_trending_albums: list[dict[str, Any]] = []
+    home_genre_showcase: list[dict[str, Any]] = []
+    home_genre_showcase_label: str = ""
+    home_genre_showcases: list[dict[str, Any]] = []
+    home_loaded: bool = False
+
+    # Bandcamp+Spotify hybrid home (curated rows)
+    home_this_week_albums: list[dict[str, Any]] = []
+    home_editor_picks: list[dict[str, Any]] = []
+    home_deep_cuts: list[dict[str, Any]] = []
+    home_country_showcase_country: str = ""
+    home_country_showcase_flag: str = ""
+    home_country_showcase_albums: list[dict[str, Any]] = []
+
     # Browse / search
     albums: list[dict] = []
     search_query: str = ""
@@ -156,8 +193,11 @@ class MetalArchiveState(rx.State):
     # Album detail
     current_album: dict = {}
     current_tracks: list[dict] = []
+    current_tracks_with_seconds: list[dict] = []
     current_similar_bands: list[str] = []
     similar_albums: list[dict] = []
+    more_to_explore: list[dict] = []
+    current_track_idx: int = -1
 
     # Filter options (populated from DB)
     available_genres: list[str] = []
@@ -185,6 +225,13 @@ class MetalArchiveState(rx.State):
         return ["All types"] + self.available_release_types
 
     def _album_to_dict(self, album: Album) -> dict:
+        artwork = album.album_artwork_url or ""
+        thumb = (
+            artwork
+            .replace("maxresdefault", "mqdefault")
+            .replace("hqdefault", "mqdefault")
+            .replace("sddefault", "mqdefault")
+        )
         return {
             "id": album.id,
             "band_name": album.band_name,
@@ -201,7 +248,8 @@ class MetalArchiveState(rx.State):
             "metal_archives_url": album.metal_archives_url,
             "facebook_url": album.facebook_url,
             "instagram_url": album.instagram_url,
-            "album_artwork_url": album.album_artwork_url,
+            "album_artwork_url": artwork,
+            "album_artwork_thumb": thumb,
             "description": album.description,
             "duration_minutes": album.duration_minutes or 0,
             "views": album.views,
@@ -431,6 +479,184 @@ class MetalArchiveState(rx.State):
         self.live_search_results = []
         self.live_search_query = ""
 
+    # ─── Home (Spotify-style) ─────────────────────────────────────────
+
+    @rx.event
+    def load_home(self):
+        if self.home_loaded:
+            return
+        try:
+            with rx.session() as session:
+                featured = session.exec(
+                    select(Album)
+                    .where(Album.featured == True)  # noqa: E712
+                    .order_by(func.random())
+                    .limit(1)
+                ).first()
+                if not featured:
+                    featured = session.exec(
+                        select(Album).order_by(func.random()).limit(1)
+                    ).first()
+                self.home_featured_album = (
+                    self._album_to_dict(featured) if featured else {}
+                )
+
+                recents = session.exec(
+                    select(Album).order_by(col(Album.upload_date).desc()).limit(8)
+                ).all()
+                self.home_recent_albums = [self._album_to_dict(a) for a in recents]
+
+                trending = session.exec(
+                    select(Album).order_by(col(Album.views).desc()).limit(8)
+                ).all()
+                self.home_trending_albums = [self._album_to_dict(a) for a in trending]
+
+                top_genres = session.exec(
+                    select(Album.genre, func.count(Album.id).label("c"))
+                    .where(Album.genre != "")
+                    .group_by(Album.genre)
+                    .order_by(func.count(Album.id).desc())
+                    .limit(5)
+                ).all()
+                showcases: list[dict] = []
+                for row in top_genres:
+                    genre_name = row[0]
+                    genre_albums = session.exec(
+                        select(Album)
+                        .where(Album.genre == genre_name)
+                        .order_by(func.random())
+                        .limit(8)
+                    ).all()
+                    showcases.append({
+                        "genre": genre_name,
+                        "href": f"/metal-archive/browse?genre={genre_name}",
+                        "albums": [self._album_to_dict(a) for a in genre_albums],
+                    })
+                self.home_genre_showcases = showcases
+                if showcases:
+                    self.home_genre_showcase_label = showcases[0]["genre"]
+                    self.home_genre_showcase = showcases[0]["albums"]
+                else:
+                    self.home_genre_showcase_label = ""
+                    self.home_genre_showcase = []
+
+                # Esta semana en el archivo (last 7 days, fallback to last 30)
+                this_week_albums = session.exec(
+                    select(Album)
+                    .where(Album.upload_date >= datetime.now() - timedelta(days=7))
+                    .order_by(col(Album.upload_date).desc())
+                    .limit(8)
+                ).all()
+                if len(this_week_albums) < 4:
+                    this_week_albums = session.exec(
+                        select(Album)
+                        .where(Album.upload_date >= datetime.now() - timedelta(days=30))
+                        .order_by(col(Album.upload_date).desc())
+                        .limit(8)
+                    ).all()
+                self.home_this_week_albums = [
+                    {**self._album_to_dict(a), "relative_time": _relative_time(a.upload_date)}
+                    for a in this_week_albums
+                ]
+
+                # Editor's picks (featured, latest first)
+                editor_picks = session.exec(
+                    select(Album)
+                    .where(Album.featured == True)  # noqa: E712
+                    .order_by(col(Album.upload_date).desc())
+                    .limit(8)
+                ).all()
+                self.home_editor_picks = [self._album_to_dict(a) for a in editor_picks]
+
+                # Deep cuts: featured + low views (below median, fallback to <100)
+                median_views_row = session.exec(
+                    select(Album.views)
+                    .where(Album.featured == True)  # noqa: E712
+                    .order_by(Album.views)
+                ).all()
+                median_views = (
+                    median_views_row[len(median_views_row) // 2]
+                    if median_views_row
+                    else 100
+                )
+                deep_cuts = session.exec(
+                    select(Album)
+                    .where(Album.featured == True)  # noqa: E712
+                    .where(Album.views < median_views)
+                    .order_by(func.random())
+                    .limit(8)
+                ).all()
+                if len(deep_cuts) < 4:
+                    deep_cuts = session.exec(
+                        select(Album)
+                        .where(Album.featured == True)  # noqa: E712
+                        .where(Album.views < 100)
+                        .order_by(func.random())
+                        .limit(8)
+                    ).all()
+                self.home_deep_cuts = [self._album_to_dict(a) for a in deep_cuts]
+
+                # Volá a {país} — random country with >=5 albums
+                countries_with_counts = session.exec(
+                    select(Album.country, func.count(Album.id).label("c"))
+                    .where(Album.country != "")
+                    .group_by(Album.country)
+                    .having(func.count(Album.id) >= 5)
+                ).all()
+                if countries_with_counts:
+                    chosen = random.choice(countries_with_counts)
+                    chosen_country = chosen[0]
+                    country_albums = session.exec(
+                        select(Album)
+                        .where(Album.country == chosen_country)
+                        .order_by(func.random())
+                        .limit(8)
+                    ).all()
+                    self.home_country_showcase_country = chosen_country
+                    self.home_country_showcase_flag = COUNTRY_FLAGS.get(chosen_country, "")
+                    self.home_country_showcase_albums = [
+                        self._album_to_dict(a) for a in country_albums
+                    ]
+                else:
+                    self.home_country_showcase_country = ""
+                    self.home_country_showcase_flag = ""
+                    self.home_country_showcase_albums = []
+        except Exception:
+            pass
+        finally:
+            self.home_loaded = True
+
+    @rx.var
+    def home_genre_showcase_href(self) -> str:
+        if self.home_genre_showcase_label:
+            return f"/metal-archive/browse?genre={self.home_genre_showcase_label}"
+        return "/metal-archive/browse"
+
+    @rx.var
+    def home_country_showcase_title(self) -> str:
+        if self.home_country_showcase_country:
+            return f"Volá a {self.home_country_showcase_country} {self.home_country_showcase_flag}".strip()
+        return ""
+
+    @rx.var
+    def home_country_showcase_href(self) -> str:
+        if self.home_country_showcase_country:
+            return f"/metal-archive/browse?country={self.home_country_showcase_country}"
+        return "/metal-archive/browse"
+
+    @rx.event
+    def surprise_me(self):
+        try:
+            with rx.session() as session:
+                album = session.exec(
+                    select(Album).order_by(func.random()).limit(1)
+                ).first()
+                if album:
+                    return rx.redirect(f"/metal-archive/album/{album.id}")
+        except Exception:
+            pass
+        return rx.redirect("/metal-archive/browse")
+
     # ─── Navigate to browse with filter ───────────────────────────────
 
     @rx.event
@@ -505,8 +731,10 @@ class MetalArchiveState(rx.State):
                 if not album:
                     self.current_album = {}
                     self.current_tracks = []
+                    self.current_tracks_with_seconds = []
                     self.current_similar_bands = []
                     self.similar_albums = []
+                    self.more_to_explore = []
                     return
 
                 self.current_album = self._album_to_dict(album)
@@ -524,6 +752,16 @@ class MetalArchiveState(rx.State):
                     }
                     for t in tracks
                 ]
+                self.current_tracks_with_seconds = [
+                    {
+                        "track_number": t.track_number,
+                        "track_name": t.track_name,
+                        "timestamp": t.timestamp,
+                        "seconds": parse_timestamp_to_seconds(t.timestamp),
+                    }
+                    for t in tracks
+                ]
+                self.current_track_idx = -1
 
                 similar = session.exec(
                     select(SimilarBand).where(SimilarBand.album_id == album_id)
@@ -536,13 +774,40 @@ class MetalArchiveState(rx.State):
                     .where(Album.genre == album.genre)
                     .where(Album.id != album_id)
                     .order_by(col(Album.views).desc())
-                    .limit(4)
+                    .limit(8)
                 ).all()
                 self.similar_albums = [self._album_to_dict(a) for a in similar_albums]
+
+                similar_ids = {a.id for a in similar_albums}
+                similar_ids.add(album_id)
+                more = session.exec(
+                    select(Album)
+                    .where(col(Album.id).not_in(similar_ids))
+                    .where(Album.featured == True)
+                    .order_by(func.random())
+                    .limit(8)
+                ).all()
+                if len(more) < 8:
+                    more = session.exec(
+                        select(Album)
+                        .where(col(Album.id).not_in(similar_ids))
+                        .order_by(func.random())
+                        .limit(8)
+                    ).all()
+                self.more_to_explore = [self._album_to_dict(a) for a in more]
         except Exception:
             pass
         finally:
             self.is_loading = False
+
+    @rx.event
+    def select_track(self, idx: int):
+        self.current_track_idx = idx
+        if 0 <= idx < len(self.current_tracks):
+            seconds = parse_timestamp_to_seconds(self.current_tracks[idx]["timestamp"])
+            return rx.call_script(
+                f"if (window.metalPlayer) {{ window.metalPlayer.seekTo({seconds}, true); window.metalPlayer.playVideo(); }}"
+            )
 
     @rx.event
     def load_genre_page(self):

@@ -1,90 +1,145 @@
 import reflex as rx
 from links_bio.styles.styles import (
+    ALBUM_DETAIL_MAX_WIDTH,
     METAL_ARCHIVE_MAX_WIDTH,
-    metal_hero_style,
-    stat_box_style,
+    XEROX_NOISE_URL,
     genre_card_style,
+    hero_section_style,
+    hero_inner_style,
+    hero_cover_style,
+    hero_release_type_style,
+    hero_band_name_style,
+    hero_album_title_style,
+    hero_meta_style,
     search_input_style,
     Size,
 )
+from typing import Any
 from links_bio.styles.colors import Color, TextColor
+from links_bio.styles.fonts import Font
+from links_bio.constants.images import DEFAULT_ALBUM_ARTWORK
 from links_bio.states.metal_archive_state import MetalArchiveState
 from links_bio.components.metal.metal_navbar import metal_navbar
 from links_bio.components.metal.album_grid import album_grid
+from links_bio.components.metal.album_carousel import album_carousel, CAROUSEL_CSS
 from links_bio.components.footer import footer
+from links_bio.components import icons
 import links_bio.constants.metal_archive as MA
 import links_bio.constants.url_social as URL
 
 
+_HOME_CSS = """
+html, body { overflow-x: hidden; }
+#metal-home-hero {
+    position: relative;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    background: linear-gradient(180deg, """ + Color.SECONDARY.value + """ 0%, """ + Color.SECONDARY.value + """80 35%, """ + Color.BACKGROUND.value + """ 100%);
+    border-bottom: 2px solid """ + Color.PRIMARY.value + """;
+    overflow: hidden;
+    isolation: isolate;
+}
+#metal-home-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: """ + XEROX_NOISE_URL + """;
+    background-repeat: repeat;
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 0;
+}
+#metal-home-hero > * { position: relative; z-index: 1; }
+.home-section-divider { border-top: 1px solid """ + Color.SECONDARY.value + """; }
+""" + CAROUSEL_CSS
+
+
 # ─── Loading Skeletons ────────────────────────────────────────────────
 
-def _skeleton_box(height: str = "80px", flex: str = "1", min_width: str = "140px") -> rx.Component:
+def _carousel_skeleton(title: str) -> rx.Component:
     return rx.box(
-        background=Color.CONTENT.value,
-        border_radius="0.8em",
-        height=height,
-        flex=flex,
-        min_width=min_width,
-        opacity="0.5",
-        class_name="animate-pulse",
-    )
-
-
-def _stats_skeleton() -> rx.Component:
-    return rx.flex(
-        *[_skeleton_box(height="80px", flex="1", min_width="140px") for _ in range(3)],
-        gap="1em",
-        width="100%",
-        justify_content="center",
-        flex_wrap="wrap",
-    )
-
-
-def _genres_skeleton() -> rx.Component:
-    return rx.grid(
-        *[rx.box(
-            background=Color.CONTENT.value,
-            border_radius="0.8em",
-            height="72px",
-            width="100%",
-            opacity="0.5",
-            class_name="animate-pulse",
-        ) for _ in range(8)],
-        columns=rx.breakpoints(initial="2", sm="3", md="4", lg="5"),
-        spacing="3",
+        rx.text(
+            title,
+            font_size="1.4em",
+            font_weight="700",
+            color=TextColor.HEADER.value,
+            margin_bottom="0.8em",
+        ),
+        rx.el.div(
+            *[
+                rx.box(
+                    background=Color.CONTENT.value,
+                    width="170px",
+                    height="170px",
+                    border_radius="2px",
+                    opacity="0.5",
+                    class_name="animate-pulse",
+                    flex_shrink="0",
+                )
+                for _ in range(6)
+            ],
+            display="flex",
+            gap="1em",
+            overflow="hidden",
+        ),
         width="100%",
     )
 
 
-def _countries_skeleton() -> rx.Component:
-    return rx.grid(
-        *[rx.box(
-            background=Color.CONTENT.value,
-            border_radius="0.8em",
-            height="88px",
-            width="100%",
-            opacity="0.5",
-            class_name="animate-pulse",
-        ) for _ in range(8)],
-        columns=rx.breakpoints(initial="2", sm="3", md="4", lg="5"),
-        spacing="3",
-        width="100%",
-    )
-
-
-def _years_skeleton() -> rx.Component:
-    return rx.grid(
-        *[rx.box(
-            background=Color.CONTENT.value,
-            border_radius="0.8em",
-            height="64px",
-            width="100%",
-            opacity="0.5",
-            class_name="animate-pulse",
-        ) for _ in range(8)],
-        columns=rx.breakpoints(initial="3", sm="4", md="5", lg="6"),
-        spacing="3",
-        width="100%",
+def _hero_skeleton() -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.box(
+                    background=Color.CONTENT.value,
+                    width=rx.breakpoints(initial="180px", md="280px"),
+                    height=rx.breakpoints(initial="180px", md="280px"),
+                    opacity="0.5",
+                    class_name="animate-pulse",
+                ),
+                rx.vstack(
+                    rx.box(
+                        background=Color.CONTENT.value,
+                        height="14px",
+                        width="120px",
+                        opacity="0.5",
+                        class_name="animate-pulse",
+                    ),
+                    rx.box(
+                        background=Color.CONTENT.value,
+                        height="48px",
+                        width="80%",
+                        opacity="0.5",
+                        class_name="animate-pulse",
+                    ),
+                    rx.box(
+                        background=Color.CONTENT.value,
+                        height="20px",
+                        width="60%",
+                        opacity="0.5",
+                        class_name="animate-pulse",
+                    ),
+                    spacing="3",
+                    align_items="flex-start",
+                    flex="1",
+                ),
+                style={
+                    "display": "flex",
+                    "flex_direction": rx.breakpoints(initial="column", md="row"),
+                    "align_items": rx.breakpoints(initial="center", md="flex-end"),
+                    "gap": rx.breakpoints(initial="1.2em", md="1.8em"),
+                    "width": "100%",
+                },
+            ),
+            style=hero_inner_style,
+        ),
+        style={
+            **hero_section_style,
+            "padding_top": "2.5em",
+            "padding_bottom": "2em",
+        },
     )
 
 
@@ -93,23 +148,23 @@ def _years_skeleton() -> rx.Component:
 def _empty_state() -> rx.Component:
     return rx.center(
         rx.vstack(
-            rx.icon("disc-3", size=48, color=Color.PRIMARY.value, opacity="0.6"),
+            icons.icon_disc_3(size=48, color=Color.PRIMARY.value, opacity="0.6"),
             rx.heading(
-                "The archive is syncing",
+                "El archivo se está sincronizando",
                 font_size=Size.LARGE.value,
                 color=TextColor.HEADER.value,
                 text_align="center",
             ),
             rx.text(
-                "Albums are loading from YouTube. This may take a few minutes after a server restart.",
+                "Los álbumes se cargan desde YouTube. Puede tardar unos minutos después de reiniciar el servidor.",
                 color=TextColor.BODY.value,
                 text_align="center",
                 max_width="500px",
             ),
             rx.link(
                 rx.button(
-                    rx.icon("youtube", size=20),
-                    "Visit the channel in the meantime",
+                    icons.icon_youtube(size=20),
+                    "Visitá el canal mientras tanto",
                     background="#FF0000",
                     color="white",
                     padding_x="2em",
@@ -129,100 +184,152 @@ def _empty_state() -> rx.Component:
     )
 
 
-# ─── Stats Banner ─────────────────────────────────────────────────────
+# ─── Hero Featured Album ─────────────────────────────────────────────
 
-def _stat_box(value: rx.Var, label: str) -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.text(
-                value,
-                font_size="1.8em",
-                font_weight="600",
-                color=Color.PRIMARY.value,
+def _featured_hero() -> rx.Component:
+    album = MetalArchiveState.home_featured_album
+    artwork = rx.cond(
+        album["album_artwork_url"] != "",
+        album["album_artwork_url"],
+        DEFAULT_ALBUM_ARTWORK,
+    )
+    album_href = rx.cond(
+        album["id"],
+        "/metal-archive/album/" + album["id"].to_string(),
+        "/metal-archive/browse",
+    )
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.el.a(
+                    rx.el.img(
+                        src=artwork,
+                        alt=album["album_title"],
+                        loading="eager",
+                        style=hero_cover_style,
+                    ),
+                    href=album_href,
+                    style={"display": "block", "text_decoration": "none"},
+                ),
+                rx.el.div(
+                    rx.el.div(
+                        "DESTACADO",
+                        style=hero_release_type_style,
+                    ),
+                    rx.el.h1(
+                        album["band_name"],
+                        style=hero_band_name_style,
+                    ),
+                    rx.el.div(
+                        album["album_title"],
+                        style=hero_album_title_style,
+                    ),
+                    rx.el.div(
+                        rx.fragment(
+                            rx.el.span(album["genre"]),
+                            rx.el.span(" • ", style={"color": TextColor.FOOTER.value}),
+                            rx.el.span(album["year"].to_string()),
+                            rx.cond(
+                                album["country"] != "",
+                                rx.fragment(
+                                    rx.el.span(" • ", style={"color": TextColor.FOOTER.value}),
+                                    rx.el.span(album["country"]),
+                                ),
+                            ),
+                        ),
+                        style=hero_meta_style,
+                    ),
+                    rx.el.div(
+                        rx.el.a(
+                            "→ Ver álbum",
+                            href=album_href,
+                            style={
+                                "background": Color.PRIMARY.value,
+                                "color": TextColor.HEADER.value,
+                                "padding": "0.8em 1.6em",
+                                "font_size": "0.95em",
+                                "font_weight": "700",
+                                "letter_spacing": "0.04em",
+                                "text_transform": "uppercase",
+                                "text_decoration": "none",
+                                "border_radius": "2px",
+                                "border": "2px solid " + Color.PRIMARY.value,
+                                "transition": "background 0.18s ease, color 0.18s ease",
+                                "display": "inline-block",
+                                "_hover": {
+                                    "background": "transparent",
+                                    "color": Color.PRIMARY.value,
+                                },
+                            },
+                        ),
+                        style={
+                            "margin_top": "1.2em",
+                            "display": "flex",
+                            "justify_content": rx.breakpoints(
+                                initial="center", md="flex-start"
+                            ),
+                        },
+                    ),
+                    style={
+                        "display": "flex",
+                        "flex_direction": "column",
+                        "gap": "0.5em",
+                        "justify_content": "flex-end",
+                        "min_width": "0",
+                        "flex": "1",
+                    },
+                ),
+                style={
+                    "display": "flex",
+                    "flex_direction": rx.breakpoints(initial="column", md="row"),
+                    "align_items": rx.breakpoints(initial="center", md="flex-end"),
+                    "text_align": rx.breakpoints(initial="center", md="left"),
+                    "gap": rx.breakpoints(initial="1.2em", md="1.8em"),
+                    "width": "100%",
+                },
             ),
-            rx.text(
-                label,
-                font_size=Size.MEDIUM.value,
-                color=TextColor.BODY.value,
-            ),
-            spacing="1",
-            align_items="center",
+            style={
+                **hero_inner_style,
+                "padding_top": rx.breakpoints(initial="2em", md="3em"),
+                "padding_bottom": rx.breakpoints(initial="2em", md="3em"),
+            },
         ),
-        style=stat_box_style,
+        id="metal-home-hero",
     )
 
 
-def _stats_banner() -> rx.Component:
-    return rx.flex(
-        _stat_box(MetalArchiveState.total_albums.to(str), "Albums"),
-        _stat_box(MetalArchiveState.total_genres.to(str), "Genres"),
-        _stat_box(MetalArchiveState.total_countries.to(str), "Countries"),
-        gap="1em",
-        width="100%",
-        justify_content="center",
-        flex_wrap="wrap",
-    )
+# ─── Search results (when typing) ────────────────────────────────────
 
-
-# ─── Section Header with Toggle ──────────────────────────────────────
-
-def _section_header(title: str, is_expanded: rx.Var, on_toggle) -> rx.Component:
-    return rx.hstack(
-        rx.heading(
-            title,
-            font_size=Size.LARGE.value,
-            color=TextColor.HEADER.value,
-        ),
-        rx.spacer(),
-        rx.text(
-            rx.cond(is_expanded, "\u2190 See less", "See all \u2192"),
-            font_size=Size.MEDIUM.value,
-            color=Color.PRIMARY.value,
-            cursor="pointer",
-            _hover={"text_decoration": "underline"},
-            on_click=on_toggle,
-        ),
-        width="100%",
-        align_items="baseline",
-    )
-
-
-# ─── Cards (on_click navigation, no href with /) ─────────────────────
-
-def _genre_card(item: dict) -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.text(
-                item["genre"],
-                font_weight="500",
-                font_size=Size.DEFAULT.value,
+def _search_results() -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            rx.heading(
+                "Resultados de búsqueda",
+                font_size=Size.LARGE.value,
                 color=TextColor.HEADER.value,
             ),
+            rx.spacer(),
             rx.text(
-                rx.cond(
-                    item["count"] == 1,
-                    "1 album",
-                    item["count"].to(str) + " albums",
-                ),
+                MetalArchiveState.live_search_results.length().to_string()
+                + " resultados",
                 font_size=Size.MEDIUM.value,
                 color=TextColor.BODY.value,
             ),
-            spacing="1",
-            align_items="center",
+            width="100%",
+            align_items="baseline",
         ),
-        style=genre_card_style,
-        on_click=MetalArchiveState.navigate_to_genre(item["genre"]),
+        album_grid(MetalArchiveState.live_search_results, show_load_more=False),
+        width="100%",
+        spacing="4",
     )
 
+
+# ─── Browse-by sections (kept, less prominent) ───────────────────────
 
 def _country_card(item: dict) -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.text(
-                item["flag"],
-                font_size="1.5em",
-                line_height="1",
-            ),
+            rx.text(item["flag"], font_size="1.5em", line_height="1"),
             rx.text(
                 item["country"],
                 font_weight="500",
@@ -232,8 +339,8 @@ def _country_card(item: dict) -> rx.Component:
             rx.text(
                 rx.cond(
                     item["count"] == 1,
-                    "1 album",
-                    item["count"].to(str) + " albums",
+                    "1 álbum",
+                    item["count"].to(str) + " álbumes",
                 ),
                 font_size=Size.MEDIUM.value,
                 color=TextColor.BODY.value,
@@ -258,8 +365,8 @@ def _year_card(item: dict) -> rx.Component:
             rx.text(
                 rx.cond(
                     item["count"] == 1,
-                    "1 album",
-                    item["count"].to(str) + " albums",
+                    "1 álbum",
+                    item["count"].to(str) + " álbumes",
                 ),
                 font_size=Size.MEDIUM.value,
                 color=TextColor.BODY.value,
@@ -272,135 +379,140 @@ def _year_card(item: dict) -> rx.Component:
     )
 
 
-# ─── Landing content (shown when NOT searching) ──────────────────────
+def _section_title(title: str, href: str = "") -> rx.Component:
+    return rx.el.div(
+        rx.el.h3(
+            title,
+            style={
+                "font_family": Font.DEFAULT.value,
+                "font_size": rx.breakpoints(initial="1.1em", md="1.3em"),
+                "font_weight": "700",
+                "color": TextColor.HEADER.value,
+                "letter_spacing": "-0.01em",
+                "margin": "0",
+            },
+        ),
+        rx.cond(
+            href != "",
+            rx.el.a(
+                "Ver todo →",
+                href=href,
+                style={
+                    "color": Color.PRIMARY.value,
+                    "font_size": "0.82em",
+                    "text_decoration": "none",
+                    "font_weight": "600",
+                },
+            ),
+        ),
+        style={
+            "display": "flex",
+            "justify_content": "space-between",
+            "align_items": "baseline",
+            "width": "100%",
+            "margin_bottom": "0.8em",
+        },
+    )
 
-def _landing_content() -> rx.Component:
-    """Stats, genres, countries, years, newsletter — the default view."""
+
+def _browse_sections() -> rx.Component:
     return rx.vstack(
-        # Stats banner — skeleton until stats loaded
         rx.cond(
-            MetalArchiveState.stats_loaded,
-            _stats_banner(),
-            _stats_skeleton(),
-        ),
-        # Explorar por genero — skeleton until genres loaded
-        rx.cond(
-            MetalArchiveState.genres_loaded,
-            rx.cond(
-                MetalArchiveState.top_genre_counts.length() > 0,
-                rx.vstack(
-                    _section_header(
-                        "Browse by Genre",
-                        MetalArchiveState.show_all_genres,
-                        MetalArchiveState.toggle_all_genres,
+            MetalArchiveState.top_country_counts.length() > 0,
+            rx.vstack(
+                _section_title("Explorá por país", MA.METAL_ARCHIVE_BROWSE),
+                rx.grid(
+                    rx.foreach(
+                        MetalArchiveState.top_country_counts,
+                        _country_card,
                     ),
-                    rx.grid(
-                        rx.foreach(
-                            MetalArchiveState.visible_genre_counts,
-                            _genre_card,
-                        ),
-                        columns=rx.breakpoints(
-                            initial="2",
-                            sm="3",
-                            md="4",
-                            lg="5",
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    width="100%",
+                    columns=rx.breakpoints(initial="2", sm="3", md="5"),
                     spacing="3",
-                ),
-            ),
-            _genres_skeleton(),
-        ),
-        # Explorar por pais — skeleton until countries loaded
-        rx.cond(
-            MetalArchiveState.countries_loaded,
-            rx.cond(
-                MetalArchiveState.top_country_counts.length() > 0,
-                rx.vstack(
-                    _section_header(
-                        "Browse by Country",
-                        MetalArchiveState.show_all_countries,
-                        MetalArchiveState.toggle_all_countries,
-                    ),
-                    rx.grid(
-                        rx.foreach(
-                            MetalArchiveState.visible_country_counts,
-                            _country_card,
-                        ),
-                        columns=rx.breakpoints(
-                            initial="2",
-                            sm="3",
-                            md="4",
-                            lg="5",
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
                     width="100%",
-                    spacing="3",
                 ),
+                width="100%",
+                spacing="2",
             ),
-            _countries_skeleton(),
         ),
-        # Explorar por ano — skeleton until years loaded
         rx.cond(
-            MetalArchiveState.years_loaded,
-            rx.cond(
-                MetalArchiveState.top_year_counts.length() > 0,
-                rx.vstack(
-                    _section_header(
-                        "Browse by Year",
-                        MetalArchiveState.show_all_years,
-                        MetalArchiveState.toggle_all_years,
+            MetalArchiveState.top_year_counts.length() > 0,
+            rx.vstack(
+                _section_title("Explorá por año", MA.METAL_ARCHIVE_BROWSE),
+                rx.grid(
+                    rx.foreach(
+                        MetalArchiveState.top_year_counts,
+                        _year_card,
                     ),
-                    rx.grid(
-                        rx.foreach(
-                            MetalArchiveState.visible_year_counts,
-                            _year_card,
-                        ),
-                        columns=rx.breakpoints(
-                            initial="3",
-                            sm="4",
-                            md="5",
-                            lg="6",
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    width="100%",
+                    columns=rx.breakpoints(initial="3", sm="4", md="6"),
                     spacing="3",
+                    width="100%",
                 ),
+                width="100%",
+                spacing="2",
             ),
-            _years_skeleton(),
         ),
-        # Browse link
-        rx.center(
-            rx.link(
-                rx.button(
-                    "Explore the full archive",
-                    background=Color.PRIMARY.value,
-                    color=TextColor.HEADER.value,
-                    padding_x="2em",
-                    padding_y="0.8em",
-                    border_radius="0.5em",
-                    font_size="1.1em",
-                    cursor="pointer",
-                    _hover={"opacity": "0.85"},
-                ),
-                href=MA.METAL_ARCHIVE_BROWSE,
+        width="100%",
+        spacing="5",
+    )
+
+
+# ─── Home content (when not searching) ────────────────────────────────
+
+def _home_content() -> rx.Component:
+    return rx.vstack(
+        rx.cond(
+            MetalArchiveState.home_this_week_albums.length() > 0,
+            album_carousel(
+                "Esta semana en el archivo",
+                MetalArchiveState.home_this_week_albums,
+                see_all_href=MA.METAL_ARCHIVE_BROWSE,
             ),
+            _carousel_skeleton("Esta semana en el archivo"),
+        ),
+        rx.cond(
+            MetalArchiveState.home_editor_picks.length() > 0,
+            album_carousel(
+                "Editor's picks",
+                MetalArchiveState.home_editor_picks,
+                see_all_href=MA.METAL_ARCHIVE_BROWSE,
+            ),
+        ),
+        rx.cond(
+            MetalArchiveState.home_deep_cuts.length() > 0,
+            album_carousel(
+                "Joyas escondidas",
+                MetalArchiveState.home_deep_cuts,
+                see_all_href=MA.METAL_ARCHIVE_BROWSE,
+            ),
+        ),
+        rx.foreach(
+            MetalArchiveState.home_genre_showcases,
+            lambda showcase: album_carousel(
+                showcase["genre"].to(str),
+                showcase["albums"].to(list[dict[str, Any]]),
+                see_all_href=showcase["href"].to(str),
+            ),
+        ),
+        rx.cond(
+            MetalArchiveState.home_country_showcase_albums.length() > 0,
+            album_carousel(
+                MetalArchiveState.home_country_showcase_title,
+                MetalArchiveState.home_country_showcase_albums,
+                see_all_href=MetalArchiveState.home_country_showcase_href,
+            ),
+        ),
+        rx.box(
+            _browse_sections(),
             width="100%",
-            padding_y="1em",
+            padding_top="1.5em",
+            border_top="1px solid " + Color.SECONDARY.value,
+            margin_top="1em",
         ),
-        # Subscribe to YouTube
         rx.center(
             rx.link(
                 rx.button(
-                    rx.icon("youtube", size=20),
-                    "Subscribe to the channel",
+                    icons.icon_youtube(size=20),
+                    "Suscribite al canal",
                     background="#FF0000",
                     color="white",
                     padding_x="2em",
@@ -417,33 +529,7 @@ def _landing_content() -> rx.Component:
             padding_y="2em",
         ),
         width="100%",
-        spacing="5",
-    )
-
-
-# ─── Search results (shown when typing) ──────────────────────────────
-
-def _search_results() -> rx.Component:
-    """Album grid replacing all landing content while searching."""
-    return rx.vstack(
-        rx.hstack(
-            rx.heading(
-                "Search results",
-                font_size=Size.LARGE.value,
-                color=TextColor.HEADER.value,
-            ),
-            rx.spacer(),
-            rx.text(
-                MetalArchiveState.live_search_results.length().to(str) + " results",
-                font_size=Size.MEDIUM.value,
-                color=TextColor.BODY.value,
-            ),
-            width="100%",
-            align_items="baseline",
-        ),
-        album_grid(MetalArchiveState.live_search_results, show_load_more=False),
-        width="100%",
-        spacing="4",
+        spacing="6",
     )
 
 
@@ -451,59 +537,67 @@ def _search_results() -> rx.Component:
 
 def landing_page() -> rx.Component:
     return rx.box(
+        rx.el.style(_HOME_CSS),
         metal_navbar(),
-        # Hero section (always visible)
         rx.box(
             rx.center(
-                rx.vstack(
-                    rx.heading(
-                        "Metal Archive",
-                        font_size="2.5em",
-                        color=TextColor.HEADER.value,
-                    ),
-                    rx.text(
-                        "Explore underground metal albums, bands, playlists, and full videos by genre, country, and format.",
-                        color=TextColor.BODY.value,
-                        font_size="1.1em",
-                        text_align="center",
-                    ),
-                    # Search input (always visible)
+                rx.box(
                     rx.debounce_input(
                         rx.input(
-                            placeholder="Search bands, albums, genres...",
+                            placeholder="Buscar bandas, álbumes, géneros...",
                             value=MetalArchiveState.live_search_query,
                             on_change=MetalArchiveState.on_live_search,
                             style=search_input_style,
                             size="3",
                             width="100%",
-                            max_width="600px",
                         ),
                         debounce_timeout=300,
                     ),
-                    spacing="4",
-                    align_items="center",
-                    max_width=METAL_ARCHIVE_MAX_WIDTH,
+                    max_width="600px",
                     width="100%",
                 ),
             ),
-            style=metal_hero_style,
+            padding_x=Size.BIG.value,
+            padding_y=Size.DEFAULT.value,
+            background=Color.CONTENT.value,
+            border_bottom="1px solid " + Color.SECONDARY.value,
+            width="100%",
         ),
-        # Content area: search results or landing content
-        rx.center(
-            rx.box(
-                rx.cond(
-                    MetalArchiveState.live_search_open,
+        rx.cond(
+            MetalArchiveState.live_search_open,
+            rx.center(
+                rx.box(
                     _search_results(),
-                    rx.cond(
-                        MetalArchiveState.stats_loaded & (MetalArchiveState.total_albums == 0),
-                        _empty_state(),
-                        _landing_content(),
-                    ),
+                    max_width=METAL_ARCHIVE_MAX_WIDTH,
+                    width="100%",
+                    padding_x=Size.BIG.value,
+                    padding_y=Size.BIG.value,
                 ),
-                max_width=METAL_ARCHIVE_MAX_WIDTH,
-                width="100%",
-                padding_x=Size.BIG.value,
-                padding_y=Size.BIG.value,
+            ),
+            rx.cond(
+                MetalArchiveState.stats_loaded
+                & (MetalArchiveState.total_albums == 0),
+                _empty_state(),
+                rx.box(
+                    rx.cond(
+                        MetalArchiveState.home_featured_album.contains("id"),
+                        _featured_hero(),
+                        _hero_skeleton(),
+                    ),
+                    rx.center(
+                        rx.box(
+                            _home_content(),
+                            max_width=ALBUM_DETAIL_MAX_WIDTH,
+                            width="100%",
+                            padding_x=rx.breakpoints(
+                                initial="1.2em", md="2.5em", lg="3em"
+                            ),
+                            padding_top="2em",
+                            padding_bottom="2em",
+                        ),
+                    ),
+                    width="100%",
+                ),
             ),
         ),
         footer(),
