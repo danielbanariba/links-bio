@@ -11,5 +11,7 @@ config = rx.Config(
         "https://danielbanariba.com",
         "https://www.danielbanariba.com",
         "https://app.danielbanariba.com",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
     ],
 )

@@ -1,12 +1,13 @@
 import reflex as rx
 from links_bio.styles.colors import Color, TextColor
 from links_bio.states.metal_archive_state import MetalArchiveState
+from links_bio.components import icons
 
 
 def filter_bar() -> rx.Component:
     return rx.hstack(
         rx.button(
-            rx.icon("dice-5", size=18),
+            icons.icon_dice_5(size=18),
             "Random",
             on_click=MetalArchiveState.random_filters,
             variant="outline",

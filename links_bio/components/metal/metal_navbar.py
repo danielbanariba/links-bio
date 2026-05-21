@@ -2,7 +2,9 @@ import reflex as rx
 from links_bio.styles.styles import Size
 from links_bio.styles.colors import Color, TextColor, LogoColor
 from links_bio.styles.fonts import Font, FontWeight
+from links_bio.states.metal_archive_state import MetalArchiveState
 import links_bio.constants.metal_archive as MA
+from links_bio.components import icons
 
 
 def metal_navbar() -> rx.Component:
@@ -38,13 +40,37 @@ def metal_navbar() -> rx.Component:
                 font_size=Size.MEDIUM.value,
             ),
             rx.link(
-                "Submit music",
+                "Submit",
                 href=MA.METAL_ARCHIVE_PROMO,
                 color=TextColor.BODY.value,
                 _hover={"color": Color.PRIMARY.value},
                 font_size=Size.MEDIUM.value,
+                white_space="nowrap",
             ),
-            spacing="4",
+            rx.button(
+                icons.icon_dices(size=16),
+                rx.tablet_and_desktop(rx.text("Sorpréndeme", as_="span")),
+                on_click=MetalArchiveState.surprise_me,
+                background="transparent",
+                color=TextColor.HEADER.value,
+                border=f"1px solid {Color.PRIMARY.value}",
+                border_radius="2px",
+                padding_x=rx.breakpoints(initial="0.55em", md="0.9em"),
+                padding_y="0.5em",
+                font_size="0.85em",
+                font_weight="600",
+                letter_spacing="0.03em",
+                cursor="pointer",
+                gap="0.4em",
+                white_space="nowrap",
+                flex_shrink="0",
+                _hover={"background": Color.PRIMARY.value, "color": "white"},
+                transition="background 0.18s ease, color 0.18s ease",
+                aria_label="Sorpréndeme",
+            ),
+            spacing=rx.breakpoints(initial="2", md="4"),
+            align_items="center",
+            flex_wrap="nowrap",
         ),
         position="sticky",
         top="0",
