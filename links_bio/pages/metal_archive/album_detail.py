@@ -57,6 +57,24 @@ body {
 .track-active-icon { display: none; font-size: 0.9em; }
 #mini-player.expanded { width: 480px; height: 270px; }
 #mini-player iframe { border: 0; pointer-events: none; }
+#mini-player { position: relative; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.15); border-top-color: var(--album-color, """ + Color.PRIMARY.value + """); border-radius: 50%; animation: mp-spin 0.8s linear infinite; }
+.mp-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
+.mp-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.6em;
+  background: #000;
+  z-index: 2;
+}
+@keyframes mp-progress-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+#now-playing-progress.np-loading { animation: mp-progress-pulse 1s ease-in-out infinite; }
 @media (max-width: 767px) {
   #mini-player { display: none !important; }
   .now-playing-right { display: none !important; }
@@ -80,11 +98,65 @@ _PLAYER_JS = """
   var DEFAULT_HERO_GRADIENT =
     'linear-gradient(180deg, """ + Color.SECONDARY.value + """ 0%, """ + Color.SECONDARY.value + """80 35%, """ + Color.BACKGROUND.value + """ 100%)';
 
+  // --- mini-player overlay helpers (loader / error / timeout) ---
+  function mpShow(id) {
+    var n = document.getElementById(id);
+    if (n) n.style.display = 'flex';
+  }
+  function mpHide(id) {
+    var n = document.getElementById(id);
+    if (n) n.style.display = 'none';
+  }
+  function mpHideAllOverlays() {
+    mpHide('mini-player-loader');
+    mpHide('mini-player-error');
+    mpHide('mini-player-timeout');
+  }
+  // Toggle the now-playing button between glyph and spinner without wiping
+  // either span (a direct textContent on the button would remove both).
+  function npSetGlyph(ch) {
+    var g = document.getElementById('now-playing-toggle-glyph');
+    var sp = document.getElementById('now-playing-toggle-spinner');
+    if (g) { g.textContent = ch; g.style.display = ''; }
+    if (sp) sp.style.display = 'none';
+  }
+  function npSetBuffering() {
+    var g = document.getElementById('now-playing-toggle-glyph');
+    var sp = document.getElementById('now-playing-toggle-spinner');
+    if (g) g.style.display = 'none';
+    if (sp) sp.style.display = 'block';
+    var prog = document.getElementById('now-playing-progress');
+    if (prog) prog.classList.add('np-loading');
+  }
+  function npClearBuffering() {
+    var prog = document.getElementById('now-playing-progress');
+    if (prog) prog.classList.remove('np-loading');
+  }
+
+  // Timeout fallback: if the IFrame API script never makes YT.Player available
+  // within 8s (slow/saturated network), show the retry message.
+  var apiTimeoutId = null;
+  function clearApiTimeout() {
+    if (apiTimeoutId) { clearTimeout(apiTimeoutId); apiTimeoutId = null; }
+  }
+  function armApiTimeout() {
+    clearApiTimeout();
+    if (window.YT && window.YT.Player) return;
+    apiTimeoutId = setTimeout(function() {
+      if (window.YT && window.YT.Player) return;
+      mpHide('mini-player-loader');
+      mpShow('mini-player-timeout');
+    }, 8000);
+  }
+
   function buildPlayer() {
     var el = document.getElementById('yt-player');
     if (!el) return;
     var vid = el.getAttribute('data-video-id');
     if (!vid || !window.YT || !window.YT.Player) return;
+
+    // API is available now — cancel the slow-network timeout.
+    clearApiTimeout();
 
     if (el.querySelector('iframe')) {
       if (window.metalPlayer && typeof window.metalPlayer.cueVideoById === 'function') {
@@ -114,18 +186,51 @@ _PLAYER_JS = """
         enablejsapi: 1
       },
       events: {
+        onReady: function() {
+          mpHideAllOverlays();
+        },
+        onError: function(e) {
+          // 2 invalid param, 5 HTML5 error, 100 removed/private,
+          // 101/150 embedding disabled. Any of these = unplayable here.
+          mpHide('mini-player-loader');
+          mpHide('mini-player-timeout');
+          mpShow('mini-player-error');
+          npClearBuffering();
+          npSetGlyph('▶');
+        },
         onStateChange: function(e) {
-          var btn = document.getElementById('now-playing-toggle');
-          if (!btn) return;
-          if (e.data === 1) { btn.textContent = '⏸'; }
-          else if (e.data === 2 || e.data === 0) { btn.textContent = '▶'; }
+          // A healthy state on a reused player (album navigation) clears any
+          // stale error/timeout overlay from a previous video.
+          if (e.data === 1 || e.data === 3) {
+            mpHide('mini-player-error');
+            mpHide('mini-player-timeout');
+          }
+          if (e.data === 3) { npSetBuffering(); return; }
+          npClearBuffering();
+          if (e.data === 1) { npSetGlyph('⏸'); }
+          else if (e.data === 2 || e.data === 0) { npSetGlyph('▶'); }
         }
       }
     });
   }
 
-  window.onYouTubeIframeAPIReady = buildPlayer;
+  window.metalRetryPlayer = function() {
+    mpHide('mini-player-timeout');
+    mpHide('mini-player-error');
+    mpShow('mini-player-loader');
+    if (window.YT && window.YT.Player) { buildPlayer(); return; }
+    // Re-inject the API script in case the first load failed, then re-arm.
+    var existing = document.querySelector('script[src*="youtube.com/iframe_api"]');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    var s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+    armApiTimeout();
+  };
+
+  window.onYouTubeIframeAPIReady = function() { clearApiTimeout(); buildPlayer(); };
   if (window.YT && window.YT.Player) buildPlayer();
+  else armApiTimeout();
 
   var ytObserver = new MutationObserver(function() { buildPlayer(); });
   ytObserver.observe(document.body, { childList: true, subtree: true });
@@ -230,6 +335,10 @@ _PLAYER_JS = """
   setTimeout(function(){ tryVibrant(20); }, 100);
 
   document.addEventListener('click', function(e) {
+    // Retry sits inside #mini-player (data-mini-toggle); handle it first and
+    // stop so the click doesn't also resize the player.
+    var retry = e.target.closest && e.target.closest('[data-mp-retry]');
+    if (retry) { e.stopPropagation(); window.metalRetryPlayer(); return; }
     var row = e.target.closest && e.target.closest('[data-track-idx]');
     if (row) { window.playTrackAt(row); return; }
     var play = e.target.closest && e.target.closest('[data-play-album]');
@@ -575,6 +684,62 @@ def _more_to_explore_section() -> rx.Component:
     )
 
 
+def _skeleton_box(**kw) -> rx.Component:
+    return rx.box(
+        background=Color.CONTENT.value,
+        opacity="0.5",
+        class_name="animate-pulse",
+        border_radius="2px",
+        **kw,
+    )
+
+
+def _album_skeleton() -> rx.Component:
+    return rx.box(
+        rx.el.div(
+            rx.el.div(
+                _skeleton_box(
+                    width=rx.breakpoints(initial="180px", md="280px"),
+                    height=rx.breakpoints(initial="180px", md="280px"),
+                ),
+                rx.vstack(
+                    _skeleton_box(width="120px", height="14px"),
+                    _skeleton_box(width="70%", height="48px"),
+                    _skeleton_box(width="50%", height="20px"),
+                    _skeleton_box(width="160px", height="40px", margin_top="0.6em"),
+                    spacing="3",
+                    align_items="flex-start",
+                    flex="1",
+                ),
+                style={
+                    "display": "flex",
+                    "flex_direction": rx.breakpoints(initial="column", md="row"),
+                    "align_items": rx.breakpoints(initial="center", md="flex-end"),
+                    "gap": rx.breakpoints(initial="1.2em", md="1.8em"),
+                    "width": "100%",
+                },
+            ),
+            style={
+                **hero_inner_style,
+                "padding_top": rx.breakpoints(initial="2em", md="3em"),
+                "padding_bottom": rx.breakpoints(initial="2em", md="3em"),
+            },
+        ),
+        rx.center(
+            rx.el.div(class_name="mp-spinner"),
+            rx.text(
+                "Cargando álbum...",
+                color=TextColor.FOOTER.value,
+                font_size="0.85em",
+                margin_top="0.8em",
+            ),
+            flex_direction="column",
+            padding_y="3em",
+        ),
+        width="100%",
+    )
+
+
 def album_detail_page() -> rx.Component:
     album = MetalArchiveState.current_album
     artwork = rx.cond(
@@ -612,20 +777,25 @@ def album_detail_page() -> rx.Component:
                         "width": "100%",
                     },
                 ),
-                mini_player(album["youtube_video_id"]),
+                mini_player(album["youtube_video_id"], album["youtube_url"]),
                 now_playing_bar(album),
                 rx.script(src="https://www.youtube.com/iframe_api"),
                 rx.script(src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"),
                 rx.script(_PLAYER_JS),
                 width="100%",
             ),
-            rx.center(
-                rx.text(
-                    "Álbum no encontrado.",
-                    color=TextColor.BODY.value,
-                    font_size="1.2em",
+            rx.cond(
+                MetalArchiveState.is_loading
+                | ~MetalArchiveState.album_detail_attempted,
+                _album_skeleton(),
+                rx.center(
+                    rx.text(
+                        "Álbum no encontrado.",
+                        color=TextColor.BODY.value,
+                        font_size="1.2em",
+                    ),
+                    padding_y="5em",
                 ),
-                padding_y="5em",
             ),
         ),
         footer(),

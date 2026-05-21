@@ -22,6 +22,8 @@ CAROUSEL_CSS = """
     -ms-overflow-style: none;
     padding: 0.4em 0.4em 0.8em 0.4em;
     margin: -0.4em -0.4em 0 -0.4em;
+    /* isolate carousel layout/style so internal changes don't reflow the page */
+    contain: layout style;
 }
 .album-carousel::-webkit-scrollbar { display: none; }
 .album-carousel-card {
@@ -148,6 +150,8 @@ def _carousel_card(album: dict) -> rx.Component:
                 src=artwork,
                 alt=album["album_title"],
                 loading="lazy",
+                # async decode keeps image decoding off the main thread (paint stays responsive)
+                custom_attrs={"decoding": "async"},
                 class_name="album-carousel-cover",
             ),
             rx.el.div("▶", class_name="album-carousel-play"),

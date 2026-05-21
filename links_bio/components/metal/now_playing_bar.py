@@ -95,7 +95,17 @@ def now_playing_bar(album: rx.Var) -> rx.Component:
                 },
             ),
             rx.el.button(
-                "▶",
+                # Glyph + spinner are siblings; JS toggles which is visible so the
+                # buffering state (IFrame state 3) shows a spinner, not a frozen icon.
+                rx.el.span(
+                    "▶",
+                    id="now-playing-toggle-glyph",
+                ),
+                rx.el.span(
+                    id="now-playing-toggle-spinner",
+                    class_name="mp-spinner mp-spinner-sm",
+                    style={"display": "none"},
+                ),
                 id="now-playing-toggle",
                 custom_attrs={
                     "aria-label": "Reproducir / pausar",

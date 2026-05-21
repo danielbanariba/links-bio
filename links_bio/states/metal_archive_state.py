@@ -163,10 +163,6 @@ class MetalArchiveState(rx.State):
 
     # Home (Spotify-style) layout
     home_featured_album: dict[str, Any] = {}
-    home_recent_albums: list[dict[str, Any]] = []
-    home_trending_albums: list[dict[str, Any]] = []
-    home_genre_showcase: list[dict[str, Any]] = []
-    home_genre_showcase_label: str = ""
     home_genre_showcases: list[dict[str, Any]] = []
     home_loaded: bool = False
 
@@ -198,6 +194,7 @@ class MetalArchiveState(rx.State):
     similar_albums: list[dict] = []
     more_to_explore: list[dict] = []
     current_track_idx: int = -1
+    album_detail_attempted: bool = False
 
     # Filter options (populated from DB)
     available_genres: list[str] = []
@@ -254,6 +251,26 @@ class MetalArchiveState(rx.State):
             "duration_minutes": album.duration_minutes or 0,
             "views": album.views,
             "featured": album.featured,
+        }
+
+    def _album_to_card_dict(self, album: Album) -> dict:
+        # Slim payload for carousel/grid cards — only the 7 fields the card
+        # components read. Cuts WS hydration cost vs. the 22-field full dict.
+        artwork = album.album_artwork_url or ""
+        thumb = (
+            artwork
+            .replace("maxresdefault", "mqdefault")
+            .replace("hqdefault", "mqdefault")
+            .replace("sddefault", "mqdefault")
+        )
+        return {
+            "id": album.id,
+            "band_name": album.band_name,
+            "album_title": album.album_title,
+            "album_artwork_thumb": thumb,
+            "album_artwork_url": artwork,
+            "genre": album.genre,
+            "year": album.year,
         }
 
     def _load_filter_options(self, session, force: bool = False):
@@ -471,7 +488,7 @@ class MetalArchiveState(rx.State):
                 .order_by(col(Album.views).desc())
                 .limit(8)
             ).all()
-            self.live_search_results = [self._album_to_dict(a) for a in results]
+            self.live_search_results = [self._album_to_card_dict(a) for a in results]
 
     @rx.event
     def close_live_search(self):
@@ -501,22 +518,12 @@ class MetalArchiveState(rx.State):
                     self._album_to_dict(featured) if featured else {}
                 )
 
-                recents = session.exec(
-                    select(Album).order_by(col(Album.upload_date).desc()).limit(8)
-                ).all()
-                self.home_recent_albums = [self._album_to_dict(a) for a in recents]
-
-                trending = session.exec(
-                    select(Album).order_by(col(Album.views).desc()).limit(8)
-                ).all()
-                self.home_trending_albums = [self._album_to_dict(a) for a in trending]
-
                 top_genres = session.exec(
                     select(Album.genre, func.count(Album.id).label("c"))
                     .where(Album.genre != "")
                     .group_by(Album.genre)
                     .order_by(func.count(Album.id).desc())
-                    .limit(5)
+                    .limit(3)
                 ).all()
                 showcases: list[dict] = []
                 for row in top_genres:
@@ -530,15 +537,9 @@ class MetalArchiveState(rx.State):
                     showcases.append({
                         "genre": genre_name,
                         "href": f"/metal-archive/browse?genre={genre_name}",
-                        "albums": [self._album_to_dict(a) for a in genre_albums],
+                        "albums": [self._album_to_card_dict(a) for a in genre_albums],
                     })
                 self.home_genre_showcases = showcases
-                if showcases:
-                    self.home_genre_showcase_label = showcases[0]["genre"]
-                    self.home_genre_showcase = showcases[0]["albums"]
-                else:
-                    self.home_genre_showcase_label = ""
-                    self.home_genre_showcase = []
 
                 # Esta semana en el archivo (last 7 days, fallback to last 30)
                 this_week_albums = session.exec(
@@ -555,7 +556,7 @@ class MetalArchiveState(rx.State):
                         .limit(8)
                     ).all()
                 self.home_this_week_albums = [
-                    {**self._album_to_dict(a), "relative_time": _relative_time(a.upload_date)}
+                    {**self._album_to_card_dict(a), "relative_time": _relative_time(a.upload_date)}
                     for a in this_week_albums
                 ]
 
@@ -566,7 +567,7 @@ class MetalArchiveState(rx.State):
                     .order_by(col(Album.upload_date).desc())
                     .limit(8)
                 ).all()
-                self.home_editor_picks = [self._album_to_dict(a) for a in editor_picks]
+                self.home_editor_picks = [self._album_to_card_dict(a) for a in editor_picks]
 
                 # Deep cuts: featured + low views (below median, fallback to <100)
                 median_views_row = session.exec(
@@ -594,7 +595,7 @@ class MetalArchiveState(rx.State):
                         .order_by(func.random())
                         .limit(8)
                     ).all()
-                self.home_deep_cuts = [self._album_to_dict(a) for a in deep_cuts]
+                self.home_deep_cuts = [self._album_to_card_dict(a) for a in deep_cuts]
 
                 # Volá a {país} — random country with >=5 albums
                 countries_with_counts = session.exec(
@@ -615,7 +616,7 @@ class MetalArchiveState(rx.State):
                     self.home_country_showcase_country = chosen_country
                     self.home_country_showcase_flag = COUNTRY_FLAGS.get(chosen_country, "")
                     self.home_country_showcase_albums = [
-                        self._album_to_dict(a) for a in country_albums
+                        self._album_to_card_dict(a) for a in country_albums
                     ]
                 else:
                     self.home_country_showcase_country = ""
@@ -625,12 +626,6 @@ class MetalArchiveState(rx.State):
             pass
         finally:
             self.home_loaded = True
-
-    @rx.var
-    def home_genre_showcase_href(self) -> str:
-        if self.home_genre_showcase_label:
-            return f"/metal-archive/browse?genre={self.home_genre_showcase_label}"
-        return "/metal-archive/browse"
 
     @rx.var
     def home_country_showcase_title(self) -> str:
@@ -715,6 +710,7 @@ class MetalArchiveState(rx.State):
     @rx.event
     def load_album_detail(self):
         self.is_loading = True
+        self.album_detail_attempted = False
         try:
             album_id_str = self.router.page.params.get("id", "")
             if not album_id_str:
@@ -776,7 +772,7 @@ class MetalArchiveState(rx.State):
                     .order_by(col(Album.views).desc())
                     .limit(8)
                 ).all()
-                self.similar_albums = [self._album_to_dict(a) for a in similar_albums]
+                self.similar_albums = [self._album_to_card_dict(a) for a in similar_albums]
 
                 similar_ids = {a.id for a in similar_albums}
                 similar_ids.add(album_id)
@@ -794,11 +790,12 @@ class MetalArchiveState(rx.State):
                         .order_by(func.random())
                         .limit(8)
                     ).all()
-                self.more_to_explore = [self._album_to_dict(a) for a in more]
+                self.more_to_explore = [self._album_to_card_dict(a) for a in more]
         except Exception:
             pass
         finally:
             self.is_loading = False
+            self.album_detail_attempted = True
 
     @rx.event
     def select_track(self, idx: int):
