@@ -53,6 +53,8 @@ html, body { overflow-x: hidden; }
 }
 #metal-home-hero > * { position: relative; z-index: 1; }
 .home-section-divider { border-top: 1px solid """ + Color.SECONDARY.value + """; }
+/* skip render/layout/paint of below-the-fold sections until scrolled near */
+.home-defer { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 """ + CAROUSEL_CSS
 
 
@@ -469,36 +471,54 @@ def _home_content() -> rx.Component:
             ),
             _carousel_skeleton("Esta semana en el archivo"),
         ),
+        # below-the-fold sections wrapped in .home-defer so the browser skips
+        # their layout/paint/image-decode until the user scrolls near them
         rx.cond(
             MetalArchiveState.home_editor_picks.length() > 0,
-            album_carousel(
-                "Editor's picks",
-                MetalArchiveState.home_editor_picks,
-                see_all_href=MA.METAL_ARCHIVE_BROWSE,
+            rx.el.div(
+                album_carousel(
+                    "Editor's picks",
+                    MetalArchiveState.home_editor_picks,
+                    see_all_href=MA.METAL_ARCHIVE_BROWSE,
+                ),
+                class_name="home-defer",
+                style={"width": "100%"},
             ),
         ),
         rx.cond(
             MetalArchiveState.home_deep_cuts.length() > 0,
-            album_carousel(
-                "Joyas escondidas",
-                MetalArchiveState.home_deep_cuts,
-                see_all_href=MA.METAL_ARCHIVE_BROWSE,
+            rx.el.div(
+                album_carousel(
+                    "Joyas escondidas",
+                    MetalArchiveState.home_deep_cuts,
+                    see_all_href=MA.METAL_ARCHIVE_BROWSE,
+                ),
+                class_name="home-defer",
+                style={"width": "100%"},
             ),
         ),
         rx.foreach(
             MetalArchiveState.home_genre_showcases,
-            lambda showcase: album_carousel(
-                showcase["genre"].to(str),
-                showcase["albums"].to(list[dict[str, Any]]),
-                see_all_href=showcase["href"].to(str),
+            lambda showcase: rx.el.div(
+                album_carousel(
+                    showcase["genre"].to(str),
+                    showcase["albums"].to(list[dict[str, Any]]),
+                    see_all_href=showcase["href"].to(str),
+                ),
+                class_name="home-defer",
+                style={"width": "100%"},
             ),
         ),
         rx.cond(
             MetalArchiveState.home_country_showcase_albums.length() > 0,
-            album_carousel(
-                MetalArchiveState.home_country_showcase_title,
-                MetalArchiveState.home_country_showcase_albums,
-                see_all_href=MetalArchiveState.home_country_showcase_href,
+            rx.el.div(
+                album_carousel(
+                    MetalArchiveState.home_country_showcase_title,
+                    MetalArchiveState.home_country_showcase_albums,
+                    see_all_href=MetalArchiveState.home_country_showcase_href,
+                ),
+                class_name="home-defer",
+                style={"width": "100%"},
             ),
         ),
         rx.box(
@@ -507,6 +527,7 @@ def _home_content() -> rx.Component:
             padding_top="1.5em",
             border_top="1px solid " + Color.SECONDARY.value,
             margin_top="1em",
+            class_name="home-defer",
         ),
         rx.center(
             rx.link(
