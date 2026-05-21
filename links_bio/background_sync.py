@@ -43,8 +43,8 @@ _sync_count = 0
 def _run_sync_cycle():
     """Ejecuta un ciclo de sync: YouTube -> DB, luego artwork desde DeathGrind."""
     try:
-        from links_bio.youtube_auth import authenticate_from_env
-        youtube_client = authenticate_from_env()
+        from links_bio.youtube_auth import authenticate_auto
+        youtube_client = authenticate_auto()
     except Exception as e:
         _log(f"Error de autenticacion: {e}")
         traceback.print_exc()
@@ -239,14 +239,18 @@ def start_background_sync():
     if _started:
         return
 
-    # Verificar credenciales de YouTube
+    # Verificar credenciales de YouTube (API Key o OAuth)
+    api_key = os.environ.get("YOUTUBE_API_KEY")
     refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
-    if not refresh_token:
-        _log("YOUTUBE_REFRESH_TOKEN no configurado. Background sync desactivado.")
+    if not api_key and not refresh_token:
+        _log("YOUTUBE_API_KEY ni YOUTUBE_REFRESH_TOKEN configurados. Background sync desactivado.")
         # Log all env var keys for debugging (no values for security)
         env_keys = sorted([k for k in os.environ.keys() if "YOUTUBE" in k.upper() or "GMAIL" in k.upper()])
         _log(f"Env vars relevantes encontradas: {env_keys if env_keys else 'ninguna'}")
         return
+
+    auth_mode = "API Key" if api_key else "OAuth refresh token"
+    _log(f"Background sync se autenticara via {auth_mode}.")
 
     _started = True
     _sync_thread = threading.Thread(target=_sync_loop, daemon=True, name="youtube-sync")
