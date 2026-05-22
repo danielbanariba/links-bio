@@ -1,0 +1,56 @@
+---
+// Year values are integers — no slug transform needed.
+// year param is a string in the URL; convert to number for DB query.
+import { getAllYears, getAlbumsByYear } from '../../../lib/db.js';
+import AlbumCard from '../../../components/AlbumCard.astro';
+import Navbar from '../../../components/Navbar.astro';
+import Footer from '../../../components/Footer.astro';
+import '../../../styles/global.css';
+
+export function getStaticPaths() {
+  const years = getAllYears();
+  return years.map((facet) => ({
+    params: { year: String(facet.value) },
+    props: { year: facet.value as number, count: facet.count },
+  }));
+}
+
+interface Props {
+  year: number;
+  count: number;
+}
+
+const { year, count } = Astro.props;
+const albums = getAlbumsByYear(year);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{year} — Metal Archive</title>
+    <meta name="description" content={`${count} albums from ${year} in the Metal Archive.`} />
+  </head>
+  <body>
+    <Navbar />
+
+    <main class="wrap" style="padding-top: 2rem;">
+      <header style="margin-bottom: 1.5rem;">
+        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">{year}</h1>
+        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
+          {count} {count === 1 ? 'album' : 'albums'}
+        </p>
+      </header>
+
+      {albums.length > 0
+        ? <div class="album-grid">
+            {albums.map((album) => <AlbumCard album={album} />)}
+          </div>
+        : <p style="color: var(--text-footer);">No albums from this year.</p>
+      }
+    </main>
+
+    <Footer />
+  </body>
+</html>

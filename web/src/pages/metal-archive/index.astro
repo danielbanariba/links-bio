@@ -1,0 +1,282 @@
+---
+// Phase 2: Full Metal Archive home page.
+// Replaces the Phase 0 placeholder with all sections matching the Reflex landing.
+import {
+  getFeaturedAlbum,
+  getEditorPicks,
+  getHiddenGems,
+  getGenreShowcases,
+  getCountryRotation,
+  getLiveRecordings,
+  getAllCountries,
+  getAllYears,
+  getAllAlbumIds,
+} from '../../lib/db.js';
+import Navbar from '../../components/Navbar.astro';
+import Footer from '../../components/Footer.astro';
+import Carousel from '../../components/Carousel.astro';
+import AlbumCard from '../../components/AlbumCard.astro';
+import '../../styles/global.css';
+
+// ─── Data queries (all build-time) ───────────────────────────────────────────
+
+// Featured is no longer rendered as a hero on the home (removed per design), but
+// it is still used to source the OG/social image below.
+const featured     = getFeaturedAlbum();
+const editorPicks  = getEditorPicks();
+const hiddenGems   = getHiddenGems();
+const genreShowcases = getGenreShowcases(5);    // top 5 genres by album count
+const countryRotation = getCountryRotation(6);  // 6 random countries with a sample album each
+const liveRecordings  = getLiveRecordings(12);  // Daniel's own live sets — own section
+const allCountries = getAllCountries();           // all distinct countries + counts
+const allYears     = getAllYears();               // all distinct years + counts
+const allAlbumIds  = getAllAlbumIds();            // for Surprise Me random pick
+
+// ─── Slug helper (matches genre/[genre].astro and country/[country].astro) ───
+// Defined here in frontmatter scope — this is fine because we don't use it
+// inside getStaticPaths (this is the index, not a dynamic route).
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+// ─── Country flag lookup (same map as country/[country].astro) ────────────────
+const COUNTRY_FLAGS: Record<string, string> = {
+  "Alemania": "🇩🇪", "Arabia Saudita": "🇸🇦", "Argelia": "🇩🇿", "Argentina": "🇦🇷",
+  "Armenia": "🇦🇲", "Australia": "🇦🇺", "Austria": "🇦🇹", "Azerbaiyan": "🇦🇿",
+  "Bangladesh": "🇧🇩", "Belgica": "🇧🇪", "Bielorrusia": "🇧🇾", "Bolivia": "🇧🇴",
+  "Bosnia": "🇧🇦", "Brasil": "🇧🇷", "Bulgaria": "🇧🇬", "Canada": "🇨🇦",
+  "Chile": "🇨🇱", "China": "🇨🇳", "Colombia": "🇨🇴", "Corea del Sur": "🇰🇷",
+  "Costa Rica": "🇨🇷", "Croacia": "🇭🇷", "Cuba": "🇨🇺", "Dinamarca": "🇩🇰",
+  "Ecuador": "🇪🇨", "Egipto": "🇪🇬", "El Salvador": "🇸🇻", "Eslovaquia": "🇸🇰",
+  "Eslovenia": "🇸🇮", "Espana": "🇪🇸", "Estados Unidos": "🇺🇸", "Estonia": "🇪🇪",
+  "Filipinas": "🇵🇭", "Finlandia": "🇫🇮", "Francia": "🇫🇷", "Georgia": "🇬🇪",
+  "Grecia": "🇬🇷", "Guatemala": "🇬🇹", "Honduras": "🇭🇳", "Hungria": "🇭🇺",
+  "India": "🇮🇳", "Indonesia": "🇮🇩", "Irak": "🇮🇶", "Iran": "🇮🇷",
+  "Irlanda": "🇮🇪", "Islandia": "🇮🇸", "Israel": "🇮🇱", "Italia": "🇮🇹",
+  "Jamaica": "🇯🇲", "Japon": "🇯🇵", "Kazajistan": "🇰🇿", "Kenia": "🇰🇪",
+  "Letonia": "🇱🇻", "Libano": "🇱🇧", "Lituania": "🇱🇹", "Luxemburgo": "🇱🇺",
+  "Malasia": "🇲🇾", "Marruecos": "🇲🇦", "Mexico": "🇲🇽", "Mongolia": "🇲🇳",
+  "Myanmar": "🇲🇲", "Nepal": "🇳🇵", "Nicaragua": "🇳🇮", "Nigeria": "🇳🇬",
+  "Noruega": "🇳🇴", "Nueva Zelanda": "🇳🇿", "Paises Bajos": "🇳🇱", "Pakistan": "🇵🇰",
+  "Panama": "🇵🇦", "Paraguay": "🇵🇾", "Peru": "🇵🇪", "Polonia": "🇵🇱",
+  "Portugal": "🇵🇹", "Puerto Rico": "🇵🇷", "Reino Unido": "🇬🇧", "Republica Checa": "🇨🇿",
+  "Republica Dominicana": "🇩🇴", "Rumania": "🇷🇴", "Rusia": "🇷🇺", "Serbia": "🇷🇸",
+  "Singapur": "🇸🇬", "Sri Lanka": "🇱🇰", "Sudafrica": "🇿🇦", "Suecia": "🇸🇪",
+  "Suiza": "🇨🇭", "Tailandia": "🇹🇭", "Taiwan": "🇹🇼", "Trinidad y Tobago": "🇹🇹",
+  "Tunez": "🇹🇳", "Turquia": "🇹🇷", "Ucrania": "🇺🇦", "Uruguay": "🇺🇾",
+  "Uzbekistan": "🇺🇿", "Venezuela": "🇻🇪", "Vietnam": "🇻🇳",
+};
+
+// JSON for Surprise Me — inline in the page so no extra fetch is needed.
+const albumIdsJson = JSON.stringify(allAlbumIds);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metal Archive — Underground metal catalog</title>
+    <meta name="description" content="The definitive underground metal archive: death metal, brutal death, grindcore and more. Discover bands from all over the world." />
+    <!-- OG / social meta -->
+    <meta property="og:title" content="Metal Archive — Underground metal catalog" />
+    <meta property="og:description" content="Underground metal catalog: death metal, brutal death, grindcore and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://xeroxunderground.com/metal-archive/" />
+    {featured?.thumb && <meta property="og:image" content={featured.thumb} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Metal Archive" />
+    <meta name="twitter:description" content="Underground metal archive." />
+    {featured?.thumb && <meta name="twitter:image" content={featured.thumb} />}
+    <link rel="canonical" href="https://xeroxunderground.com/metal-archive/" />
+  </head>
+  <body>
+    <Navbar />
+
+    <!-- 0. Home search bar — the #1 discovery entry point. Submits to the browse
+         page, which reads ?q= from the URL and filters the full index. ──────── -->
+    <section class="home-search">
+      <div class="wrap">
+        <form class="home-search__form" action="/metal-archive/browse" method="get" role="search">
+          <svg class="home-search__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            class="home-search__input"
+            type="search"
+            name="q"
+            placeholder="Search bands, albums, genres..."
+            aria-label="Search bands, albums, genres"
+            autocomplete="off"
+          />
+          <button class="home-search__btn" type="submit">Search</button>
+        </form>
+      </div>
+    </section>
+
+    <main>
+      <!-- Featured hero removed by design: the home opens with search, then the
+           gallery sections below. -->
+
+      <div class="wrap home-sections">
+
+        <!-- 2. Editor's Picks — horizontal scroll row (no grid hole) ─────── -->
+        {editorPicks.length > 0 && (
+          <Carousel
+            title="Editor's Picks"
+            albums={editorPicks}
+            href="/metal-archive/browse"
+            layout="scroll"
+            deferred={false}
+          />
+        )}
+
+        <!-- 3. Hidden Gems — horizontal scroll row ──────────────────────── -->
+        {hiddenGems.length > 0 && (
+          <Carousel
+            title="Hidden Gems"
+            albums={hiddenGems}
+            href="/metal-archive/browse"
+            layout="scroll"
+            deferred={true}
+          />
+        )}
+
+        <!-- 5. Genre showcases — horizontal cover rows, one per top genre ── -->
+        {genreShowcases.map((showcase) => (
+          <Carousel
+            title={showcase.genre}
+            albums={showcase.albums}
+            href={`/metal-archive/genre/${slugify(showcase.genre)}`}
+            layout="scroll"
+            deferred={true}
+          />
+        ))}
+
+        <!-- 6. Country rotation "Explore {country}" — cover row ──────────── -->
+        {countryRotation.length > 0 && (
+          <Carousel
+            title={`Explore ${countryRotation[0]?.country ?? 'the world'}`}
+            albums={countryRotation.map((c) => c.album)}
+            layout="scroll"
+            deferred={true}
+          />
+        )}
+
+        <!-- 6b. Live Recordings — Daniel's OWN live sets, kept visually
+             separate from the official-album feeds above. ─────────────────── -->
+        {liveRecordings.length > 0 && (
+          <section class="section carousel-deferred live-section">
+            <div class="section-header">
+              <div class="live-section__heading">
+                <h3>Live Recordings</h3>
+                <span class="live-section__badge">Live sets</span>
+              </div>
+            </div>
+            <p class="live-section__note">
+              Personal live recordings — separate from the official album catalog.
+            </p>
+            <div class="carousel-row">
+              {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
+            </div>
+          </section>
+        )}
+
+        <!-- 7. Browse-by sections ──────────────────────────────────────────── -->
+        <hr class="home-divider" />
+
+        {allCountries.length > 0 && (
+          <section class="carousel-deferred home-browse-by">
+            <div class="section-header">
+              <h3>Browse by Country</h3>
+              <a href="/metal-archive/browse" class="section-header__link">See All →</a>
+            </div>
+            <div class="country-grid">
+              {allCountries.map((facet) => (
+                <a
+                  class="facet-card"
+                  href={`/metal-archive/country/${slugify(facet.value)}`}
+                  title={`${facet.count} albums from ${facet.value}`}
+                >
+                  {COUNTRY_FLAGS[facet.value] && (
+                    <span class="facet-card__flag" aria-hidden="true">
+                      {COUNTRY_FLAGS[facet.value]}
+                    </span>
+                  )}
+                  <span class="facet-card__name">{facet.value}</span>
+                  <span class="facet-card__count">
+                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {allYears.length > 0 && (
+          <section class="carousel-deferred home-browse-by">
+            <div class="section-header">
+              <h3>Browse by Year</h3>
+              <a href="/metal-archive/browse" class="section-header__link">See All →</a>
+            </div>
+            <div class="year-grid">
+              {allYears.map((facet) => (
+                <a
+                  class="facet-card"
+                  href={`/metal-archive/year/${facet.value}`}
+                  title={`${facet.count} albums from ${facet.value}`}
+                >
+                  <span class="facet-card__name">{facet.value}</span>
+                  <span class="facet-card__count">
+                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <!-- 8. Surprise Me button ─────────────────────────────────────────── -->
+        <div class="home-cta-row">
+          <button id="btn-random" class="btn-sorprendeme" type="button">
+            Surprise Me
+          </button>
+        </div>
+
+        <!-- Vanilla script: picks a random album ID from the inlined array
+             and navigates to its detail page. Also exposes the id list on
+             window for the navbar Surprise Me button. No framework needed. -->
+        <script define:vars={{ albumIdsJson }}>
+          (function () {
+            var ids = JSON.parse(albumIdsJson);
+            window.__albumIds = ids;
+            document.getElementById('btn-random').addEventListener('click', function () {
+              if (!ids.length) return;
+              var id = ids[Math.floor(Math.random() * ids.length)];
+              window.location.href = '/metal-archive/album/' + id;
+            });
+          })();
+        </script>
+
+        <!-- 9. YouTube CTA ───────────────────────────────────────────────── -->
+        <div class="home-cta-row home-cta-row--tight">
+          <a
+            class="btn-youtube"
+            href="https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q?sub_confirmation=1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Subscribe to the Channel
+          </a>
+        </div>
+
+      </div><!-- /.wrap -->
+    </main>
+
+    <Footer />
+  </body>
+</html>

@@ -97,7 +97,12 @@ app.add_page(
     route=MA.METAL_ARCHIVE_ALBUM,
     title=f"Album | {MA.META_TITLE}",
     description=MA.META_DESCRIPTION,
-    on_load=MetalArchiveState.load_album_detail,
+    # sync_album_player runs after load_album_detail so the new #yt-player DOM
+    # exists; it replaces the removed MutationObserver (Fix #1, anti-freeze).
+    on_load=[
+        MetalArchiveState.load_album_detail,
+        MetalArchiveState.sync_album_player,
+    ],
 )
 app.add_page(
     genre_page,

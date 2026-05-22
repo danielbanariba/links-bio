@@ -1,0 +1,237 @@
+---
+// submit.astro — Submit a band to the Metal Archive
+// POSTs to /api/metal-archive/submit (FastAPI on port 8001, proxied by host)
+import Navbar from '../../components/Navbar.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/global.css';
+
+const GENRES = [
+  "Death Metal", "Black Metal", "Thrash Metal", "Doom Metal",
+  "Grindcore", "Power Metal", "Heavy Metal", "Melodic Death Metal",
+  "Grind/Death Metal", "Punk Rock", "Metalcore", "Progressive Metal",
+  "Folk Metal", "Symphonic Metal", "Sludge Metal", "Stoner Metal",
+  "Speed Metal", "Brutal Death Metal",
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit your Band | Metal Archive</title>
+  <meta name="description" content="Submit your band or album for review and free inclusion in the archive." />
+</head>
+<body class="form-page">
+  <Navbar />
+
+  <main class="form-page__main">
+    <!-- Header -->
+    <div class="form-page__header">
+      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
+      </svg>
+      <h1 class="form-page__title">Submit your Band</h1>
+      <p class="form-page__subtitle">
+        Submit your band or album for review and free inclusion in the archive.
+      </p>
+    </div>
+
+    <!-- Form card -->
+    <div class="form-card" id="form-card">
+      <!-- Success state (hidden by default, shown via JS) -->
+      <div class="form-success" id="success-state" style="display:none">
+        <span class="form-success__icon">&#10004;</span>
+        <h2 class="form-success__title">Band submitted successfully</h2>
+        <p class="form-success__body">
+          We'll review your submission and get back to you soon. Keep an eye on your inbox.
+        </p>
+        <a href="/metal-archive/" class="form-success__back">&#8592; Back to the archive</a>
+      </div>
+
+      <!-- The form -->
+      <form id="submit-form" class="form-stack" novalidate>
+        <!-- Band name + email -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="band_name">
+              Band name <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="band_name" name="band_name" type="text"
+              class="form-input" placeholder="e.g. Blasfemia" required
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="contact_email">
+              Contact email <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="contact_email" name="contact_email" type="email"
+              class="form-input" placeholder="band@email.com" required
+            />
+          </div>
+        </div>
+
+        <!-- Genre + Country -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="genre">
+              Genre <span class="form-label__required">*</span>
+            </label>
+            <select id="genre" name="genre" class="form-select" required>
+              <option value="">Select a genre</option>
+              {GENRES.map(g => <option value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="country">
+              Country <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="country" name="country" type="text"
+              class="form-input" placeholder="e.g. Honduras" required
+            />
+          </div>
+        </div>
+
+        <!-- Album title + Year -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="album_title">Album title</label>
+            <input
+              id="album_title" name="album_title" type="text"
+              class="form-input" placeholder="e.g. Inmaculada Concepcion"
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="year">Release year</label>
+            <input
+              id="year" name="year" type="number"
+              class="form-input" placeholder="e.g. 2024" min="1960" max="2030"
+            />
+          </div>
+        </div>
+
+        <!-- YouTube + Bandcamp -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="youtube_url">YouTube URL</label>
+            <input
+              id="youtube_url" name="youtube_url" type="url"
+              class="form-input" placeholder="https://youtu.be/..."
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="bandcamp_url">Bandcamp URL</label>
+            <input
+              id="bandcamp_url" name="bandcamp_url" type="url"
+              class="form-input" placeholder="https://band.bandcamp.com"
+            />
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="form-field">
+          <label class="form-label" for="description">Description</label>
+          <textarea
+            id="description" name="description"
+            class="form-textarea" placeholder="Tell us about your band..."
+            rows="4"
+          ></textarea>
+        </div>
+
+        <!-- Toast -->
+        <div class="form-toast" id="form-toast" role="alert"></div>
+
+        <button type="submit" class="form-submit" id="submit-btn">
+          Submit Band
+        </button>
+      </form>
+    </div>
+
+    <!-- What happens next -->
+    <section class="form-steps">
+      <h2 class="form-steps__title">What happens next?</h2>
+      <div class="step-item">
+        <span class="step-item__num">1</span>
+        <div>
+          <p class="step-item__title">We review your submission</p>
+          <p class="step-item__desc">We listen to your music and verify the information.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-item__num">2</span>
+        <div>
+          <p class="step-item__title">We reach out</p>
+          <p class="step-item__desc">If your band is selected, we'll contact you to coordinate.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-item__num">3</span>
+        <div>
+          <p class="step-item__title">We publish your album</p>
+          <p class="step-item__desc">Your album appears in the archive with all the details.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</body>
+</html>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+
+  const form     = document.getElementById('submit-form') as HTMLFormElement;
+  const btn      = document.getElementById('submit-btn') as HTMLButtonElement;
+  const toast    = document.getElementById('form-toast') as HTMLElement;
+  const success  = document.getElementById('success-state') as HTMLElement;
+
+  function showToast(msg: string, isError: boolean) {
+    toast.textContent = msg;
+    toast.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
+    toast.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    toast.style.display = 'none';
+
+    const data = Object.fromEntries(new FormData(form));
+
+    // Client-side required check
+    const required = ['band_name', 'contact_email', 'genre', 'country'];
+    for (const field of required) {
+      if (!String(data[field] ?? '').trim()) {
+        showToast('Please fill in all required fields.', true);
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/metal-archive/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        form.style.display = 'none';
+        success.style.display = 'flex';
+      } else {
+        showToast(json.detail ?? 'Something went wrong. Please try again.', true);
+      }
+    } catch {
+      showToast('Could not connect. Check your connection.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Band';
+    }
+  });
+</script>

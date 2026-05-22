@@ -1,0 +1,268 @@
+---
+// Album detail page — one static page per album (1298 total).
+// Faithful port of links_bio/pages/metal_archive/album_detail.py.
+//
+// Build-time work in the frontmatter:
+//   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getMoreToExplore
+//   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds
+//   - getAlbumColor() extracts the dominant swatch from the thumb (cached) and
+//     bakes --album-color + the hero gradient inline -> zero runtime Vibrant.
+//
+// Interactivity lives entirely in <Player client:load> (the only JS on the page).
+import {
+  getAllAlbumIds,
+  getAlbum,
+  getTracks,
+  getSimilarBands,
+  getSimilarAlbums,
+  getMoreToExplore,
+  getBandAlbumCount,
+} from '../../../lib/db.js';
+import { thumb } from '../../../lib/thumb.js';
+import { getAlbumColor } from '../../../lib/vibrant.js';
+import AlbumCard from '../../../components/AlbumCard.astro';
+import Navbar from '../../../components/Navbar.astro';
+import Footer from '../../../components/Footer.astro';
+import Player from '../../../islands/Player.tsx';
+import '../../../styles/global.css';
+
+export function getStaticPaths() {
+  // NOTE: db helpers are imported at module scope, but Astro compiles
+  // getStaticPaths into a separate prerender chunk. Re-import inside to be safe
+  // is not needed for imported bindings (they resolve fine); only frontmatter
+  // *local functions* are unavailable here. getAllAlbumIds is a module import.
+  const ids = getAllAlbumIds();
+  return ids.map((id) => ({ params: { id: String(id) } }));
+}
+
+const id = Number(Astro.params.id);
+const album = getAlbum(id);
+
+// Astro static build: a missing album would be a build-time data bug, not a
+// runtime 404. getStaticPaths only emits real IDs, so album is always present.
+if (!album) {
+  throw new Error(`Album ${id} not found at build time`);
+}
+
+const rawTracks = getTracks(id);
+const similarBands = getSimilarBands(id);
+const similarAlbums = getSimilarAlbums(album.genre, id);
+const moreToExplore = getMoreToExplore(id);
+
+// ─── Parse "MM:SS" / "HH:MM:SS" timestamps to seconds (build-time) ───────────
+function tsToSeconds(ts: string | null): number {
+  if (!ts) return 0;
+  const parts = ts.split(':').map((p) => parseInt(p, 10));
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  return 0;
+}
+
+const tracks = rawTracks.map((t, i) => ({
+  idx: i,
+  number: t.track_number ?? i + 1,
+  name: t.track_name,
+  timestamp: t.timestamp ?? '',
+  seconds: tsToSeconds(t.timestamp),
+}));
+
+// ─── Artwork: full cover for the hero (eager), small thumb for the bar/og ────
+const coverUrl = album.album_artwork_url || '';
+const coverThumb = thumb(album.album_artwork_url);
+
+// ─── Build-time color: bake --album-color + hero gradient inline ─────────────
+// Use the small thumb (mqdefault) — Vibrant decodes every pixel, the thumb is
+// ~16x cheaper than the full cover and yields an identical dominant color.
+// Pass the full cover as a fallback: if the thumb 404s or is an undecodable
+// format, getAlbumColor tries the large image before returning the cyan default
+// (deathgrind .webp covers in particular need the full-bytes -> sharp path).
+const albumColor = await getAlbumColor(coverThumb || coverUrl, coverUrl);
+const heroGradient = `linear-gradient(180deg, ${albumColor}cc 0%, ${albumColor}55 40%, var(--bg) 100%)`;
+
+// ─── Streaming links (only non-empty) ────────────────────────────────────────
+const streamingLinks = [
+  { label: 'Spotify', url: album.spotify_url },
+  { label: 'Bandcamp', url: album.bandcamp_url },
+  { label: 'Apple Music', url: album.apple_music_url },
+  { label: 'Metal Archives', url: album.metal_archives_url },
+  { label: 'Facebook', url: album.facebook_url },
+  { label: 'Instagram', url: album.instagram_url },
+].filter((l) => l.url && l.url.trim() !== '');
+
+const releaseType = album.release_type && album.release_type.trim() !== '' ? album.release_type : 'Album';
+
+// ─── Discovery links (genre / year / band) ────────────────────────────────────
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+const genreSlug = album.genre ? slugify(album.genre) : null;
+const bandAlbumCount = getBandAlbumCount(album.band_name);
+const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
+
+const pageTitle = `${album.band_name} — ${album.album_title}`;
+const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Listen to the full album on the Metal Archive.`;
+const ogImage = coverThumb || coverUrl;
+---
+
+<!doctype html>
+<html lang="en" style={`--album-color: ${albumColor};`}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle} · Metal Archive</title>
+    <meta name="description" content={metaDesc} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDesc} />
+    <meta property="og:type" content="music.album" />
+    <meta property="og:url" content={`https://xeroxunderground.com/metal-archive/album/${album.id}`} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDesc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <link rel="canonical" href={`https://xeroxunderground.com/metal-archive/album/${album.id}`} />
+  </head>
+  <body class="album-detail album-detail-bg">
+    <Navbar />
+
+    <div class="album-detail-main">
+      <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
+      <section id="album-hero" style={`background: ${heroGradient};`}>
+        <div class="album-hero__inner">
+          <div class="album-hero__top">
+            {coverUrl
+              ? <img
+                  class="album-hero__cover"
+                  src={coverUrl}
+                  alt={album.album_title}
+                  loading="eager"
+                  decoding="async"
+                  width="280"
+                  height="280"
+                />
+              : <div class="album-hero__cover" style="background: var(--content);" aria-hidden="true"></div>
+            }
+            <div class="album-hero__meta">
+              <div class="album-hero__release-type">{releaseType}</div>
+              <h1 class="album-hero__band">
+                {bandSlug
+                  ? <a href={`/metal-archive/band/${bandSlug}`} class="band-link">{album.band_name}</a>
+                  : album.band_name
+                }
+              </h1>
+              <div class="album-hero__title">{album.album_title}</div>
+              <div class="album-hero__metarow">
+                {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{album.genre}</a>}
+                {album.genre && !genreSlug && <span>{album.genre}</span>}
+                {album.genre && album.year && <span class="sep"> • </span>}
+                {album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
+                {(album.genre || album.year) && tracks.length > 0 && <span class="sep"> • </span>}
+                {tracks.length > 0 && <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span>}
+                {album.duration_minutes ? <><span class="sep"> • </span><span>{album.duration_minutes} min</span></> : null}
+              </div>
+            </div>
+          </div>
+
+          <div class="album-hero__actions">
+            <button type="button" class="play-circle" aria-label="Play album" data-play-album="1">
+              <span class="play-circle__glyph">▶</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Body ─────────────────────────────────────────────────────────── -->
+      <div class="album-detail-body">
+        <!-- Tracklist -->
+        {tracks.length > 0 && (
+          <section class="tracklist-section">
+            <div class="track-header">
+              <div style="text-align: center;">#</div>
+              <div>Title</div>
+              <div style="text-align: right;">⏱</div>
+            </div>
+            <div class="track-rows">
+              {tracks.map((t) => (
+                <div class="track-row" data-track-idx={String(t.idx)} data-seconds={String(t.seconds)}>
+                  <div class="track-row__index">
+                    <span class="track-number">{t.number}</span>
+                    <span class="track-play-icon">▸</span>
+                    <span class="track-active-icon">▸</span>
+                  </div>
+                  <span class="track-row__title" data-track-name="1">{t.name}</span>
+                  <span class="track-row__time">{t.timestamp}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <!-- Streaming links -->
+        {streamingLinks.length > 0 && (
+          <section class="streaming-section">
+            <div class="streaming-section__label">Listen to this album on other platforms</div>
+            <div class="streaming-links">
+              {streamingLinks.map((l) => (
+                <a class="streaming-link" href={l.url!} target="_blank" rel="noopener noreferrer">{l.label}</a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <!-- Similar bands -->
+        {similarBands.length > 0 && (
+          <section class="similar-bands-section">
+            <h2>Similar Bands</h2>
+            <div class="similar-bands">
+              {similarBands.map((b) => <span class="band-pill">{b.band_name}</span>)}
+            </div>
+          </section>
+        )}
+
+        <!-- Similar albums -->
+        {similarAlbums.length > 0 && (
+          <section class="related-section">
+            <h2>If You Liked This...</h2>
+            <div class="album-grid">
+              {similarAlbums.map((a) => <AlbumCard album={a} />)}
+            </div>
+          </section>
+        )}
+
+        <!-- More to explore -->
+        {moreToExplore.length > 0 && (
+          <section class="related-section related-section--bordered">
+            <div class="related-section__header">
+              <h2>Keep Exploring</h2>
+              <a href="/metal-archive/browse" class="related-section__more">See All →</a>
+            </div>
+            <div class="album-grid">
+              {moreToExplore.map((a) => <AlbumCard album={a} />)}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+
+    <!-- ─── Player island: only when there is a video to play ──────────────── -->
+    {album.youtube_video_id && album.youtube_video_id.trim() !== '' && (
+      <Player
+        client:load
+        videoId={album.youtube_video_id}
+        albumTitle={album.album_title}
+        bandName={album.band_name}
+        coverThumb={coverThumb || coverUrl}
+        youtubeUrl={album.youtube_url || ''}
+        tracks={tracks.map((t) => ({ idx: t.idx, name: t.name, seconds: t.seconds }))}
+      />
+    )}
+
+    <Footer />
+  </body>
+</html>

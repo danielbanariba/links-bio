@@ -1,0 +1,123 @@
+---
+// Browse page — static shell that writes browse-index.json at build time,
+// renders an initial server-side grid of the first 24 albums (SEO + no blank
+// page before JS), then mounts the Search island which owns all interactivity.
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, isLiveRecording } from '../../lib/db.js';
+import Navbar from '../../components/Navbar.astro';
+import Footer from '../../components/Footer.astro';
+import Search from '../../islands/Search.tsx';
+import '../../styles/global.css';
+
+// ─── Build-time index ─────────────────────────────────────────────────────────
+// The browse index is written to two locations:
+//   1. public/browse-index.json — Astro copies public/ to dist/ during build,
+//      but public files are copied in the pre-render phase. Since Astro copies
+//      public/ AFTER the JS bundle phase, the file written here is available
+//      for the NEXT incremental build (warms the cache) AND is picked up by
+//      the vercel adapter copy step.
+//   2. .vercel/output/static/browse-index.json — direct write so the current
+//      build ships the file without relying on build-phase ordering.
+// The fetch URL is /browse-index.json (no Astro base; Vercel serves the static
+// dir at the site root).
+const index = getBrowseIndex();
+const indexJson = JSON.stringify(index);
+const cwd = process.cwd();
+
+// Write to public/ (next-build warmth + Astro copy cycle).
+const publicDir = resolve(cwd, 'public');
+mkdirSync(publicDir, { recursive: true });
+writeFileSync(resolve(publicDir, 'browse-index.json'), indexJson, 'utf-8');
+
+// Write directly into the Vercel static output so this build ships it.
+// dist/ is the intermediate; .vercel/output/static/ is what Vercel deploys.
+for (const target of [
+  resolve(cwd, 'dist', 'browse-index.json'),
+  resolve(cwd, '.vercel', 'output', 'static', 'browse-index.json'),
+]) {
+  try {
+    mkdirSync(resolve(target, '..'), { recursive: true });
+    writeFileSync(target, indexJson, 'utf-8');
+  } catch {
+    // directory may not exist yet on the very first cold build — public/ copy is the fallback
+  }
+}
+
+// ─── Initial static grid (first 24, by band_name ASC — same default as index).
+// Live recordings (Daniel's own live sets) are excluded from the DEFAULT browse
+// view so official albums lead; they remain in the full index JSON and stay
+// searchable, just not surfaced as part of the unfiltered default grid.
+const officialIndex = index.filter((a) => !isLiveRecording(a.album_title));
+const initial = officialIndex.slice(0, 24);
+
+// ─── Filter option lists for the dropdowns (passed as props to avoid redundant
+//     JS parsing of the full index just to build option arrays on mount).
+const genres = getAllGenres().map((f) => f.value);
+const countries = getAllCountries().map((f) => f.value);
+const years = getAllYears().map((f) => String(f.value));
+
+const totalCount = index.length;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Browse Albums | Metal Archive</title>
+  <meta name="description" content={`Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`} />
+  <link rel="canonical" href="/metal-archive/browse" />
+</head>
+<body>
+  <Navbar />
+
+  <main class="browse-page">
+    <div class="browse-header">
+      <h1 class="browse-title">Browse Albums</h1>
+      <p class="browse-subtitle">{totalCount} albums in the archive</p>
+    </div>
+
+    <!--
+      Search island owns ALL interactivity.
+      The `initial` prop gives it the first-page data without an extra fetch,
+      so cards are visible before the full index download completes.
+      `client:load` hydrates immediately (search is the primary purpose of
+      this page — no point deferring).
+    -->
+    <Search
+      client:load
+      genres={genres}
+      countries={countries}
+      years={years}
+      totalCount={totalCount}
+      initial={initial}
+    />
+
+    <!--
+      No-JS fallback: a static grid that mirrors what the island will render.
+      Hidden once the island takes over (the island replaces .browse-static).
+    -->
+    <noscript>
+      <div class="album-grid browse-static">
+        {initial.map((a) => (
+          <a class="album-card" href={`/metal-archive/album/${a.id}`}>
+            <div class="album-card__art">
+              {a.thumb
+                ? <img class="album-card__cover" src={a.thumb} alt={`${a.band_name} — ${a.album_title}`} loading="lazy" decoding="async" width="400" height="400" />
+                : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+              }
+            </div>
+            <div class="album-card__body">
+              <div class="album-card__band">{a.band_name}</div>
+              <div class="album-card__album">{a.album_title}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </noscript>
+  </main>
+
+  <Footer />
+</body>
+</html>

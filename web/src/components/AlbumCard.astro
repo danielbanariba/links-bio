@@ -1,0 +1,57 @@
+---
+// AlbumCard: zero-JS, cover-first gallery card (Bandcamp-style).
+// The artwork is the protagonist: a large square cover that scales and reveals
+// a play affordance on hover; band/album text sits cleanly below.
+// `accent` (optional) tints the hover ring/glow with the album's dominant color;
+// defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
+// `livePlaceholder` (optional) — when true, renders a branded placeholder instead
+// of the API-sourced thumbnail (used for Live Recordings cards on the home page).
+import type { Card } from '../lib/types.js';
+
+interface Props {
+  album: Card;
+  loading?: 'lazy' | 'eager';
+  accent?: string;
+  livePlaceholder?: boolean;
+}
+
+const { album, loading = 'lazy', accent, livePlaceholder = false } = Astro.props;
+const href = `/metal-archive/album/${album.id}`;
+// Inline custom property only when an accent is passed; the CSS falls back to
+// the cyan brand otherwise.
+const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
+---
+
+<a class="album-card" href={href} style={accentStyle}>
+  <div class="album-card__art">
+    {livePlaceholder
+      ? (
+        <div class="album-card__cover album-card__cover--live" aria-hidden="true">
+          <span class="live-cover__band">{album.band_name}</span>
+          <span class="live-cover__badge">LIVE</span>
+        </div>
+      )
+      : album.thumb
+        ? <img
+            class="album-card__cover"
+            src={album.thumb}
+            alt={`${album.band_name} — ${album.album_title}`}
+            loading={loading}
+            decoding="async"
+            width="400"
+            height="400"
+          />
+        : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+    }
+    <!-- Hover affordance: play circle in the album accent, revealed bottom-right. -->
+    <span class="album-card__play" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </span>
+  </div>
+  <div class="album-card__body">
+    <div class="album-card__band">{album.band_name}</div>
+    <div class="album-card__album">{album.album_title}</div>
+  </div>
+</a>

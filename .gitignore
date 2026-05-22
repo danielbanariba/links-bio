@@ -13,3 +13,5 @@ env
 public/
 frontend.zip
 .vercel/
+# Astro POC (replaced by web/)
+astro-spike/

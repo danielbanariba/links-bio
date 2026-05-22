@@ -232,8 +232,19 @@ _PLAYER_JS = """
   if (window.YT && window.YT.Player) buildPlayer();
   else armApiTimeout();
 
-  var ytObserver = new MutationObserver(function() { buildPlayer(); });
-  ytObserver.observe(document.body, { childList: true, subtree: true });
+  // SPA navigation between albums swaps #yt-player / changes its data-video-id.
+  // Reflex calls this from the album on_load (rx.call_script) instead of us
+  // watching the whole <body> subtree with a MutationObserver, which fired
+  // buildPlayer() on every unrelated DOM mutation and froze the main thread.
+  // buildPlayer already handles "iframe exists -> cueVideoById" vs "new player",
+  // so it is safe to call on every navigation. Re-arm the API timeout if the
+  // API has not loaded yet so the slow-network retry overlay still works.
+  window.metalSyncPlayer = function() {
+    if (window.YT && window.YT.Player) { buildPlayer(); }
+    else { armApiTimeout(); }
+    // Color extraction must re-run because the cover image changed.
+    if (typeof window.metalApplyVibrant === 'function') { window.metalApplyVibrant(); }
+  };
 
   window.playTrackAt = function(el) {
     if (!el) return;
@@ -290,10 +301,14 @@ _PLAYER_JS = """
       hero.style.background = DEFAULT_HERO_GRADIENT;
       document.documentElement.style.setProperty('--album-color', '""" + Color.PRIMARY.value + """');
     };
+    // Use the small thumb (mqdefault 320x180 ~57k px) not the full hero cover
+    // (maxresdefault 1280x720 ~920k px). Vibrant decodes every pixel on the
+    // main thread, so the thumb is ~16x cheaper for an identical dominant color.
+    var paletteSrc = img.getAttribute('data-thumb') || img.src;
     var run = function() {
       if (!window.Vibrant) { applyFallback(); return; }
       try {
-        Vibrant.from(img.src).getPalette().then(function(palette) {
+        Vibrant.from(paletteSrc).getPalette().then(function(palette) {
           try {
             var swatch =
               palette.Vibrant || palette.DarkVibrant ||
@@ -307,15 +322,26 @@ _PLAYER_JS = """
         }).catch(function(){ applyFallback(); });
       } catch (e) { applyFallback(); }
     };
-    if (img.complete && img.naturalWidth > 0) run();
+    // Defer off the critical path: the gradient appearing a moment late is fine,
+    // but blocking initial paint/interaction is not.
+    var deferRun = function() {
+      if (window.requestIdleCallback) { window.requestIdleCallback(run, { timeout: 2000 }); }
+      else { setTimeout(run, 0); }
+    };
+    if (img.complete && img.naturalWidth > 0) deferRun();
     else {
-      img.addEventListener('load', run);
+      img.addEventListener('load', deferRun);
       img.addEventListener('error', applyFallback);
     }
   };
 
   window.metalProgressTick = function() {
     if (!window.metalPlayer || typeof window.metalPlayer.getCurrentTime !== 'function') return;
+    // Only do work while actually playing (state 1). Avoids getDuration/
+    // getCurrentTime + a DOM write every second when paused/stopped/idle.
+    try {
+      if (window.metalPlayer.getPlayerState && window.metalPlayer.getPlayerState() !== 1) return;
+    } catch (e) { return; }
     try {
       var dur = window.metalPlayer.getDuration();
       var cur = window.metalPlayer.getCurrentTime();
@@ -426,6 +452,16 @@ def _hero(album: rx.Var, artwork: rx.Var) -> rx.Component:
                     id="album-cover-img",
                     alt=album["album_title"],
                     loading="eager",
+                    # Small thumb fed to Vibrant for color extraction (16x cheaper
+                    # than the full hero cover). Falls back to the visible cover
+                    # when the album has no derived thumb.
+                    custom_attrs={
+                        "data-thumb": rx.cond(
+                            album["album_artwork_thumb"] != "",
+                            album["album_artwork_thumb"],
+                            artwork,
+                        ),
+                    },
                     style=hero_cover_style,
                 ),
                 rx.el.div(

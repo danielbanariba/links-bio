@@ -1,0 +1,168 @@
+---
+// Same slug strategy as genre: country names contain spaces (e.g. "Estados Unidos",
+// "Reino Unido"). Slugify to URL-safe string; real value travels as prop.
+// Country flag emojis: inline map ported from links_bio/states/metal_archive_state.py.
+import { getAllCountries, getAlbumsByCountry } from '../../../lib/db.js';
+import AlbumCard from '../../../components/AlbumCard.astro';
+import Navbar from '../../../components/Navbar.astro';
+import Footer from '../../../components/Footer.astro';
+import '../../../styles/global.css';
+
+// Ported from links_bio/states/metal_archive_state.py COUNTRY_FLAGS dict.
+const COUNTRY_FLAGS: Record<string, string> = {
+  "Alemania": "🇩🇪",
+  "Arabia Saudita": "🇸🇦",
+  "Argelia": "🇩🇿",
+  "Argentina": "🇦🇷",
+  "Armenia": "🇦🇲",
+  "Australia": "🇦🇺",
+  "Austria": "🇦🇹",
+  "Azerbaiyan": "🇦🇿",
+  "Bangladesh": "🇧🇩",
+  "Belgica": "🇧🇪",
+  "Bielorrusia": "🇧🇾",
+  "Bolivia": "🇧🇴",
+  "Bosnia": "🇧🇦",
+  "Brasil": "🇧🇷",
+  "Bulgaria": "🇧🇬",
+  "Canada": "🇨🇦",
+  "Chile": "🇨🇱",
+  "China": "🇨🇳",
+  "Colombia": "🇨🇴",
+  "Corea del Sur": "🇰🇷",
+  "Costa Rica": "🇨🇷",
+  "Croacia": "🇭🇷",
+  "Cuba": "🇨🇺",
+  "Dinamarca": "🇩🇰",
+  "Ecuador": "🇪🇨",
+  "Egipto": "🇪🇬",
+  "El Salvador": "🇸🇻",
+  "Eslovaquia": "🇸🇰",
+  "Eslovenia": "🇸🇮",
+  "Espana": "🇪🇸",
+  "Estados Unidos": "🇺🇸",
+  "Estonia": "🇪🇪",
+  "Filipinas": "🇵🇭",
+  "Finlandia": "🇫🇮",
+  "Francia": "🇫🇷",
+  "Georgia": "🇬🇪",
+  "Grecia": "🇬🇷",
+  "Guatemala": "🇬🇹",
+  "Honduras": "🇭🇳",
+  "Hungria": "🇭🇺",
+  "India": "🇮🇳",
+  "Indonesia": "🇮🇩",
+  "Irak": "🇮🇶",
+  "Iran": "🇮🇷",
+  "Irlanda": "🇮🇪",
+  "Islandia": "🇮🇸",
+  "Israel": "🇮🇱",
+  "Italia": "🇮🇹",
+  "Jamaica": "🇯🇲",
+  "Japon": "🇯🇵",
+  "Kazajistan": "🇰🇿",
+  "Kenia": "🇰🇪",
+  "Letonia": "🇱🇻",
+  "Libano": "🇱🇧",
+  "Lituania": "🇱🇹",
+  "Luxemburgo": "🇱🇺",
+  "Malasia": "🇲🇾",
+  "Marruecos": "🇲🇦",
+  "Mexico": "🇲🇽",
+  "Mongolia": "🇲🇳",
+  "Myanmar": "🇲🇲",
+  "Nepal": "🇳🇵",
+  "Nicaragua": "🇳🇮",
+  "Nigeria": "🇳🇬",
+  "Noruega": "🇳🇴",
+  "Nueva Zelanda": "🇳🇿",
+  "Paises Bajos": "🇳🇱",
+  "Pakistan": "🇵🇰",
+  "Panama": "🇵🇦",
+  "Paraguay": "🇵🇾",
+  "Peru": "🇵🇪",
+  "Polonia": "🇵🇱",
+  "Portugal": "🇵🇹",
+  "Puerto Rico": "🇵🇷",
+  "Reino Unido": "🇬🇧",
+  "Republica Checa": "🇨🇿",
+  "Republica Dominicana": "🇩🇴",
+  "Rumania": "🇷🇴",
+  "Rusia": "🇷🇺",
+  "Serbia": "🇷🇸",
+  "Singapur": "🇸🇬",
+  "Sri Lanka": "🇱🇰",
+  "Sudafrica": "🇿🇦",
+  "Suecia": "🇸🇪",
+  "Suiza": "🇨🇭",
+  "Tailandia": "🇹🇭",
+  "Taiwan": "🇹🇼",
+  "Trinidad y Tobago": "🇹🇹",
+  "Tunez": "🇹🇳",
+  "Turquia": "🇹🇷",
+  "Ucrania": "🇺🇦",
+  "Uruguay": "🇺🇾",
+  "Uzbekistan": "🇺🇿",
+  "Venezuela": "🇻🇪",
+  "Vietnam": "🇻🇳",
+};
+
+// NOTE: slugify is defined inside getStaticPaths (not in frontmatter scope) because
+// Astro compiles getStaticPaths into a separate prerender chunk — functions defined
+// in frontmatter are NOT available there.
+export function getStaticPaths() {
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+  const countries = getAllCountries();
+  return countries.map((facet) => ({
+    params: { country: slugify(facet.value) },
+    props: { realCountry: facet.value, count: facet.count },
+  }));
+}
+
+interface Props {
+  realCountry: string;
+  count: number;
+}
+
+const { realCountry, count } = Astro.props;
+const albums = getAlbumsByCountry(realCountry);
+const flag = COUNTRY_FLAGS[realCountry] ?? '';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{realCountry} — Metal Archive</title>
+    <meta name="description" content={`${count} albums from ${realCountry} in the Metal Archive.`} />
+  </head>
+  <body>
+    <Navbar />
+
+    <main class="wrap" style="padding-top: 2rem;">
+      <header style="margin-bottom: 1.5rem;">
+        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">
+          {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{realCountry}
+        </h1>
+        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
+          {count} {count === 1 ? 'album' : 'albums'}
+        </p>
+      </header>
+
+      {albums.length > 0
+        ? <div class="album-grid">
+            {albums.map((album) => <AlbumCard album={album} />)}
+          </div>
+        : <p style="color: var(--text-footer);">No albums from this country.</p>
+      }
+    </main>
+
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,443 @@
+---
+// Site root (/) — Daniel Banariba bio / portfolio.
+// Static port of the Reflex bio (links_bio/views/header.py + links.py +
+// components/navbar.py + footer.py). No DB: all content is static.
+//
+// The Metal Archive lives under /metal-archive/ (see src/pages/metal-archive/).
+import Navbar from '../components/Navbar.astro';
+import '../styles/global.css';
+
+const currentYear = new Date().getFullYear();
+
+// ─── Social links (ported from links_bio/constants/url_social.py) ─────────────
+const SOCIAL = {
+  github:    'https://github.com/danielbanariba',
+  instagram: 'https://www.instagram.com/danielbanariba/',
+  facebook:  'https://www.facebook.com/profile.php?id=100063668491929',
+  youtube:   'https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q',
+  tiktok:    'https://www.tiktok.com/@danielbanariba',
+  linkedin:  'https://www.linkedin.com/in/danielbanariba/',
+};
+const EMAIL = 'danielbanariba@protonmail.com';
+
+// ─── Audiovisual projects (ported from links_bio/views/links.py) ──────────────
+// logoScale = the original logo width % from the Reflex link_video() calls.
+const PROJECTS = [
+  {
+    title: 'Blasfemia - Inmaculada Concepcion',
+    body: 'Blasfemia is a Brutal Death Metal band from Tegucigalpa, Honduras.',
+    logo: '/logo_bandas/blasfemia.svg',
+    logoScale: '50%',
+    image: '/img_video/blasfemia.jpg',
+    url: 'https://youtu.be/S8CuyCYvYlE?si=KQ6PR6aBp-aKE54v',
+  },
+  {
+    title: 'Sobreporrosis - Aca no es Party Sesiones',
+    body: 'Sobreporrosis is a Punk Rock band from Tegucigalpa, Honduras.',
+    logo: '/logo_bandas/sobreporrosis.svg',
+    logoScale: '70%',
+    image: '/img_video/sobreporrosis.jpg',
+    url: 'https://youtu.be/vE5s7QdB95I?si=KntI0wqkG7Qj3XVF',
+  },
+  {
+    title: 'Lesath - El Enviado de Satan',
+    body: 'Lesath is a Melodic Death Metal band from Tegucigalpa, Honduras.',
+    logo: '/logo_bandas/lesath.svg',
+    logoScale: '30%',
+    image: '/img_video/lesath.jpg',
+    url: 'https://youtu.be/EAZR_GLTHyw',
+  },
+  {
+    title: 'Desmembramiento - Maldita Enfermedad',
+    body: 'Desmembramiento is a Death Metal band from Tegucigalpa, Honduras.',
+    logo: '/logo_bandas/desmebramiento.svg',
+    logoScale: '70%',
+    image: '/img_video/desmembramiento.webp',
+    url: 'https://youtu.be/lvH-dy-Gn0Y',
+  },
+  {
+    title: 'Krisis - Johd Ass',
+    body: 'Krisis is a Grind/Death Metal band from San Pedro Sula, Honduras.',
+    logo: '/logo_bandas/krisis.svg',
+    logoScale: '50%',
+    image: '/img_video/krisis.webp',
+    url: 'https://youtu.be/548LqsbFhSw',
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" />
+    <title>Daniel Banariba | Software Developer and Video Editor</title>
+    <meta
+      name="description"
+      content="Developer who loves technology, film and music. Specialized in web development and music video editing for metal bands in Honduras and Latin America."
+    />
+    <!-- OG / social meta -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://danielbanariba.com" />
+    <meta property="og:title" content="Daniel Banariba | Software Developer and Video Editor" />
+    <meta property="og:description" content="Developer who loves technology, film and music. Specialized in web development and music video editing." />
+    <meta property="og:image" content="https://danielbanariba.com/avatar.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Daniel Banariba" />
+    <meta name="twitter:description" content="Software developer and music video editor." />
+    <meta name="twitter:image" content="https://danielbanariba.com/avatar.jpg" />
+    <link rel="canonical" href="https://danielbanariba.com" />
+  </head>
+  <body class="bio-page">
+    <Navbar />
+
+    <main class="bio">
+      <!-- ─── Header ──────────────────────────────────────────────────────── -->
+      <header class="bio-header">
+        <div class="bio-header__top">
+          <img
+            class="bio-avatar"
+            src="/avatar.jpg"
+            alt="Daniel Banariba"
+            width="112"
+            height="112"
+            loading="eager"
+          />
+          <div class="bio-header__id">
+            <h1 class="bio-name">Daniel Banariba</h1>
+            <p class="bio-handle">@danielbanariba</p>
+            <nav class="bio-social bio-social--inline" aria-label="Social links">
+              <a href={SOCIAL.github}    target="_blank" rel="noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.linkedin}  target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="22" height="22" loading="lazy" /></a>
+            </nav>
+          </div>
+        </div>
+
+        <!-- Social row for mobile (icons under the header, matching rx.mobile_only) -->
+        <nav class="bio-social bio-social--mobile" aria-label="Social links">
+          <a href={SOCIAL.github}    target="_blank" rel="noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.linkedin}  target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="24" height="24" loading="lazy" /></a>
+        </nav>
+
+        <!-- Stats row -->
+        <div class="bio-stats">
+          <div class="bio-stat"><span class="bio-stat__num">40+</span><span class="bio-stat__label">Music videos produced</span></div>
+          <div class="bio-stat"><span class="bio-stat__num">100+</span><span class="bio-stat__label">Bands worked with</span></div>
+          <div class="bio-stat"><span class="bio-stat__num">+7000</span><span class="bio-stat__label">YouTube Subscribers</span></div>
+        </div>
+
+        <!-- Intro -->
+        <p class="bio-intro">
+          I produce music videos, live sessions and documentaries for metal bands in
+          Honduras and Latin America. I also design and build websites to promote your
+          band. Your music deserves an image that represents it.
+        </p>
+      </header>
+
+      <!-- ─── Metal Archive ───────────────────────────────────────────────── -->
+      <h2 class="bio-section-title">Metal Archive</h2>
+      <a class="bio-card-link" href="/metal-archive/">
+        <span class="bio-card-link__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0073a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </span>
+        <span class="bio-card-link__text">
+          <span class="bio-card-link__title">Metal Archive</span>
+          <span class="bio-card-link__body">Explore the Honduran underground metal archive</span>
+        </span>
+      </a>
+
+      <!-- ─── Audiovisual projects ────────────────────────────────────────── -->
+      <h2 class="bio-section-title">Audiovisual Projects</h2>
+      <div class="bio-projects">
+        {PROJECTS.map((p) => (
+          <article class="bio-project">
+            <img class="bio-project__logo" src={p.logo} alt={p.title} style={`width:${p.logoScale}`} loading="lazy" />
+            <h3 class="bio-project__title">{p.title}</h3>
+            <p class="bio-project__body">{p.body}</p>
+            <a class="bio-project__thumb" href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`Watch ${p.title} on YouTube`}>
+              <img src={p.image} alt={p.title} loading="lazy" />
+              <span class="bio-project__play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              </span>
+            </a>
+          </article>
+        ))}
+      </div>
+
+      <!-- ─── Contact ─────────────────────────────────────────────────────── -->
+      <h2 class="bio-section-title">Contact</h2>
+      <a class="bio-card-link" href={`mailto:${EMAIL}`}>
+        <span class="bio-card-link__icon" aria-hidden="true">
+          <img src="/icons/email.svg" alt="Email" width="24" height="24" />
+        </span>
+        <span class="bio-card-link__text">
+          <span class="bio-card-link__title">Email</span>
+          <span class="bio-card-link__body">{EMAIL}</span>
+        </span>
+      </a>
+
+      <!-- Contact form (POSTs to FastAPI; see note about the contact endpoint) -->
+      <div class="bio-contact-card">
+        <div class="form-success" id="contact-success" style="display:none">
+          <span class="form-success__icon">&#10004;</span>
+          <h3 class="form-success__title">Message sent! I'll get back to you soon.</h3>
+        </div>
+
+        <form id="contact-form" class="form-stack" novalidate>
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label" for="contact-name">Name <span class="form-label__required">*</span></label>
+              <input id="contact-name" name="name" type="text" class="form-input" placeholder="Your name" required />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="contact-email">Email <span class="form-label__required">*</span></label>
+              <input id="contact-email" name="email" type="email" class="form-input" placeholder="you@email.com" required />
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="contact-subject">Subject (optional)</label>
+            <input id="contact-subject" name="subject" type="text" class="form-input" placeholder="What is it about?" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="contact-message">Your message <span class="form-label__required">*</span></label>
+            <textarea id="contact-message" name="message" class="form-textarea" rows="5" placeholder="Write your message here..." required></textarea>
+          </div>
+
+          <div class="form-toast" id="contact-toast" style="display:none" role="alert"></div>
+
+          <button type="submit" id="contact-btn" class="form-submit">Send message</button>
+        </form>
+      </div>
+    </main>
+
+    <!-- ─── Footer (bio-specific; not the archive footer) ───────────────────── -->
+    <footer class="bio-footer">
+      <a href="/" class="bio-footer__logo" aria-label="Daniel Banariba">DANIEL<br />BANARIBA</a>
+      <p class="bio-footer__thanks">Thanks for visiting my website! ╰(*°▽°*)╯</p>
+      <p class="bio-footer__copy">&copy; 2023&ndash;{currentYear}</p>
+    </footer>
+
+    <script>
+      // Contact form: POST to the FastAPI forms service.
+      // NOTE: /api/metal-archive/contact is NOT yet implemented in
+      // links_bio/fastapi_forms.py (only submit/promo/newsletter exist).
+      // The backend must add this endpoint for the form to succeed.
+      const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+
+      const form    = document.getElementById('contact-form') as HTMLFormElement;
+      const btn     = document.getElementById('contact-btn') as HTMLButtonElement;
+      const toast   = document.getElementById('contact-toast') as HTMLElement;
+      const success = document.getElementById('contact-success') as HTMLElement;
+
+      function showToast(msg: string, isError: boolean) {
+        toast.textContent = msg;
+        toast.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
+        toast.style.display = 'block';
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        toast.style.display = 'none';
+
+        const data = Object.fromEntries(new FormData(form));
+        for (const field of ['name', 'email', 'message']) {
+          if (!String(data[field] ?? '').trim()) {
+            showToast('Please fill in all required fields.', true);
+            return;
+          }
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+
+        try {
+          const res = await fetch(`${API_BASE}/api/metal-archive/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok) {
+            form.style.display = 'none';
+            success.style.display = 'flex';
+          } else {
+            showToast(json.detail ?? 'Something went wrong. Please try again.', true);
+          }
+        } catch {
+          showToast('Could not connect. Check your connection.', true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Send message';
+        }
+      });
+    </script>
+
+    <style>
+      /* ─── Bio layout: narrow centered column (Reflex MAX_WIDTH = 800px) ──── */
+      .bio {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem var(--gutter) 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      /* Header */
+      .bio-header { display: flex; flex-direction: column; gap: 1.25rem; }
+      .bio-header__top { display: flex; align-items: center; gap: 1.25rem; }
+      .bio-avatar {
+        width: 112px;
+        height: 112px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: var(--content);
+        padding: 2px;
+        border: 4px solid var(--primary);
+        flex-shrink: 0;
+      }
+      .bio-header__id { display: flex; flex-direction: column; gap: 0.35rem; }
+      .bio-name { font-size: 2.2em; line-height: 1.1; }
+      .bio-handle { color: var(--primary); font-size: 1.05em; }
+
+      /* Social icons */
+      .bio-social { display: flex; gap: 1.1rem; align-items: center; }
+      .bio-social a { display: inline-flex; opacity: 0.92; transition: opacity 0.15s, transform 0.15s; }
+      .bio-social a:hover { opacity: 1; transform: translateY(-2px); }
+      .bio-social img { display: block; }
+      .bio-social--inline { margin-top: 0.4rem; }
+      .bio-social--mobile { display: none; justify-content: center; }
+
+      /* Stats */
+      .bio-stats { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+      .bio-stat { display: flex; flex-direction: column; }
+      .bio-stat__num { font-weight: 700; color: var(--primary); font-size: 1.05em; }
+      .bio-stat__label { color: var(--text-body); font-size: 0.95em; }
+
+      /* Intro */
+      .bio-intro { color: var(--text-body); font-size: 1.05em; }
+      .bio-intro--muted { color: var(--text-footer); font-size: 0.95em; }
+
+      /* Section titles */
+      .bio-section-title {
+        font-size: 1.5em;
+        color: var(--text-header);
+        margin-top: 0.75rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* Card link (Metal Archive + Email buttons) */
+      .bio-card-link {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--content);
+        border: 1px solid var(--border);
+        border-radius: 0.75em;
+        padding: 1em 1.25em;
+        transition: border-color 0.18s, transform 0.18s;
+      }
+      .bio-card-link:hover { border-color: var(--primary); transform: translateY(-2px); }
+      .bio-card-link__icon { display: inline-flex; flex-shrink: 0; }
+      .bio-card-link__text { display: flex; flex-direction: column; gap: 0.15rem; }
+      .bio-card-link__title { color: var(--text-header); font-weight: 500; font-size: 1.05em; }
+      .bio-card-link__body { color: var(--text-body); font-size: 0.92em; }
+
+      /* Projects */
+      .bio-projects { display: flex; flex-direction: column; gap: 1.5rem; }
+      .bio-project {
+        background: var(--content);
+        border: 1px solid var(--border);
+        border-radius: 0.75em;
+        padding: 1.25em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        text-align: center;
+      }
+      .bio-project__logo { max-width: 70%; height: auto; margin: 0.25rem auto; }
+      .bio-project__title { color: var(--text-header); font-size: 1.1em; }
+      .bio-project__body { color: var(--text-body); font-size: 0.92em; }
+      .bio-project__thumb {
+        position: relative;
+        display: block;
+        width: 100%;
+        border-radius: 0.5em;
+        overflow: hidden;
+        margin-top: 0.4rem;
+      }
+      .bio-project__thumb img { width: 100%; height: auto; display: block; transition: transform 0.3s; }
+      .bio-project__thumb:hover img { transform: scale(1.03); }
+      .bio-project__play {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        border-radius: 50%;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .bio-project__thumb:hover .bio-project__play { opacity: 1; }
+
+      /* Contact card */
+      .bio-contact-card {
+        background: var(--content);
+        border: 1px solid var(--secondary);
+        border-radius: 1em;
+        padding: 2em;
+      }
+      @media (max-width: 600px) { .bio-contact-card { padding: 1.5em; } }
+
+      /* Footer */
+      .bio-footer {
+        text-align: center;
+        color: var(--text-footer);
+        padding: 2.5rem var(--gutter) 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .bio-footer__logo {
+        font-family: 'Pulse_virgin', serif;
+        color: var(--logo-canal);
+        font-weight: 500;
+        line-height: 1.05;
+        font-size: 1.7em;
+        text-align: center;
+      }
+      .bio-footer__thanks { font-size: 0.95em; }
+      .bio-footer__copy { font-size: 0.9em; }
+
+      /* Responsive: stack header, swap social rows */
+      @media (max-width: 600px) {
+        .bio-header__top { flex-direction: column; text-align: center; align-items: center; }
+        .bio-header__id { align-items: center; }
+        .bio-social--inline { display: none; }
+        .bio-social--mobile { display: flex; }
+        .bio-name { font-size: 1.8em; }
+        .bio-stats { justify-content: space-around; }
+      }
+    </style>
+  </body>
+</html>
