@@ -1,0 +1,303 @@
+---
+// promo.astro — Promote music on the Metal Archive
+// POSTs to /api/metal-archive/promo (FastAPI on port 8001, proxied by host)
+import Navbar from '../../components/Navbar.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/global.css';
+
+const GENRES = [
+  "Death Metal", "Black Metal", "Thrash Metal", "Doom Metal",
+  "Grindcore", "Power Metal", "Heavy Metal", "Melodic Death Metal",
+  "Grind/Death Metal", "Punk Rock", "Metalcore", "Progressive Metal",
+  "Folk Metal", "Symphonic Metal", "Sludge Metal", "Stoner Metal",
+  "Speed Metal", "Brutal Death Metal",
+];
+
+const RELEASE_FORMATS = [
+  "Full-length", "EP", "Demo", "Split", "Single", "Compilation", "Live Album",
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Promote your music | Metal Archive</title>
+  <meta name="description" content="Promote your band, album or label to an extreme metal audience." />
+</head>
+<body class="form-page">
+  <Navbar />
+
+  <main class="form-page__main">
+    <!-- Header -->
+    <div class="form-page__header">
+      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9a3 3 0 1 1 6 0c0 6-7.5 7-7.5 7H12m0 0h2.25m-2.25 0V21" />
+      </svg>
+      <h1 class="form-page__title">Promote your music</h1>
+      <p class="form-page__subtitle">
+        Reach an extreme metal audience with your band, album or label through the Metal Archive.
+      </p>
+    </div>
+
+    <!-- Form card -->
+    <div class="form-card">
+      <!-- Success state -->
+      <div class="form-success" id="success-state" style="display:none">
+        <span class="form-success__icon">&#10004;</span>
+        <h2 class="form-success__title">Request received</h2>
+        <p class="form-success__body">
+          We'll review your music and get back to you soon. Keep an eye on your inbox.
+        </p>
+        <a href="/metal-archive/" class="form-success__back">&#8592; Back to the archive</a>
+      </div>
+
+      <!-- The form -->
+      <form id="promo-form" class="form-stack" novalidate>
+        <!-- Band name + email -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="band_name">
+              Band name <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="band_name" name="band_name" type="text"
+              class="form-input" placeholder="e.g. Blasfemia" required
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="email">
+              Contact email <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="email" name="email" type="email"
+              class="form-input" placeholder="band@email.com" required
+            />
+          </div>
+        </div>
+
+        <!-- Genre + Country -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="genre">
+              Genre <span class="form-label__required">*</span>
+            </label>
+            <select id="genre" name="genre" class="form-select">
+              <option value="">Select a genre</option>
+              {GENRES.map(g => <option value={g}>{g}</option>)}
+              <option value="Other">Other...</option>
+            </select>
+            <!-- Custom genre input — shown via JS when "Other" selected -->
+            <input
+              id="custom_genre" name="custom_genre" type="text"
+              class="form-input" placeholder="Type your genre"
+              style="margin-top:0.5rem;display:none"
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="country">Country</label>
+            <input
+              id="country" name="country" type="text"
+              class="form-input" placeholder="e.g. Honduras"
+            />
+          </div>
+        </div>
+
+        <!-- Album title + Year -->
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="album_title">
+              Album title <span class="form-label__required">*</span>
+            </label>
+            <input
+              id="album_title" name="album_title" type="text"
+              class="form-input" placeholder="e.g. Inmaculada Concepcion" required
+            />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="year">Release year</label>
+            <input
+              id="year" name="year" type="number"
+              class="form-input" placeholder="e.g. 2024" min="1960" max="2030"
+            />
+          </div>
+        </div>
+
+        <!-- Release format -->
+        <div class="form-field">
+          <label class="form-label" for="release_format">Format</label>
+          <select id="release_format" name="release_format" class="form-select">
+            <option value="">Release type</option>
+            {RELEASE_FORMATS.map(f => <option value={f}>{f}</option>)}
+          </select>
+        </div>
+
+        <!-- Links section -->
+        <div class="form-field">
+          <span class="form-label">
+            Links <span class="form-label__required">*</span>
+            <span class="form-label__hint">&nbsp;(at least one)</span>
+          </span>
+
+          <div class="form-row" style="margin-top:0.5rem">
+            <div class="form-field">
+              <label class="form-label" for="youtube_url" style="font-size:0.82em;color:var(--text-footer)">
+                YouTube
+              </label>
+              <input
+                id="youtube_url" name="youtube_url" type="url"
+                class="form-input" placeholder="https://youtu.be/..."
+              />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="bandcamp_url" style="font-size:0.82em;color:var(--text-footer)">
+                Bandcamp / Spotify
+              </label>
+              <input
+                id="bandcamp_url" name="bandcamp_url" type="url"
+                class="form-input" placeholder="https://band.bandcamp.com"
+              />
+            </div>
+          </div>
+
+          <!-- Dynamic extra links (up to 5) -->
+          <div class="extra-links" id="extra-links"></div>
+          <button type="button" class="btn-add-link" id="add-link-btn">
+            + Add another link
+          </button>
+        </div>
+
+        <!-- Toast -->
+        <div class="form-toast" id="form-toast" role="alert"></div>
+
+        <button type="submit" class="form-submit" id="submit-btn">
+          Send Request
+        </button>
+      </form>
+    </div>
+
+    <!-- How it works -->
+    <section class="form-steps">
+      <h2 class="form-steps__title">How it works</h2>
+      <div class="step-item">
+        <span class="step-item__num">1</span>
+        <div>
+          <p class="step-item__title">We review your submission</p>
+          <p class="step-item__desc">We listen to your music and verify the information.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-item__num">2</span>
+        <div>
+          <p class="step-item__title">We produce the video</p>
+          <p class="step-item__desc">We create the video with cover art, tracklist and audio spectrum.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-item__num">3</span>
+        <div>
+          <p class="step-item__title">We publish it</p>
+          <p class="step-item__desc">Your album goes live on YouTube and on the Metal Archive.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</body>
+</html>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+
+  const form       = document.getElementById('promo-form') as HTMLFormElement;
+  const btn        = document.getElementById('submit-btn') as HTMLButtonElement;
+  const toast      = document.getElementById('form-toast') as HTMLElement;
+  const success    = document.getElementById('success-state') as HTMLElement;
+  const genreEl    = document.getElementById('genre') as HTMLSelectElement;
+  const customEl   = document.getElementById('custom_genre') as HTMLInputElement;
+  const addLinkBtn = document.getElementById('add-link-btn') as HTMLButtonElement;
+  const extraLinks = document.getElementById('extra-links') as HTMLElement;
+
+  // Show/hide custom genre input
+  genreEl.addEventListener('change', () => {
+    customEl.style.display = genreEl.value === 'Other' ? 'block' : 'none';
+    if (genreEl.value !== 'Other') customEl.value = '';
+  });
+
+  // Dynamic extra link rows (max 5)
+  let linkCount = 0;
+  addLinkBtn.addEventListener('click', () => {
+    if (linkCount >= 5) return;
+    const idx = linkCount++;
+    const row = document.createElement('div');
+    row.className = 'extra-link-row';
+    row.innerHTML = `
+      <input type="url" name="extra_link_${idx}" class="form-input" placeholder="https://..." />
+      <button type="button" class="btn-remove-link" data-idx="${idx}" aria-label="Remove link">&times;</button>
+    `;
+    row.querySelector('.btn-remove-link')!.addEventListener('click', () => {
+      row.remove();
+      if (linkCount <= 5) addLinkBtn.style.display = '';
+    });
+    extraLinks.appendChild(row);
+    if (linkCount >= 5) addLinkBtn.style.display = 'none';
+  });
+
+  function showToast(msg: string, isError: boolean) {
+    toast.textContent = msg;
+    toast.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
+    toast.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    toast.style.display = 'none';
+
+    const fd   = new FormData(form);
+    const data: Record<string, string> = {};
+    fd.forEach((v, k) => { data[k] = String(v); });
+
+    // Required field check
+    for (const field of ['band_name', 'email', 'album_title']) {
+      if (!String(data[field] ?? '').trim()) {
+        showToast('Please fill in all required fields.', true);
+        return;
+      }
+    }
+
+    // At least one link
+    const hasLink = ['youtube_url', 'bandcamp_url',
+      'extra_link_0', 'extra_link_1', 'extra_link_2', 'extra_link_3', 'extra_link_4']
+      .some(k => String(data[k] ?? '').trim());
+    if (!hasLink) {
+      showToast('Add at least one link.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/metal-archive/promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        form.style.display = 'none';
+        success.style.display = 'flex';
+      } else {
+        showToast(json.detail ?? 'Something went wrong. Please try again.', true);
+      }
+    } catch {
+      showToast('Could not connect. Check your connection.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send Request';
+    }
+  });
+</script>

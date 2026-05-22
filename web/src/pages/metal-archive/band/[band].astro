@@ -1,0 +1,119 @@
+---
+// Band discography page (Navidrome-style) — one page per band with 2+ albums.
+// No photo/bio/rating in the DB: we show band name (large), derived metadata
+// (genres, countries, release count), then a cover grid of all works ordered
+// newest-first. Live recordings are separated into their own section below the
+// main discography so studio albums stay prominent.
+//
+// Route: /metal-archive/band/{slug}
+// Slugify is identical to genre/[genre].astro — defined inside getStaticPaths
+// so it is available in the prerender chunk.
+import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording } from '../../../lib/db.js';
+import AlbumCard from '../../../components/AlbumCard.astro';
+import Navbar from '../../../components/Navbar.astro';
+import Footer from '../../../components/Footer.astro';
+import '../../../styles/global.css';
+
+export function getStaticPaths() {
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+  const bands = getBandsWithMultipleAlbums();
+  return bands.map((b) => ({
+    params: { band: slugify(b.band_name) },
+    props: { realName: b.band_name, totalCount: b.count },
+  }));
+}
+
+interface Props {
+  realName: string;
+  totalCount: number;
+}
+
+const { realName, totalCount } = Astro.props;
+const allAlbums = getAlbumsByBand(realName);
+
+// Split studio/official vs live recordings.
+const studioAlbums = allAlbums.filter((a) => !isLiveRecording(a.album_title));
+const liveAlbums   = allAlbums.filter((a) =>  isLiveRecording(a.album_title));
+
+// Derive distinct genres and countries from the band's catalogue.
+const genres    = [...new Set(allAlbums.map((a) => a.genre).filter(Boolean))];
+const countries = [...new Set(allAlbums.map((a) => a.country).filter(Boolean))];
+
+const pageTitle = `${realName} — Discography · Metal Archive`;
+const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={metaDesc} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDesc} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <Navbar />
+
+    <div class="band-page">
+      <!-- ─── Band header ──────────────────────────────────────────────────── -->
+      <header class="band-header">
+        <h1 class="band-header__name">{realName}</h1>
+        <div class="band-header__meta">
+          {genres.length > 0 && (
+            <div class="band-header__meta-item">
+              <span class="band-header__meta-label">Genre</span>
+              <span class="band-header__meta-value">{genres.join(' / ')}</span>
+            </div>
+          )}
+          {countries.length > 0 && (
+            <div class="band-header__meta-item">
+              <span class="band-header__meta-label">Origin</span>
+              <span class="band-header__meta-value">{countries.join(', ')}</span>
+            </div>
+          )}
+          <div class="band-header__meta-item">
+            <span class="band-header__meta-label">Releases</span>
+            <span class="band-header__meta-value">{totalCount}</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ─── Studio / official works ─────────────────────────────────────── -->
+      {studioAlbums.length > 0 && (
+        <section class="band-section">
+          {liveAlbums.length > 0 && (
+            <h2 class="band-section-title">Discography</h2>
+          )}
+          <div class="album-grid">
+            {studioAlbums.map((album) => <AlbumCard album={album} />)}
+          </div>
+        </section>
+      )}
+
+      <!-- ─── Live recordings (separated, lower priority) ──────────────────── -->
+      {liveAlbums.length > 0 && (
+        <section class="band-section live-section">
+          <div class="live-section__heading">
+            <h2 class="band-section-title" style="margin-bottom: 0;">Live Recordings</h2>
+            <span class="live-section__badge">LIVE</span>
+          </div>
+          <p class="live-section__note">Live sets and concert recordings</p>
+          <div class="album-grid">
+            {liveAlbums.map((album) => <AlbumCard album={album} livePlaceholder={true} />)}
+          </div>
+        </section>
+      )}
+    </div>
+
+    <Footer />
+  </body>
+</html>

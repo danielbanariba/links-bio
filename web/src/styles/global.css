@@ -1,0 +1,2024 @@
+/* ─── Xerox Underground Design Tokens ───────────────────────────────────────
+   Source of truth: links_bio/styles/colors.py + fonts.py
+   All hex values verified from the Python source.                           */
+:root {
+  /* Colors */
+  --bg:          #09080d;   /* Color.BACKGROUND */
+  --content:     #0a121f;   /* Color.CONTENT — buttons, header bg */
+  --primary:     #0073a8;   /* Color.PRIMARY — cyan accent */
+  --secondary:   #022b44;   /* Color.SECONDARY — hover, card hover */
+  --logo-canal:  #908986;   /* Color.LOGO_CANAL */
+
+  /* Text */
+  --text-header: #fff8ee;   /* TextColor.HEADER */
+  --text-body:   #ccc6be;   /* TextColor.BODY */
+  --text-footer: #99948e;   /* TextColor.FOOTER */
+
+  /* Borders / surfaces */
+  --border:      #1d1a28;
+
+  /* Typography
+     Only two faces: Poppins (everything) and DinaRemasterII (the {logo} only).
+     The personal logo display typeface is FORBIDDEN in the UI and removed. */
+  --font-default: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-logo:    'DinaRemasterII', monospace;
+
+  /* Spacing scale (mirrors Size enum CSS values) */
+  --space-xs:   0.2em;
+  --space-sm:   0.5em;
+  --space-md:   0.8em;
+  --space-base: 1em;
+  --space-lg:   1.5em;
+  --space-xl:   2.2em;
+  --space-xxl:  3em;
+
+  /* Layout — wide, near-fullscreen container with fluid side padding so the
+     gallery uses the whole viewport instead of a narrow centered column. */
+  --max-width:         1760px;  /* METAL_ARCHIVE_MAX_WIDTH (wide) */
+  --detail-max-width:  1800px;  /* ALBUM_DETAIL_MAX_WIDTH */
+  --gutter:            clamp(1rem, 4vw, 3rem);
+}
+
+/* ─── Font faces ─────────────────────────────────────────────────────────────
+   Fonts served from /fonts/ (public/fonts/, no Astro base).                */
+@font-face {
+  font-family: 'DinaRemasterII';
+  src: url('/fonts/DinaRemasterII.ttc') format('truetype');
+  font-display: swap;
+}
+
+/* Pulse_virgin — used ONLY for the footer "DANIEL BANARIBA" signature.
+   Do NOT apply this font anywhere else in the UI. */
+@font-face {
+  font-family: 'Pulse_virgin';
+  src: url('/fonts/Pulse_virgin.ttf') format('truetype');
+  font-display: swap;
+}
+
+/* ─── Base reset ─────────────────────────────────────────────────────────────*/
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-body);
+  font-family: var(--font-default);
+  font-weight: 300;  /* FontWeight.LIGHT */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────────*/
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-header);
+  font-family: var(--font-default);
+  font-weight: 500;  /* FontWeight.MEDIUM */
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--text-header);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ─── Layout utilities ───────────────────────────────────────────────────────
+   Wide container + fluid side padding so content spans the screen instead of a
+   narrow centered column. --gutter scales from 1rem (phones) to 3rem (desktop). */
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+  padding-block: 1.5rem;
+}
+
+.wrap--detail {
+  max-width: var(--detail-max-width);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+  padding-block: 1.5rem;
+}
+
+/* ─── Carousel utilities (horizontal cover rows) ─────────────────────────────
+   Bigger thumbnails + more gap than the old tight carousel for a gallery feel. */
+.carousel-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(200px, 24vw, 260px);
+  gap: 1.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.75rem;
+  /* Hide scrollbar but keep scroll functionality */
+  scrollbar-width: none;
+}
+.carousel-row::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-row > * {
+  scroll-snap-align: start;
+}
+
+/* ─── Gallery grid (Bandcamp-style cover wall) ───────────────────────────────
+   auto-fill + minmax keeps every row completely full (no awkward end gaps) and
+   reflows fluidly: ~2 cols on phones up to 6+ on wide desktops. The min track
+   shrinks on narrow viewports so two covers always fit on a phone. */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 220px), 1fr));
+  gap: 1.75rem 1.5rem;
+}
+
+@media (min-width: 1200px) {
+  .gallery-grid { gap: 2.25rem 1.75rem; }
+}
+
+/* Below-fold carousels: defer rendering until near viewport */
+.carousel-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+/* ─── Album card (cover-first gallery unit) ──────────────────────────────────
+   The cover is the protagonist: large, square, crisp. Text sits below in clean
+   minimal type. On hover the cover lifts/scales, brightens, gains an accent ring
+   and a play affordance fades in. --card-accent (optional, set inline per card)
+   tints the ring/glow; falls back to the cyan brand.                          */
+.album-card {
+  --card-accent: var(--primary);
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.album-card:focus-visible {
+  outline: none;
+}
+.album-card:focus-visible .album-card__art {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* The framed cover. Its own element so the lift/glow stay scoped to the art. */
+.album-card__art {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.6em;
+  overflow: hidden;
+  background: var(--content);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
+              box-shadow 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.album-card:hover .album-card__art {
+  transform: translateY(-6px) scale(1.04);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55),
+              0 0 0 1px color-mix(in srgb, var(--card-accent) 55%, transparent),
+              0 0 28px color-mix(in srgb, var(--card-accent) 40%, transparent);
+}
+
+.album-card__cover {
+  /* Strict uniform square: every cover renders identically regardless of the
+     source image's intrinsic dimensions. aspect-ratio guards against any image
+     whose natural ratio would otherwise leak through. */
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  background: var(--content);
+  transition: filter 0.28s ease;
+}
+
+.album-card:hover .album-card__cover {
+  filter: brightness(1.08) saturate(1.05);
+}
+
+.album-card__cover--empty {
+  background: linear-gradient(135deg, var(--content), var(--secondary));
+}
+
+/* Live Recordings placeholder — brand-colored square with band name + LIVE badge.
+   Replaces the API-sourced YouTube thumbnails (red overlays, inconsistent frames)
+   with an intentional, on-brand treatment. */
+.album-card__cover--live {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(0, 115, 168, 0.18) 0%, transparent 70%),
+    var(--content);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle noise / scan-line texture behind the text */
+.album-card__cover--live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Thin cyan top border accent line */
+.album-card__cover--live::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary);
+  opacity: 0.7;
+}
+
+.live-cover__band {
+  position: relative;
+  font-family: var(--font-default);
+  font-size: clamp(0.62rem, 1.8vw, 0.78rem);
+  font-weight: 700;
+  color: var(--text-header);
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  max-width: 90%;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.live-cover__badge {
+  position: relative;
+  font-family: var(--font-default);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 2px;
+  padding: 0.15em 0.5em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Play affordance: cyan/accent circle, bottom-right, fades + slides in on hover. */
+.album-card__play {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-header);
+  background: var(--card-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px) scale(0.85);
+  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+.album-card__play svg { margin-left: 2px; }
+
+.album-card:hover .album-card__play,
+.album-card:focus-visible .album-card__play {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.album-card__body {
+  padding: 0.7rem 0.15rem 0;
+}
+
+.album-card__band {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-header);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card__album {
+  color: var(--text-footer);
+  font-size: 0.82rem;
+  margin-top: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Kept for the browse page markup, which still renders a genre line. */
+.album-card__genre {
+  color: var(--primary);
+  font-size: 0.72rem;
+  margin-top: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-card__art,
+  .album-card__cover,
+  .album-card__play {
+    transition: opacity 0.2s ease;
+  }
+  .album-card:hover .album-card__art { transform: none; }
+}
+
+/* ─── Album grid (genre / country / year / browse / album pages) ──────────────
+   Gallery wall: large covers, generous gap, matches .gallery-grid rhythm.
+   auto-fill + minmax fills every row completely (no holes) and reflows from
+   ~2 cols on phones to 6+ on wide desktops.                                   */
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 220px), 1fr));
+  gap: 1.75rem 1.5rem;
+}
+
+@media (min-width: 1200px) {
+  .album-grid { gap: 2.25rem 1.75rem; }
+}
+
+/* ─── Skeleton fade animation ────────────────────────────────────────────────*/
+@keyframes skeleton-fade {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.7; }
+}
+.animate-skeleton {
+  animation: skeleton-fade 1.5s ease-in-out infinite;
+}
+
+/* ─── Track active state (set by Player island via JS) ───────────────────────*/
+.track-active {
+  background: rgba(0, 115, 168, 0.13);
+}
+
+/* ─── Noise texture overlay helper ──────────────────────────────────────────
+   Used on hero sections: 8% opacity, mix-blend-mode overlay.              */
+.noise-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+}
+
+/* ─── Navbar ─────────────────────────────────────────────────────────────────*/
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem var(--gutter);
+  border-bottom: 1px solid var(--border);
+  background: var(--content);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.navbar__brand {
+  font-family: var(--font-logo);
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* {daniel_banariba}; logo colors — mirror LogoColor enum in colors.py */
+.logo-paren { color: #f1d700; }   /* LogoColor.PARENTESIS */
+.logo-word  { color: #c398f4; }   /* LogoColor.PALABRAS */
+.logo-semi  { color: #bbbbbb; }   /* LogoColor.PUNTO_Y_COMA */
+
+.navbar__links {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.navbar__links a {
+  color: var(--text-body);
+  font-size: 0.9rem;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.navbar__links a:hover {
+  color: var(--primary);
+}
+
+/* Surprise Me button — mirrors the Reflex "Sorpréndeme" outline button */
+.navbar__surprise {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  background: transparent;
+  color: var(--text-header);
+  border: 1px solid var(--primary);
+  border-radius: 2px;
+  padding: 0.5em 0.9em;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.navbar__surprise:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+@media (max-width: 560px) {
+  .navbar__surprise-label { display: none; }
+  .navbar__surprise { padding: 0.5em 0.55em; }
+  .navbar__links { gap: 0.85rem; }
+  .navbar__brand { font-size: 1.4rem; }
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────────*/
+.footer {
+  color: var(--text-footer);
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+.footer__brand {
+  font-family: var(--font-logo);
+  color: var(--primary);
+}
+
+/* ─── Hero album (gallery cover-first featured header) ───────────────────────*/
+.hero {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: clamp(2.5em, 6vw, 5em) 2em clamp(2.5em, 5vw, 4em);
+  background: linear-gradient(160deg, var(--secondary) 0%, rgba(2, 43, 68, 0.5) 40%, var(--bg) 100%);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  isolation: isolate;
+  transition: background 0.6s ease;
+}
+
+.hero__inner {
+  max-width: var(--detail-max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .hero { padding: 2em 1.2em 2.5em; }
+  .hero__inner { grid-template-columns: 1fr; gap: 1.75rem; }
+}
+
+/* Big square cover, the hero of the hero. Carries its own play affordance. */
+.hero__art {
+  position: relative;
+  display: block;
+  width: clamp(240px, 34vw, 460px);
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 8px 18px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 115, 168, 0.33);
+}
+
+.hero__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.hero__cover--empty { background: linear-gradient(135deg, var(--content), var(--secondary)); }
+
+.hero__art:hover .hero__cover { transform: scale(1.04); }
+
+.hero__play {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-header);
+  background: var(--primary);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px) scale(0.85);
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.hero__play svg { margin-left: 3px; }
+.hero__art:hover .hero__play,
+.hero__art:focus-visible .hero__play { opacity: 1; transform: translateY(0) scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__cover { transition: none; }
+  .hero__art:hover .hero__cover { transform: none; }
+  .hero__play { transition: opacity 0.2s ease; }
+}
+
+.hero__meta { min-width: 0; }
+
+.hero__release-type {
+  font-size: 0.78em;
+  color: var(--primary);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 0.4em;
+}
+
+.hero__band {
+  font-size: clamp(2.4em, 7.5vw, 5.5em);
+  font-weight: 900;
+  color: var(--text-header);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  margin-bottom: 0.18em;
+}
+
+.hero__album {
+  font-size: clamp(1.1em, 2.5vw, 1.6em);
+  color: var(--text-header);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.7em;
+}
+
+.hero__meta-row {
+  color: var(--text-body);
+  font-size: 0.95em;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  margin-bottom: 1.5em;
+}
+
+.hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: var(--primary);
+  color: var(--text-header);
+  padding: 0.75em 1.6em;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 1em;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.hero__cta:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+  color: var(--text-header);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__cta:hover { transform: none; }
+}
+
+/* ─── Section headers ────────────────────────────────────────────────────────*/
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-header h2,
+.section-header h3 {
+  font-size: clamp(1.45rem, 3vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-header);
+}
+
+.section-header__link {
+  color: var(--text-footer);
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.section-header__link:hover {
+  color: var(--primary);
+}
+
+/* ─── Home: vertical rhythm between sections (generous, breathing) ────────────*/
+.home-sections {
+  padding-top: clamp(2.5rem, 5vw, 4rem);
+  padding-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3rem, 6vw, 5rem);
+}
+
+/* Carousel/Gallery <section> wrappers reset their own bottom margins — the
+   parent flex `gap` owns the rhythm now. */
+.home-sections > .section,
+.home-sections > .home-browse-by { margin-bottom: 0; }
+
+.home-browse-by { margin-bottom: 0; }
+
+/* ─── Home: section divider ──────────────────────────────────────────────────*/
+.home-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ─── Home: Live Recordings section ──────────────────────────────────────────
+   Daniel's own live sets, visually set apart from the official-album feeds:
+   a left accent rule, a "Live sets" badge, and a short clarifying note.       */
+.live-section {
+  border-left: 3px solid var(--primary);
+  padding-left: clamp(0.8rem, 2vw, 1.4rem);
+}
+
+.live-section__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.live-section__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 2px;
+  padding: 0.18em 0.5em;
+  white-space: nowrap;
+}
+
+.live-section__note {
+  color: var(--text-footer);
+  font-size: 0.85rem;
+  margin: -0.8rem 0 1.4rem;
+}
+
+/* ─── Home: centered CTA rows (Surprise Me / YouTube) ────────────────────────*/
+.home-cta-row {
+  display: flex;
+  justify-content: center;
+}
+.home-cta-row--tight { margin-top: -2rem; }
+
+/* ─── Home: browse-by-country grid ──────────────────────────────────────────*/
+.country-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .country-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .country-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ─── Home: browse-by-year grid ──────────────────────────────────────────────*/
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+@media (min-width: 480px) {
+  .year-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .year-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* ─── Home: facet card (country/year tile) ───────────────────────────────────*/
+.facet-card {
+  background: var(--content);
+  border: 1px solid transparent;
+  border-radius: 0.7em;
+  padding: 1rem 0.6rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background 0.18s, transform 0.18s, border-color 0.18s;
+  text-decoration: none;
+  color: inherit;
+}
+
+.facet-card:hover {
+  background: var(--secondary);
+  border-color: rgba(0, 115, 168, 0.4);
+  transform: translateY(-2px);
+  color: var(--text-header);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .facet-card:hover { transform: none; }
+}
+
+.facet-card__flag {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.facet-card__name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-header);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.facet-card__count {
+  font-size: 0.72rem;
+  color: var(--text-footer);
+}
+
+/* ─── Home: Sorpréndeme button ───────────────────────────────────────────────*/
+.btn-sorprendeme {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: var(--content);
+  color: var(--text-header);
+  border: 2px solid var(--primary);
+  padding: 0.7em 1.8em;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--font-default);
+}
+
+.btn-sorprendeme:hover {
+  background: var(--primary);
+  color: var(--text-header);
+}
+
+/* ─── Home: YouTube CTA ──────────────────────────────────────────────────────*/
+.btn-youtube {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: #ff0000;
+  color: #fff;
+  padding: 0.75em 2em;
+  border-radius: 0.5em;
+  font-size: 1.05em;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.btn-youtube:hover {
+  opacity: 0.88;
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALBUM DETAIL PAGE  (ported from _ALBUM_DETAIL_CSS + the hero/track/player
+   style dicts in links_bio/styles/styles.py). The --album-color variable is
+   baked per-page at BUILD time on the <html> element (see vibrant.ts), so the
+   halo + active-track tint are correct on first paint with zero client JS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Reserve space for the fixed now-playing bar (72px + breathing room). */
+body.album-detail { padding-bottom: 80px; }
+
+/* Album-color halo on the page background. --album-color falls back to the
+   cyan brand if Vibrant produced nothing. */
+.album-detail-bg {
+  background:
+    radial-gradient(ellipse 120% 700px at top, var(--album-color, var(--primary)) -30%, transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+.album-detail-main {
+  max-width: var(--detail-max-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.album-detail-body {
+  padding: 1.8em clamp(1.2em, 4vw, 3em) 2em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+/* ─── Hero ───────────────────────────────────────────────────────────────────*/
+#album-hero {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 2.5em 0 1.2em;
+  /* gradient baked inline per-page from --album-color; this is the fallback */
+  background: linear-gradient(180deg, var(--secondary) 0%, rgba(2, 43, 68, 0.5) 35%, var(--bg) 100%);
+  transition: background 0.6s ease;
+  border-bottom: 2px solid var(--primary);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+@media (max-width: 767px) {
+  #album-hero { padding-top: 1.5em; }
+}
+
+#album-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+#album-hero > * { position: relative; z-index: 1; }
+
+.album-hero__inner {
+  max-width: var(--detail-max-width);
+  margin: 0 auto;
+  padding: 0 clamp(1.2em, 4vw, 3em);
+  width: 100%;
+}
+
+.album-hero__top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.2em;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .album-hero__top {
+    flex-direction: row;
+    align-items: flex-end;
+    text-align: left;
+    gap: 1.8em;
+  }
+}
+
+.album-hero__cover {
+  width: clamp(180px, 22vw, 280px);
+  height: clamp(180px, 22vw, 280px);
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 6px 14px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 115, 168, 0.33);
+  flex-shrink: 0;
+}
+
+.album-hero__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  justify-content: flex-end;
+  min-width: 0;
+  flex: 1;
+}
+
+.album-hero__release-type {
+  font-size: 0.78em;
+  color: var(--primary);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.album-hero__band {
+  font-size: clamp(2.2em, 7vw, 5em);
+  font-weight: 900;
+  color: var(--text-header);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .album-hero__band { letter-spacing: -0.02em; }
+}
+
+.album-hero__title {
+  font-family: var(--font-default);
+  font-size: clamp(1.1em, 2.5vw, 1.5em);
+  color: var(--text-header);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.album-hero__metarow {
+  color: var(--text-body);
+  font-size: clamp(0.85em, 2vw, 0.95em);
+  font-weight: 300;
+}
+.album-hero__metarow .sep { color: var(--text-footer); }
+
+/* Discovery links in the metadata row (genre, year) */
+.album-hero__metarow .meta-link {
+  color: var(--text-body);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.album-hero__metarow .meta-link:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Band name link in the hero h1 */
+.album-hero__band .band-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.18s;
+}
+.album-hero__band .band-link:hover {
+  border-bottom-color: var(--primary);
+  color: var(--text-header);
+}
+
+/* ─── Band page ──────────────────────────────────────────────────────────────*/
+.band-page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--gutter) 4rem;
+}
+
+.band-header {
+  padding: 2.5rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.band-header__name {
+  font-size: clamp(2rem, 6vw, 3.8rem);
+  font-weight: 900;
+  color: var(--text-header);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.6rem;
+}
+
+.band-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  color: var(--text-footer);
+  font-size: 0.9rem;
+}
+
+.band-header__meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.band-header__meta-label {
+  color: var(--text-footer);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.band-header__meta-value {
+  color: var(--text-body);
+  font-size: 0.9rem;
+}
+
+.band-section-title {
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  font-weight: 700;
+  color: var(--text-header);
+  letter-spacing: -0.01em;
+  margin-bottom: 1.25rem;
+}
+
+.band-section + .band-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.album-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin-top: 1.5em;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .album-hero__actions { justify-content: flex-start; }
+}
+
+/* The big round ▶ play-album button. */
+.play-circle {
+  background: var(--primary);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-header);
+  border: none;
+  padding: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.play-circle:hover {
+  transform: scale(1.06);
+  box-shadow: 0 8px 22px rgba(0, 115, 168, 0.5);
+}
+.play-circle__glyph {
+  font-size: 1.4em;
+  margin-left: 0.15em;
+  line-height: 1;
+}
+@media (min-width: 768px) {
+  .play-circle { width: 64px; height: 64px; }
+}
+
+/* ─── Tracklist ──────────────────────────────────────────────────────────────*/
+.tracklist-section {
+  width: 100%;
+  padding: 0 0.4em;
+}
+
+.track-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 80px;
+  column-gap: 1em;
+  padding: 0.55em 0.9em;
+  border-bottom: 1px solid rgba(0, 115, 168, 0.33);
+  color: var(--text-footer);
+  font-size: 0.72em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  align-items: center;
+}
+
+.track-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+  margin-top: 0.3em;
+}
+
+.track-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 80px;
+  column-gap: 1em;
+  padding: 0.65em 0.9em;
+  border-radius: 2px;
+  cursor: pointer;
+  align-items: center;
+  transition: background 0.12s ease, color 0.12s ease;
+  color: var(--text-header);
+}
+.track-row:hover { background: rgba(2, 43, 68, 0.3); }
+
+.track-row__index {
+  text-align: center;
+  font-size: 0.95em;
+}
+.track-number { color: var(--text-footer); }
+
+/* CSS-only ▸ toggle: number by default; ▸ on hover; ▸ (accent) when active. */
+.track-play-icon,
+.track-active-icon { display: none; font-size: 0.85em; }
+.track-row:hover .track-number { display: none; }
+.track-row:hover .track-play-icon { display: inline; color: var(--text-header); }
+
+.track-row__title {
+  color: var(--text-header);
+  font-size: 0.95em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.track-row__time {
+  color: var(--text-footer);
+  font-size: 0.85em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Active row (set by the Player island). Tint uses --album-color. */
+.track-row.track-active {
+  background: color-mix(in srgb, var(--album-color, var(--primary)) 13%, transparent) !important;
+  border-left: 2px solid var(--album-color, var(--primary)) !important;
+}
+.track-row.track-active .track-row__title {
+  color: var(--album-color, var(--primary));
+  font-weight: 500;
+}
+.track-row.track-active .track-number { display: none; }
+.track-row.track-active .track-play-icon { display: none; }
+.track-row.track-active .track-active-icon { display: inline; color: var(--album-color, var(--primary)) !important; }
+
+/* ─── Streaming links ────────────────────────────────────────────────────────*/
+.streaming-section {
+  width: 100%;
+  padding-top: 1.5em;
+  padding-bottom: 0.5em;
+  border-top: 1px solid var(--secondary);
+  margin-top: 1.5em;
+}
+.streaming-section__label {
+  color: var(--text-footer);
+  font-size: 0.75em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-bottom: 0.8em;
+}
+.streaming-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+.streaming-link {
+  background: var(--secondary);
+  color: var(--text-header);
+  padding: 0.5em 1em;
+  border-radius: 0.5em;
+  font-size: 0.9em;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.streaming-link:hover { background: var(--primary); color: var(--text-header); }
+
+/* ─── Similar bands pills ─────────────────────────────────────────────────────*/
+.similar-bands-section { width: 100%; padding-top: 1em; }
+.similar-bands-section h2 {
+  font-size: 1.3em;
+  color: var(--text-header);
+  margin-bottom: 0.6em;
+}
+.similar-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+.band-pill {
+  background: var(--content);
+  color: var(--text-body);
+  padding: 0.4em 0.9em;
+  border-radius: 999px;
+  font-size: 0.85em;
+  border: 1px solid var(--secondary);
+}
+
+/* ─── Related album sections (similar / more to explore) ─────────────────────*/
+.related-section { width: 100%; padding-top: 1.5em; }
+.related-section h2 {
+  font-size: clamp(1.3em, 3vw, 1.6em);
+  color: var(--text-header);
+  margin-bottom: 0.8em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.related-section--bordered {
+  padding-top: 2em;
+  padding-bottom: 1em;
+  border-top: 1px solid var(--secondary);
+  margin-top: 2em;
+}
+.related-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8em;
+}
+.related-section__header h2 { margin-bottom: 0; }
+.related-section__more {
+  color: var(--primary);
+  font-size: 0.9em;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ═══ Now-playing bar (ported from now_playing_bar.py) ═══════════════════════ */
+#now-playing-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: var(--content);
+  border-top: 2px solid var(--primary);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5em;
+  z-index: 100;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.55);
+}
+
+.np-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.np-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 2px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--secondary);
+}
+.np-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.np-name {
+  color: var(--text-header);
+  font-size: 0.9em;
+  font-weight: 500;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.np-artist {
+  color: var(--text-footer);
+  font-size: 0.75em;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.np-center {
+  flex: 2 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+.np-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.np-icon-btn {
+  background: transparent;
+  color: var(--text-body);
+  border: none;
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0.3em 0.5em;
+}
+.np-toggle {
+  background: var(--primary);
+  color: var(--text-header);
+  border: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  width: 36px;
+  height: 36px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.np-toggle:hover { transform: scale(1.08); }
+
+.np-progress {
+  width: 100%;
+  max-width: 360px;
+  height: 4px;
+  background: var(--secondary);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 0.4em;
+}
+.np-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--text-header);
+  border-radius: 999px;
+  transition: width 0.4s linear;
+}
+@keyframes mp-progress-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+#now-playing-progress.np-loading { animation: mp-progress-pulse 1s ease-in-out infinite; }
+
+.np-right {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.np-yt-link {
+  color: var(--text-footer);
+  font-size: 0.8em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ═══ Mini-player (ported from mini_player.py) ═══════════════════════════════ */
+#mini-player {
+  position: fixed;
+  bottom: 96px;
+  left: 20px;
+  width: 240px;
+  height: 135px;
+  border-radius: 2px;
+  border: 1px solid var(--primary);
+  overflow: hidden;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  background: #000;
+  transition: width 0.3s ease, height 0.3s ease;
+}
+#mini-player.expanded { width: 480px; height: 270px; }
+#mini-player iframe { border: 0; pointer-events: none; }
+
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--album-color, var(--primary));
+  border-radius: 50%;
+  animation: mp-spin 0.8s linear infinite;
+}
+.mp-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
+
+.mp-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.6em;
+  background: #000;
+  z-index: 2;
+}
+
+/* ─── Mobile: hide mini-player + right-side now-playing controls ──────────────*/
+@media (max-width: 767px) {
+  #mini-player { display: none !important; }
+  .now-playing-right { display: none !important; }
+  #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
+  #now-playing-bar .np-cover { width: 40px; height: 40px; }
+  #now-playing-progress { max-width: 100%; }
+}
+@media (max-width: 480px) {
+  #now-playing-name, #now-playing-artist { max-width: 140px; }
+}
+
+/* ─── Browse page ────────────────────────────────────────────────────────────*/
+.browse-page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 4rem;
+}
+
+.browse-header {
+  margin-bottom: 1.5rem;
+}
+
+.browse-title {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  color: var(--text-header);
+  font-family: var(--font-default);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+}
+
+.browse-subtitle {
+  color: var(--text-body);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* ─── Home search bar (prominent discovery entry point) ──────────────────────*/
+.home-search {
+  width: 100%;
+  padding: 2rem 0 0.5rem;
+}
+
+.home-search__form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Cap the search width so it stays comfortable on the now-wide container,
+     while the gallery grids below still span the full viewport. */
+  max-width: 900px;
+  margin-inline: auto;
+  background: var(--content);
+  border: 1px solid rgba(0, 115, 168, 0.35);
+  border-radius: 0.8em;
+  padding: 0.5rem 0.6rem 0.5rem 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.home-search__form:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 115, 168, 0.18), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.home-search__icon {
+  color: var(--text-footer);
+  flex-shrink: 0;
+}
+
+.home-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-header);
+  font-family: var(--font-default);
+  font-size: 1.05rem;
+  padding: 0.45rem 0;
+}
+
+.home-search__input::placeholder {
+  color: var(--text-footer);
+}
+
+.home-search__btn {
+  flex-shrink: 0;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 0.6em;
+  padding: 0.6rem 1.4rem;
+  font-family: var(--font-default);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: filter 0.18s ease;
+}
+
+.home-search__btn:hover {
+  filter: brightness(1.15);
+}
+
+@media (max-width: 560px) {
+  .home-search__btn { padding: 0.6rem 1rem; }
+  .home-search__input { font-size: 0.95rem; }
+}
+
+/* ─── Search island controls ─────────────────────────────────────────────────*/
+.search-island {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.search-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.search-input-wrap {
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: var(--content);
+  border: 1px solid rgba(0, 115, 168, 0.3);
+  border-radius: 0.6em;
+  color: var(--text-header);
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+}
+
+.search-input::placeholder {
+  color: var(--text-footer);
+}
+
+.search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: rgba(10, 18, 31, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 0.7em;
+}
+
+.search-select {
+  flex: 1 1 140px;
+  padding: 0.55rem 0.75rem;
+  background: var(--content);
+  border: 1px solid rgba(0, 115, 168, 0.3);
+  border-radius: 0.5em;
+  color: var(--text-body);
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-select:hover {
+  border-color: rgba(0, 115, 168, 0.6);
+}
+
+.search-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(0, 115, 168, 0.18);
+}
+
+.search-result-count {
+  color: var(--text-footer);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.search-empty {
+  color: var(--text-body);
+  text-align: center;
+  padding: 3rem 0;
+  font-size: 0.95rem;
+}
+
+/* extra meta row on search cards (year + country) */
+.album-card__meta {
+  color: var(--text-footer);
+  font-size: 0.72rem;
+  margin-top: 0.2rem;
+}
+
+/* Load more button */
+.search-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+.btn-load-more {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  padding: 0.6rem 1.75rem;
+  border-radius: 2em;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-load-more:hover {
+  background: var(--primary);
+  color: var(--text-header);
+}
+
+@media (min-width: 640px) {
+  .search-controls {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .search-input-wrap {
+    flex: 1 1 280px;
+  }
+
+  .search-filters {
+    flex: 2 1 auto;
+  }
+}
+
+/* ─── Form pages (submit / promo / newsletter) ───────────────────────────── */
+
+.form-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-page__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1.25rem 4rem;
+  gap: 2rem;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Page header (icon + title + subtitle) */
+.form-page__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding-top: 0.5rem;
+}
+
+.form-page__icon {
+  color: var(--primary);
+  width: 48px;
+  height: 48px;
+}
+
+.form-page__title {
+  font-size: 2.2em;
+  color: var(--text-header);
+  font-weight: 500;
+}
+
+.form-page__subtitle {
+  color: var(--text-body);
+  font-size: 1.05em;
+  max-width: 550px;
+}
+
+/* Card wrapper */
+.form-card {
+  background: var(--content);
+  border: 1px solid var(--secondary);
+  border-radius: 1em;
+  padding: 1.5em;
+  width: 100%;
+  max-width: 700px;
+}
+
+@media (min-width: 640px) {
+  .form-card {
+    padding: 2em;
+  }
+}
+
+/* Field group */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.form-label {
+  color: var(--text-header);
+  font-size: 0.9em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.form-label__required {
+  color: var(--primary);
+}
+
+.form-label__hint {
+  color: var(--text-footer);
+  font-weight: 400;
+}
+
+/* Inputs + selects + textarea */
+.form-input,
+.form-select,
+.form-textarea {
+  background: var(--bg);
+  border: 1px solid rgba(0, 115, 168, 0.35);
+  border-radius: 0.5em;
+  color: var(--text-body);
+  font-family: var(--font-default);
+  font-size: 0.9em;
+  outline: none;
+  padding: 0.6rem 0.85rem;
+  transition: border-color 0.18s;
+  width: 100%;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--primary);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--text-footer);
+}
+
+.form-select option {
+  background: var(--bg);
+  color: var(--text-body);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+/* Two-column layout */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  width: 100%;
+}
+
+.form-row > .form-field {
+  flex: 1 1 200px;
+}
+
+/* Full-width field inside a form-stack */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* Submit button */
+.form-submit {
+  background: var(--primary);
+  border: none;
+  border-radius: 0.5em;
+  color: var(--text-header);
+  cursor: pointer;
+  font-family: var(--font-default);
+  font-size: 1.05em;
+  font-weight: 500;
+  padding: 0.75em 1.5em;
+  transition: opacity 0.18s, background 0.18s;
+  width: 100%;
+}
+
+.form-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toast / feedback messages */
+.form-toast {
+  border-radius: 0.5em;
+  display: none;
+  font-size: 0.9em;
+  margin-top: 0.5rem;
+  padding: 0.75em 1em;
+  width: 100%;
+}
+
+.form-toast--success {
+  background: rgba(0, 115, 168, 0.12);
+  border: 1px solid var(--primary);
+  color: var(--text-header);
+}
+
+.form-toast--error {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid #dc2626;
+  color: #fca5a5;
+}
+
+/* Extra link rows (promo) */
+.extra-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.extra-link-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.extra-link-row .form-input {
+  flex: 1;
+}
+
+.btn-remove-link {
+  background: transparent;
+  border: 1px solid var(--secondary);
+  border-radius: 0.4em;
+  color: var(--text-footer);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.3em 0.6em;
+  transition: border-color 0.18s, color 0.18s;
+  flex-shrink: 0;
+}
+
+.btn-remove-link:hover {
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+
+.btn-add-link {
+  background: transparent;
+  border: 1px solid var(--secondary);
+  border-radius: 0.5em;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 0.88em;
+  padding: 0.45em 1em;
+  transition: border-color 0.18s;
+  align-self: flex-start;
+}
+
+.btn-add-link:hover {
+  border-color: var(--primary);
+}
+
+/* Info steps section (submit / promo) */
+.form-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 700px;
+}
+
+.form-steps__title {
+  font-size: 1.3em;
+  color: var(--text-header);
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.step-item__num {
+  background: var(--primary);
+  border-radius: 50%;
+  color: var(--text-header);
+  font-size: 0.9em;
+  font-weight: 600;
+  flex-shrink: 0;
+  height: 2.4em;
+  width: 2.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-item__title {
+  color: var(--text-header);
+  font-weight: 500;
+  font-size: 0.95em;
+}
+
+.step-item__desc {
+  color: var(--text-body);
+  font-size: 0.85em;
+}
+
+/* Success state */
+.form-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 3em 1em;
+  text-align: center;
+}
+
+.form-success__icon {
+  color: var(--primary);
+  font-size: 3.5rem;
+}
+
+.form-success__title {
+  font-size: 1.6em;
+  color: var(--text-header);
+}
+
+.form-success__body {
+  color: var(--text-body);
+  max-width: 400px;
+}
+
+.form-success__back {
+  border: 1px solid var(--secondary);
+  border-radius: 0.5em;
+  color: var(--text-body);
+  display: inline-block;
+  font-size: 0.9em;
+  padding: 0.5em 1.2em;
+  text-decoration: none;
+  transition: border-color 0.18s;
+}
+
+.form-success__back:hover {
+  border-color: var(--primary);
+}

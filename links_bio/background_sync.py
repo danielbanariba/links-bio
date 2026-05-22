@@ -99,7 +99,43 @@ def _run_sync_cycle():
         _log(f"Error durante sync artwork: {e}")
         traceback.print_exc()
 
+    # Paso 4: rebuild + deploy del sitio Astro estatico con la DB actualizada
+    try:
+        _run_astro_deploy()
+    except Exception as e:
+        _log(f"Error durante deploy Astro: {e}")
+        traceback.print_exc()
+
     return True
+
+
+def _run_astro_deploy():
+    """Rebuild the Astro static site from the updated DB and deploy to Vercel.
+
+    No-op if VERCEL_TOKEN is not set (e.g. dev), so the sync never fails over deploy.
+    """
+    import subprocess
+    from pathlib import Path
+
+    token = os.environ.get("VERCEL_TOKEN")
+    if not token:
+        _log("VERCEL_TOKEN no configurado. Deploy Astro omitido.")
+        return
+
+    web_dir = Path(__file__).resolve().parent.parent / "web"
+    if not web_dir.exists():
+        _log(f"Directorio web/ no encontrado ({web_dir}). Deploy omitido.")
+        return
+
+    _log("Rebuild del sitio Astro...")
+    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True)
+    _log("Deploy a Vercel (prod)...")
+    subprocess.run(
+        ["vercel", "deploy", "--prod", "--prebuilt", "--token", token, "--yes"],
+        cwd=str(web_dir),
+        check=True,
+    )
+    _log("Deploy Astro completado.")
 
 
 def _run_normalize():

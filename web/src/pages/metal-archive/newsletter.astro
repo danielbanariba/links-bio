@@ -1,0 +1,122 @@
+---
+// newsletter.astro — Metal Archive newsletter signup
+// POSTs to /api/metal-archive/newsletter (FastAPI on port 8001, proxied by host)
+import Navbar from '../../components/Navbar.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/global.css';
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Newsletter | Metal Archive</title>
+  <meta name="description" content="Subscribe to get updates on new albums, bands and underground metal events." />
+</head>
+<body class="form-page">
+  <Navbar />
+
+  <main class="form-page__main" style="justify-content:center">
+    <!-- Header -->
+    <div class="form-page__header">
+      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+      </svg>
+      <h1 class="form-page__title">Newsletter</h1>
+      <p class="form-page__subtitle">
+        Subscribe to get updates on new albums, bands and underground metal events.
+      </p>
+    </div>
+
+    <!-- Form card (narrower for newsletter) -->
+    <div class="form-card" style="max-width:520px">
+      <!-- Success state -->
+      <div class="form-success" id="success-state" style="display:none">
+        <span class="form-success__icon">&#9993;</span>
+        <h2 class="form-success__title">You're subscribed</h2>
+        <p class="form-success__body">
+          Welcome to the archive. We'll let you know when there's news from the underground.
+        </p>
+        <a href="/metal-archive/" class="form-success__back">&#8592; Back to the archive</a>
+      </div>
+
+      <!-- The form -->
+      <form id="newsletter-form" class="form-stack" novalidate>
+        <div class="form-field">
+          <label class="form-label" for="email">
+            Your email <span class="form-label__required">*</span>
+          </label>
+          <input
+            id="email" name="email" type="email"
+            class="form-input" placeholder="you@email.com"
+            autocomplete="email" required
+          />
+        </div>
+
+        <!-- Toast -->
+        <div class="form-toast" id="form-toast" role="alert"></div>
+
+        <button type="submit" class="form-submit" id="submit-btn">
+          Subscribe
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <Footer />
+</body>
+</html>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+
+  const form    = document.getElementById('newsletter-form') as HTMLFormElement;
+  const btn     = document.getElementById('submit-btn') as HTMLButtonElement;
+  const toast   = document.getElementById('form-toast') as HTMLElement;
+  const success = document.getElementById('success-state') as HTMLElement;
+
+  function showToast(msg: string, isError: boolean) {
+    toast.textContent = msg;
+    toast.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
+    toast.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    toast.style.display = 'none';
+
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+
+    if (!email || !email.includes('@')) {
+      showToast('Please enter a valid email.', true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Subscribing...';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        form.style.display = 'none';
+        success.style.display = 'flex';
+      } else if (res.status === 409) {
+        showToast('This email is already subscribed.', false);
+      } else {
+        showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
+      }
+    } catch {
+      showToast('Could not connect. Check your connection.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe';
+    }
+  });
+</script>

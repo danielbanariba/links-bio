@@ -798,6 +798,17 @@ class MetalArchiveState(rx.State):
             self.album_detail_attempted = True
 
     @rx.event
+    def sync_album_player(self):
+        # Runs on every album navigation (registered after load_album_detail in
+        # on_load). The new DOM has the new #yt-player / data-video-id by now, so
+        # we (re)build the player and re-extract the cover color. Replaces the
+        # old MutationObserver-on-body that fired buildPlayer on every mutation
+        # and froze the browser.
+        return rx.call_script(
+            "window.metalSyncPlayer && window.metalSyncPlayer()"
+        )
+
+    @rx.event
     def select_track(self, idx: int):
         self.current_track_idx = idx
         if 0 <= idx < len(self.current_tracks):

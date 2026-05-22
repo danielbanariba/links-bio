@@ -1,0 +1,69 @@
+---
+// Slug strategy: genres contain spaces and slashes (e.g. "Brutal Death Metal/Goregrind").
+// A raw "/" in a path param would create a nested route, so we slugify:
+//   "Brutal Death Metal/Goregrind" -> "brutal-death-metal-goregrind"
+// The real genre value travels as a prop so we can query without lossy decoding.
+// Pattern: getStaticPaths returns { params: { genre: slug }, props: { realGenre } }
+//
+// NOTE: slugify is defined inside getStaticPaths (not in frontmatter scope) because
+// Astro compiles getStaticPaths into a separate prerender chunk — functions defined
+// in frontmatter are NOT available there.
+import { getAllGenres, getAlbumsByGenre } from '../../../lib/db.js';
+import AlbumCard from '../../../components/AlbumCard.astro';
+import Navbar from '../../../components/Navbar.astro';
+import Footer from '../../../components/Footer.astro';
+import '../../../styles/global.css';
+
+export function getStaticPaths() {
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+  const genres = getAllGenres();
+  return genres.map((facet) => ({
+    params: { genre: slugify(facet.value) },
+    props: { realGenre: facet.value, count: facet.count },
+  }));
+}
+
+interface Props {
+  realGenre: string;
+  count: number;
+}
+
+const { realGenre, count } = Astro.props;
+const albums = getAlbumsByGenre(realGenre);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{realGenre} — Metal Archive</title>
+    <meta name="description" content={`${count} ${realGenre} albums in the Metal Archive.`} />
+  </head>
+  <body>
+    <Navbar />
+
+    <main class="wrap" style="padding-top: 2rem;">
+      <header style="margin-bottom: 1.5rem;">
+        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">{realGenre}</h1>
+        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
+          {count} {count === 1 ? 'album' : 'albums'}
+        </p>
+      </header>
+
+      {albums.length > 0
+        ? <div class="album-grid">
+            {albums.map((album) => <AlbumCard album={album} />)}
+          </div>
+        : <p style="color: var(--text-footer);">No albums in this genre.</p>
+      }
+    </main>
+
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,30 @@
+---
+// Carousel: a section of AlbumCards rendered as either a responsive gallery
+// GRID (Bandcamp-style, default) or a horizontal scroll ROW.
+//   layout="grid"   -> 2 / 3 / 4-5 column responsive grid of large covers
+//   layout="scroll" -> single horizontal scroll row of large covers
+// Below-fold sections set `deferred` for content-visibility:auto.
+import type { Card } from '../lib/types.js';
+import AlbumCard from './AlbumCard.astro';
+
+interface Props {
+  title: string;
+  albums: Card[];
+  href?: string;
+  deferred?: boolean;            // true for below-fold sections (content-visibility:auto)
+  layout?: 'grid' | 'scroll';    // gallery grid (default) vs horizontal scroll
+}
+
+const { title, albums, href, deferred = false, layout = 'grid' } = Astro.props;
+const containerClass = layout === 'scroll' ? 'carousel-row' : 'gallery-grid';
+---
+
+<section class:list={['section', deferred && 'carousel-deferred']}>
+  <div class="section-header">
+    <h3>{title}</h3>
+    {href && <a href={href} class="section-header__link">See All →</a>}
+  </div>
+  <div class={containerClass}>
+    {albums.map((a) => <AlbumCard album={a} loading="lazy" />)}
+  </div>
+</section>
