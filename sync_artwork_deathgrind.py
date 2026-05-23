@@ -143,23 +143,12 @@ def buscar_artwork(session, band_name, album_title, retries_429=0):
                     thumb_url = f"{CDN_URL}/{thumb}" if thumb else None
                     return artwork, thumb_url
 
-    # If band name matched any post but no album match, use the first post with matching band
-    # This covers cases where album names differ slightly
-    for post in posts:
-        post_bands = [normalize(b.get("name", "")) for b in post.get("bands", [])]
-        post_album = normalize(post.get("album", ""))
-
-        if band_norm in post_bands:
-            att = post.get("attachments", [])
-            if att:
-                # Only use if we're reasonably confident
-                # (same band, different album — still worth having SOME cover)
-                thumb = att[0].get("thumb", "")
-                file_ = att[0].get("file", "")
-                artwork = f"{CDN_URL}/{file_}" if file_ else None
-                thumb_url = f"{CDN_URL}/{thumb}" if thumb else None
-                return artwork, thumb_url
-
+    # No exact or partial album match. We deliberately do NOT fall back to "the
+    # first post of this band": that assigned one release's cover to every other
+    # release by the same band, which produced the Scrotoplasty bug (3 distinct
+    # albums all showing the "Repulsive Transformation" cover). A wrong cover is
+    # worse than none — returning here lets the caller fall through to the
+    # per-album fallback (YouTube HD / Metal Archives), keyed to THIS release.
     return None, None
 
 
