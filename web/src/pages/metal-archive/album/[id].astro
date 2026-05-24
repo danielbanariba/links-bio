@@ -8,7 +8,9 @@
 //   - getAlbumColor() extracts the dominant swatch from the thumb (cached) and
 //     bakes --album-color + the hero gradient inline -> zero runtime Vibrant.
 //
-// Interactivity lives entirely in <Player client:load> (the only JS on the page).
+// Interactivity lives in the GLOBAL persistent <Player> (rendered from the
+// Navbar, transition:persist). This page only exposes its album as a JSON data
+// island (#metal-np-data) that the Player reads on astro:page-load.
 import {
   getAllAlbumIds,
   getAlbum,
@@ -20,10 +22,10 @@ import {
 } from '../../../lib/db.js';
 import { thumb } from '../../../lib/thumb.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
+import { ClientRouter } from 'astro:transitions';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
-import Player from '../../../islands/Player.tsx';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
@@ -68,6 +70,10 @@ const tracks = rawTracks.map((t, i) => ({
   seconds: tsToSeconds(t.timestamp),
 }));
 
+// Big "now playing" title defaults to the first track; the Player swaps it to
+// the active track on play. The album NAME lives in the small line below it.
+const heroTitle = tracks.length > 0 ? tracks[0].name : album.album_title;
+
 // ─── Artwork: full cover for the hero (eager), small thumb for the bar/og ────
 const coverUrl = album.album_artwork_url || '';
 const coverThumb = thumb(album.album_artwork_url);
@@ -79,17 +85,71 @@ const coverThumb = thumb(album.album_artwork_url);
 // format, getAlbumColor tries the large image before returning the cyan default
 // (deathgrind .webp covers in particular need the full-bytes -> sharp path).
 const albumColor = await getAlbumColor(coverThumb || coverUrl, coverUrl);
-const heroGradient = `linear-gradient(180deg, ${albumColor}cc 0%, ${albumColor}55 40%, var(--bg) 100%)`;
 
-// ─── Streaming links (only non-empty) ────────────────────────────────────────
-const streamingLinks = [
-  { label: 'Spotify', url: album.spotify_url },
-  { label: 'Bandcamp', url: album.bandcamp_url },
-  { label: 'Apple Music', url: album.apple_music_url },
-  { label: 'Metal Archives', url: album.metal_archives_url },
-  { label: 'Facebook', url: album.facebook_url },
-  { label: 'Instagram', url: album.instagram_url },
-].filter((l) => l.url && l.url.trim() !== '');
+// ─── Streaming / social links ────────────────────────────────────────────────
+// Many descriptions are scraped text that embeds the band's links (Bandcamp,
+// Spotify, Metal Archives, socials…). We pull every URL out of the description
+// AND the dedicated DB columns, classify each by platform, and render them as
+// proper buttons instead of dumping the raw text. Deduped by platform.
+const LINK_PLATFORMS: { test: RegExp; label: string }[] = [
+  { test: /bandcamp\.com/i, label: 'Bandcamp' },
+  { test: /spotify\.com/i, label: 'Spotify' },
+  { test: /music\.apple\.com|itunes\.apple\.com/i, label: 'Apple Music' },
+  { test: /metal-archives\.com/i, label: 'Metal Archives' },
+  { test: /facebook\.com|fb\.com/i, label: 'Facebook' },
+  { test: /instagram\.com/i, label: 'Instagram' },
+  { test: /soundcloud\.com/i, label: 'SoundCloud' },
+  { test: /deezer\.com/i, label: 'Deezer' },
+  { test: /tidal\.com/i, label: 'Tidal' },
+  { test: /(twitter\.com|x\.com)/i, label: 'Twitter / X' },
+  { test: /tiktok\.com/i, label: 'TikTok' },
+  { test: /youtube\.com|youtu\.be/i, label: 'YouTube' },
+];
+function classifyLink(url: string): string {
+  for (const p of LINK_PLATFORMS) if (p.test.test(url)) return p.label;
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Link'; }
+}
+const dbLinkUrls = [
+  album.spotify_url, album.bandcamp_url, album.apple_music_url,
+  album.metal_archives_url, album.facebook_url, album.instagram_url,
+].filter((u): u is string => !!u && u.trim() !== '');
+const descUrls = (album.description || '').match(/https?:\/\/[^\s)<>"']+/g) || [];
+const allLinkUrls = [...new Set([...dbLinkUrls, ...descUrls].map((u) => u.replace(/[.,;]+$/, '').trim()))];
+const seenPlatform = new Set<string>();
+// Drop links back to our own site(s) — those aren't external platforms.
+const SELF_DOMAINS = /(danielbanariba\.com|xeroxunderground\.com)/i;
+const platformLinks = allLinkUrls
+  .map((url) => ({ label: classifyLink(url), url }))
+  .filter((l) => l.label !== 'YouTube')        // YouTube already has its own button in the hero
+  .filter((l) => !SELF_DOMAINS.test(l.url))     // remove our own website (danielbanariba.com)
+  .filter((l) => { if (seenPlatform.has(l.label)) return false; seenPlatform.add(l.label); return true; });
+
+// Brand logos for each link button (monochrome, currentColor). Best-effort
+// single-path marks; platforms without a real logo fall back to a globe.
+function platformIcon(label: string): string {
+  const wrap = (inner: string, opts = '') =>
+    `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" ${opts}>${inner}</svg>`;
+  switch (label) {
+    case 'Spotify':
+      return wrap('<path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-1.02-.12-1.14-.6-.12-.48.12-1.02.6-1.14C9.6 9.9 15 10.56 18.72 12.84c.36.18.54.78.24 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/>');
+    case 'Bandcamp':
+      return wrap('<path fill="currentColor" d="M0 18.75l7.44-13.5H24l-7.44 13.5H0z"/>');
+    case 'Apple Music':
+      return wrap('<path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>');
+    case 'Facebook':
+      return wrap('<path fill="currentColor" d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07c0 6 4.39 10.97 10.13 11.85v-8.38H7.08v-3.47h3.04V9.43c0-3 1.79-4.66 4.53-4.66 1.31 0 2.68.23 2.68.23v2.95H15.8c-1.49 0-1.95.92-1.95 1.87v2.25h3.32l-.53 3.47h-2.79v8.38C19.6 23.04 24 18.07 24 12.07z"/>');
+    case 'Instagram':
+      return wrap('<path fill="currentColor" d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85C2.38 3.93 3.9 2.38 7.15 2.23 8.42 2.17 8.8 2.16 12 2.16zm0-2.16C8.74 0 8.33.01 7.05.07 2.7.27.28 2.69.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.36 2.62 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.2-4.35-2.62-6.78-6.98-6.98C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-10.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/>');
+    case 'Twitter / X':
+      return wrap('<path fill="currentColor" d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.66l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23zm-1.16 17.52h1.83L7.01 4.13H5.04l12.04 15.64z"/>');
+    case 'SoundCloud':
+      return wrap('<path fill="currentColor" d="M1.2 12.6c-.07 0-.12.05-.13.12L.9 14.46l.17 1.71c.01.07.06.12.13.12.06 0 .12-.05.12-.12l.2-1.71-.2-1.74c0-.07-.06-.12-.12-.12zm12.9 1.86l.28-.06c.4-.02.74.32.74.74 0 .42-.34.76-.76.76h-4.6V9.6c.5-.3 1.08-.46 1.7-.46 1.78 0 3.22 1.4 3.3 3.16.18-.08.38-.12.59-.12.5 0 .9.4.9.9 0 .12-.02.23-.06.34M9.7 9.54l-.25 4.16.25 1.65c.01.13.12.24.25.24.13 0 .24-.1.25-.24l.28-1.65-.28-4.16c-.01-.13-.12-.24-.25-.24-.13 0-.24.1-.25.24zm-2.08.62l-.22 3.54.22 1.66c.01.13.12.23.26.23.13 0 .24-.1.25-.23l.25-1.66-.25-3.54c-.01-.13-.12-.23-.25-.23-.14 0-.25.1-.26.23z"/>');
+    case 'Deezer':
+      return wrap('<g fill="currentColor"><rect x="16.5" y="6.6" width="7.5" height="2.3"/><rect x="16.5" y="10" width="7.5" height="2.3"/><rect x="8.25" y="13.4" width="7.5" height="2.3"/><rect x="16.5" y="13.4" width="7.5" height="2.3"/><rect x="0" y="16.8" width="7.5" height="2.3"/><rect x="8.25" y="16.8" width="7.5" height="2.3"/><rect x="16.5" y="16.8" width="7.5" height="2.3"/></g>');
+    default:
+      return wrap('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/>', 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"');
+  }
+}
 
 const releaseType = album.release_type && album.release_type.trim() !== '' ? album.release_type : 'Album';
 
@@ -108,6 +168,29 @@ const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
 const pageTitle = `${album.band_name} — ${album.album_title}`;
 const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Listen to the full album on the Metal Archive.`;
 const ogImage = coverThumb || coverUrl;
+
+// ─── Player data island ──────────────────────────────────────────────────────
+// The global persistent Player (rendered from the Navbar with transition:persist)
+// reads this on astro:page-load to lazy-cue / switch albums. Only emitted when
+// there is a playable video, so pages without one expose no #metal-np-data and
+// the Player leaves any current playback untouched.
+const hasVideo = !!(album.youtube_video_id && album.youtube_video_id.trim() !== '');
+const npData = hasVideo
+  ? {
+      videoId: album.youtube_video_id,
+      youtubeUrl: album.youtube_url || '',
+      albumColor,
+      albumTitle: album.album_title,
+      bandName: album.band_name,
+      coverThumb: coverThumb || coverUrl,
+      tracks: tracks.map((t) => ({ idx: t.idx, name: t.name, seconds: t.seconds })),
+    }
+  : null;
+
+// Serialize for the inline <script type="application/json"> island. set:html does
+// NOT HTML-escape, so neutralize the only sequence that could close the tag early
+// ("<", e.g. a stray "</script>" inside a title) — JSON parses < as "<".
+const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : '';
 ---
 
 <!doctype html>
@@ -127,52 +210,98 @@ const ogImage = coverThumb || coverUrl;
     <meta name="twitter:description" content={metaDesc} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href={`https://xeroxunderground.com/metal-archive/album/${album.id}`} />
+    <ClientRouter />
   </head>
-  <body class="album-detail album-detail-bg">
+  <body class="ma album-detail album-detail-bg">
     <Navbar />
 
     <div class="album-detail-main">
-      <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
-      <section id="album-hero" style={`background: ${heroGradient};`}>
-        <div class="album-hero__inner">
-          <div class="album-hero__top">
+      <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
+      <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
+        <div class="stage__inner">
+          <!-- Square 1:1 cover, the protagonist (REQ-001) -->
+          <div class="stage__cover-wrap">
             {coverUrl
               ? <img
-                  class="album-hero__cover"
+                  class="stage__cover"
                   src={coverUrl}
                   alt={album.album_title}
                   loading="eager"
                   decoding="async"
-                  width="280"
-                  height="280"
                 />
-              : <div class="album-hero__cover" style="background: var(--content);" aria-hidden="true"></div>
+              : <div class="stage__cover stage__cover--empty" aria-hidden="true"></div>
             }
-            <div class="album-hero__meta">
-              <div class="album-hero__release-type">{releaseType}</div>
-              <h1 class="album-hero__band">
-                {bandSlug
-                  ? <a href={`/metal-archive/band/${bandSlug}`} class="band-link">{album.band_name}</a>
-                  : album.band_name
-                }
-              </h1>
-              <div class="album-hero__title">{album.album_title}</div>
-              <div class="album-hero__metarow">
-                {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{album.genre}</a>}
-                {album.genre && !genreSlug && <span>{album.genre}</span>}
-                {album.genre && album.year && <span class="sep"> • </span>}
-                {album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
-                {(album.genre || album.year) && tracks.length > 0 && <span class="sep"> • </span>}
-                {tracks.length > 0 && <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span>}
-                {album.duration_minutes ? <><span class="sep"> • </span><span>{album.duration_minutes} min</span></> : null}
-              </div>
-            </div>
           </div>
 
-          <div class="album-hero__actions">
-            <button type="button" class="play-circle" aria-label="Play album" data-play-album="1">
-              <span class="play-circle__glyph">▶</span>
-            </button>
+          <div class="stage__panel">
+            <div class="stage__eyebrow">{releaseType}</div>
+            <!-- Big title = the now-playing TRACK; the Player swaps it on play -->
+            <h1 class="stage__title js-np-title">{heroTitle}</h1>
+            <!-- Band name in the accent color, high contrast (REQ-003) -->
+            <div class="stage__artist">
+              {bandSlug
+                ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
+                : album.band_name
+              }
+            </div>
+            <!-- Album name in the small line (stays put while the big title changes) -->
+            <div class="stage__album">{album.album_title}</div>
+            <div class="stage__metarow">
+              {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{album.genre}</a>}
+              {album.genre && !genreSlug && <span>{album.genre}</span>}
+              {album.genre && album.year && <span class="sep"> · </span>}
+              {album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
+              {(album.genre || album.year) && album.country && <span class="sep"> · </span>}
+              {album.country && <span>{album.country}</span>}
+            </div>
+
+            <!-- Progress (accent fill) -->
+            <div class="stage__progress">
+              <div class="stage__bar" aria-hidden="true">
+                <div class="stage__bar-fill js-progress-fill"></div>
+              </div>
+              <div class="stage__times">
+                <span class="js-time-current">0:00</span>
+                <span class="js-time-total">{album.duration_minutes ? `${album.duration_minutes} min` : ''}</span>
+              </div>
+            </div>
+
+            <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004) -->
+            <div class="stage__transport">
+              <button type="button" class="stage__ctl" aria-label="Previous track" data-np-prev="1">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
+              </button>
+              <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
+                <span class="stage__play-glow" aria-hidden="true"></span>
+                <svg class="ic ic-play" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
+                <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
+                <span class="ic ic-spinner" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="stage__ctl" aria-label="Next track" data-np-next="1">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
+              </button>
+            </div>
+
+            <!-- Real actions only (no invented features) -->
+            <div class="stage__actions">
+              {album.youtube_url && (
+                <a class="stage__action" href={album.youtube_url} target="_blank" rel="noopener noreferrer">
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
+                  <span>YouTube</span>
+                </a>
+              )}
+              <button type="button" class="stage__action" data-share="1" aria-label="Share this album">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+                <span>Share</span>
+              </button>
+              {/* Streaming / social links — brand logos, pulled from the description + DB */}
+              {platformLinks.map((l) => (
+                <a class="stage__action" href={l.url} target="_blank" rel="noopener noreferrer">
+                  <span class="stage__action-ico" set:html={platformIcon(l.label)}></span>
+                  <span>{l.label}</span>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -198,18 +327,6 @@ const ogImage = coverThumb || coverUrl;
                   <span class="track-row__title" data-track-name="1">{t.name}</span>
                   <span class="track-row__time">{t.timestamp}</span>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <!-- Streaming links -->
-        {streamingLinks.length > 0 && (
-          <section class="streaming-section">
-            <div class="streaming-section__label">Listen to this album on other platforms</div>
-            <div class="streaming-links">
-              {streamingLinks.map((l) => (
-                <a class="streaming-link" href={l.url!} target="_blank" rel="noopener noreferrer">{l.label}</a>
               ))}
             </div>
           </section>
@@ -250,16 +367,19 @@ const ogImage = coverThumb || coverUrl;
       </div>
     </div>
 
-    <!-- ─── Player island: only when there is a video to play ──────────────── -->
-    {album.youtube_video_id && album.youtube_video_id.trim() !== '' && (
-      <Player
-        client:load
-        videoId={album.youtube_video_id}
-        albumTitle={album.album_title}
-        bandName={album.band_name}
-        coverThumb={coverThumb || coverUrl}
-        youtubeUrl={album.youtube_url || ''}
-        tracks={tracks.map((t) => ({ idx: t.idx, name: t.name, seconds: t.seconds }))}
+    <!-- ─── Player data island ─────────────────────────────────────────────── -->
+    <!-- Read by the global persistent <Player> (rendered in the Navbar) on
+         astro:page-load to lazy-cue this album and to switch to it on play.
+         NOT persisted: it must be REPLACED on every navigation so the Player
+         sees the new page's album. type="application/json" is inert data (not an
+         executable script), so ClientRouter simply swaps it in with the page.
+         Only emitted when there is a playable video. -->
+    {npData && (
+      <script
+        type="application/json"
+        id="metal-np-data"
+        is:inline
+        set:html={npDataJson}
       />
     )}
 

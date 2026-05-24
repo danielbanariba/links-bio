@@ -6,8 +6,17 @@
 //   word -> PALABRAS   #c398f4
 //   ;    -> PUNTO_Y_COMA #bbbbbb
 // font: DinaRemasterII (Font.LOGO) via --font-logo.
+//
+// Mobile chrome: on metal-archive pages we render a bottom tab bar (like the
+// player mockups) and minimise the top bar. The bio (/) keeps its full navbar
+// and renders no tab bar — it is path-scoped so the bio stays untouched.
+import Player from '../islands/Player.tsx';
+
+const path = Astro.url.pathname;
+const isMetalArchive = path.startsWith('/metal-archive');
+const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabbar__item');
 ---
-<header class="navbar">
+<header class={isMetalArchive ? 'navbar navbar--ma' : 'navbar'}>
   <a href="/" class="navbar__brand" aria-label="daniel_banariba">
     <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
   </a>
@@ -31,13 +40,45 @@
   </nav>
 </header>
 
+{isMetalArchive && (
+  <nav class="tabbar" aria-label="Primary navigation">
+    <a href="/metal-archive/" class={tabClass(path === '/metal-archive' || path === '/metal-archive/')}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="/metal-archive/browse" class={tabClass(path.startsWith('/metal-archive/browse'))}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+      <span>Search</span>
+    </a>
+    <a href="/metal-archive/submit" class={tabClass(path.startsWith('/metal-archive/submit'))}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m6 10 6-6 6 6"/><path d="M5 20h14"/></svg>
+      <span>Submit</span>
+    </a>
+  </nav>
+)}
+
+{/*
+  Global persistent YouTube player — rendered once per metal-archive page but
+  the SAME instance survives client-side navigation via transition:persist, so
+  audio keeps playing while the user browses. It is data-driven: each album page
+  exposes its album via a #metal-np-data JSON island that the Player reads on
+  astro:page-load. Scoped to the archive (not the bio) via isMetalArchive.
+*/}
+{isMetalArchive && <Player client:load transition:persist="metal-player" />}
+
 <script>
   // Surprise Me: navigate to a random album. The album id list is inlined on
   // the home page; on other pages we fall back to a small fetch of the browse
   // index (already cached on browse) to pick a random id.
-  (function () {
+  //
+  // With ClientRouter the navbar markup is re-rendered on every navigation and
+  // this <script> does NOT re-execute, so we (re-)bind the handler on each
+  // astro:page-load. A per-element flag prevents double-binding on the first
+  // load (where both the initial run and astro:page-load fire).
+  function bindNavbarSurprise() {
     const btn = document.getElementById('navbar-surprise');
-    if (!btn) return;
+    if (!btn || (btn as any).__bound) return;
+    (btn as any).__bound = true;
     btn.addEventListener('click', async function () {
       // Prefer an inlined id list if the page provided one (home page).
       const inlined = (window as any).__albumIds as number[] | undefined;
@@ -59,5 +100,11 @@
         window.location.href = '/metal-archive/browse';
       }
     });
-  })();
+  }
+  // Bind immediately for pages WITHOUT ClientRouter (the bio, where
+  // astro:page-load never fires) and on the initial DOM; re-bind on every
+  // client-side navigation for metal-archive pages. The __bound guard makes the
+  // overlap on the first metal-archive load a no-op.
+  bindNavbarSurprise();
+  document.addEventListener('astro:page-load', bindNavbarSurprise);
 </script>

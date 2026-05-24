@@ -1,6 +1,7 @@
 ---
 // Year values are integers — no slug transform needed.
 // year param is a string in the URL; convert to number for DB query.
+import { ClientRouter } from 'astro:transitions';
 import { getAllYears, getAlbumsByYear } from '../../../lib/db.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -31,6 +32,7 @@ const albums = getAlbumsByYear(year);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{year} — Metal Archive</title>
     <meta name="description" content={`${count} albums from ${year} in the Metal Archive.`} />
+    <ClientRouter />
   </head>
   <body>
     <Navbar />

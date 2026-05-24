@@ -8,6 +8,7 @@
 // NOTE: slugify is defined inside getStaticPaths (not in frontmatter scope) because
 // Astro compiles getStaticPaths into a separate prerender chunk — functions defined
 // in frontmatter are NOT available there.
+import { ClientRouter } from 'astro:transitions';
 import { getAllGenres, getAlbumsByGenre } from '../../../lib/db.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -44,6 +45,7 @@ const albums = getAlbumsByGenre(realGenre);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{realGenre} — Metal Archive</title>
     <meta name="description" content={`${count} ${realGenre} albums in the Metal Archive.`} />
+    <ClientRouter />
   </head>
   <body>
     <Navbar />

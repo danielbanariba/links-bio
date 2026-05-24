@@ -4,6 +4,7 @@
 // page before JS), then mounts the Search island which owns all interactivity.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { ClientRouter } from 'astro:transitions';
 import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, isLiveRecording } from '../../lib/db.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
@@ -68,6 +69,7 @@ const totalCount = index.length;
   <title>Browse Albums | Metal Archive</title>
   <meta name="description" content={`Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`} />
   <link rel="canonical" href="/metal-archive/browse" />
+  <ClientRouter />
 </head>
 <body>
   <Navbar />
