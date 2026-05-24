@@ -204,22 +204,27 @@ export function getSimilarBands(albumId: number): SimilarBand[] {
   return rows.map((r) => ({ id: r.id, album_id: r.album_id, band_name: r.similar_band_name ?? '' }));
 }
 
-// Similar albums — same genre, excluding the current album, random order.
+// Similar albums — same genre, excluding the current album AND live recordings,
+// random order. Returns nothing when the album has no real genre: a blank genre
+// would otherwise "match" every other blank-genre album, which is noise, not
+// similarity (the page hides the section when this is empty — better no
+// recommendations than irrelevant ones).
 export function getSimilarAlbums(genre: string | null, excludeId: number): Card[] {
-  if (!genre) return [];
+  if (!genre || genre.trim() === '') return [];
   const rows: any[] = db
     .prepare(
       `SELECT ${CARD_COLS} FROM albums
-       WHERE genre = ? AND id != ? ORDER BY RANDOM() LIMIT 8`
+       WHERE genre = ? AND id != ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 8`
     )
     .all(genre, excludeId);
   return rows.map(toCard);
 }
 
-// "Keep exploring" — random albums excluding the current one.
+// "Keep exploring" — random albums excluding the current one and live recordings
+// (Daniel's own live sets stay out of the discovery feeds, same as home/browse).
 export function getMoreToExplore(excludeId: number): Card[] {
   const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE id != ? ORDER BY RANDOM() LIMIT 8`)
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE id != ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 8`)
     .all(excludeId);
   return rows.map(toCard);
 }
