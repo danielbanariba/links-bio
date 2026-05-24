@@ -1,5 +1,6 @@
 .states
 *.db
+*.db.bak*
 *.py[cod]
 .vscode
 .web
