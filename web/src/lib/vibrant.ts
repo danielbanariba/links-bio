@@ -17,7 +17,10 @@ import { resolve } from 'node:path';
 import sharp from 'sharp';
 
 const CACHE_PATH = resolve(process.cwd(), '.vibrant-cache.json');
-const FALLBACK_COLOR = '#0073a8'; // Xerox Underground primary cyan
+// Warm amber — the resting / fallback brand color (REQ-007). Used when a cover
+// has no extractable swatch. Mirrors --accent-fallback in global.css so the
+// baked --album-color and the CSS fallback agree. (Was cyan #0073a8.)
+const FALLBACK_COLOR = '#dda15e';
 
 // Browser-ish UA — some CDNs (Cloudflare in front of cdn.deathgrind.club) are
 // picky about default Node/undici user-agents.

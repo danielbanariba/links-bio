@@ -229,6 +229,19 @@ export function getMoreToExplore(excludeId: number): Card[] {
   return rows.map(toCard);
 }
 
+// Most-recent albums (by upload_date), excluding the current one and live sets.
+// Powers the desktop album-page sidebar "Recent" list.
+export function getRecentAlbums(excludeId: number, limit = 7): Card[] {
+  const rows: any[] = db
+    .prepare(
+      `SELECT ${CARD_COLS} FROM albums
+       WHERE id != ? AND ${NOT_LIVE}
+       ORDER BY upload_date DESC LIMIT ?`
+    )
+    .all(excludeId, limit);
+  return rows.map(toCard);
+}
+
 // ─── Facet queries (getStaticPaths for genre/country/year pages) ──────────────
 
 export function getAlbumsByGenre(genre: string): Card[] {
@@ -309,6 +322,37 @@ export function getBandsWithMultipleAlbums(): BandEntry[] {
     .all() as BandEntry[];
 }
 
+// Top bands by album count, each with a representative (most-recent) cover.
+// Powers the home "Bandas" circular row. Live recordings excluded; only bands
+// with 2+ albums (so they all have a real band page to link to).
+export function getTopBands(
+  limit = 12,
+): Array<{ band_name: string; count: number; thumb: string; album_id: number }> {
+  const bands = db
+    .prepare(
+      `SELECT band_name, COUNT(id) AS count FROM albums
+       WHERE band_name IS NOT NULL AND band_name != '' AND ${NOT_LIVE}
+       GROUP BY band_name HAVING count >= 2
+       ORDER BY count DESC, band_name LIMIT ?`
+    )
+    .all(limit) as Array<{ band_name: string; count: number }>;
+  return bands.map((b) => {
+    const cover: any = db
+      .prepare(
+        `SELECT album_artwork_url, id FROM albums
+         WHERE band_name = ? AND ${NOT_LIVE}
+         ORDER BY upload_date DESC LIMIT 1`
+      )
+      .get(b.band_name);
+    return {
+      band_name: b.band_name,
+      count: b.count,
+      thumb: thumb(cover?.album_artwork_url),
+      album_id: cover?.id ?? 0,
+    };
+  });
+}
+
 // All albums for a given band, newest-first so the most recent work is prominent.
 // Live recordings are included but separated on the band page.
 export function getAlbumsByBand(bandName: string): Card[] {
@@ -328,6 +372,44 @@ export function getBandAlbumCount(bandName: string): number {
     .prepare(`SELECT COUNT(id) AS count FROM albums WHERE band_name = ?`)
     .get(bandName);
   return row?.count ?? 0;
+}
+
+// Header stats for the band page ("artist" header): album count, year range,
+// distinct genres and a representative (most-recent) cover. Real data only — no
+// fabricated "monthly listeners". Used by the upcoming band-page redesign.
+export function getBandStats(bandName: string): {
+  albumCount: number;
+  firstYear: number | null;
+  lastYear: number | null;
+  genres: string[];
+  thumb: string;
+} {
+  const row: any = db
+    .prepare(
+      `SELECT COUNT(id) AS c, MIN(year) AS miny, MAX(year) AS maxy
+       FROM albums WHERE band_name = ?`
+    )
+    .get(bandName);
+  const genreRows: any[] = db
+    .prepare(
+      `SELECT genre, COUNT(id) c FROM albums
+       WHERE band_name = ? AND genre IS NOT NULL AND genre != ''
+       GROUP BY genre ORDER BY c DESC`
+    )
+    .all(bandName);
+  const cover: any = db
+    .prepare(
+      `SELECT album_artwork_url FROM albums WHERE band_name = ?
+       ORDER BY upload_date DESC LIMIT 1`
+    )
+    .get(bandName);
+  return {
+    albumCount: row?.c ?? 0,
+    firstYear: row?.miny ?? null,
+    lastYear: row?.maxy ?? null,
+    genres: genreRows.map((g) => g.genre),
+    thumb: thumb(cover?.album_artwork_url),
+  };
 }
 
 // ─── Browse index ─────────────────────────────────────────────────────────────

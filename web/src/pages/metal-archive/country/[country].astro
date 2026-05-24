@@ -2,6 +2,7 @@
 // Same slug strategy as genre: country names contain spaces (e.g. "Estados Unidos",
 // "Reino Unido"). Slugify to URL-safe string; real value travels as prop.
 // Country flag emojis: inline map ported from links_bio/states/metal_archive_state.py.
+import { ClientRouter } from 'astro:transitions';
 import { getAllCountries, getAlbumsByCountry } from '../../../lib/db.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -141,6 +142,7 @@ const flag = COUNTRY_FLAGS[realCountry] ?? '';
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{realCountry} — Metal Archive</title>
     <meta name="description" content={`${count} albums from ${realCountry} in the Metal Archive.`} />
+    <ClientRouter />
   </head>
   <body>
     <Navbar />

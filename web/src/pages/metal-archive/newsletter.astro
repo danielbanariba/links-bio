@@ -1,6 +1,7 @@
 ---
 // newsletter.astro — Metal Archive newsletter signup
 // POSTs to /api/metal-archive/newsletter (FastAPI on port 8001, proxied by host)
+import { ClientRouter } from 'astro:transitions';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
@@ -12,6 +13,7 @@ import '../../styles/global.css';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Newsletter | Metal Archive</title>
   <meta name="description" content="Subscribe to get updates on new albums, bands and underground metal events." />
+  <ClientRouter />
 </head>
 <body class="form-page">
   <Navbar />
@@ -68,55 +70,62 @@ import '../../styles/global.css';
 </html>
 
 <script>
-  const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+  // Wrapped in astro:page-load so the form handler re-binds after client-side
+  // navigation (with ClientRouter this <script> does not re-execute on swap).
+  function initNewsletterForm() {
+    const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
 
-  const form    = document.getElementById('newsletter-form') as HTMLFormElement;
-  const btn     = document.getElementById('submit-btn') as HTMLButtonElement;
-  const toast   = document.getElementById('form-toast') as HTMLElement;
-  const success = document.getElementById('success-state') as HTMLElement;
+    const form    = document.getElementById('newsletter-form') as HTMLFormElement | null;
+    const btn     = document.getElementById('submit-btn') as HTMLButtonElement | null;
+    const toast   = document.getElementById('form-toast') as HTMLElement | null;
+    const success = document.getElementById('success-state') as HTMLElement | null;
+    if (!form || !btn || !toast || !success || (form as any).__bound) return;
+    (form as any).__bound = true;
 
-  function showToast(msg: string, isError: boolean) {
-    toast.textContent = msg;
-    toast.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
-    toast.style.display = 'block';
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    toast.style.display = 'none';
-
-    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
-
-    if (!email || !email.includes('@')) {
-      showToast('Please enter a valid email.', true);
-      return;
+    function showToast(msg: string, isError: boolean) {
+      toast!.textContent = msg;
+      toast!.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
+      toast!.style.display = 'block';
     }
 
-    btn.disabled = true;
-    btn.textContent = 'Subscribing...';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      toast!.style.display = 'none';
 
-    try {
-      const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const email = (document.getElementById('email') as HTMLInputElement).value.trim();
 
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok) {
-        form.style.display = 'none';
-        success.style.display = 'flex';
-      } else if (res.status === 409) {
-        showToast('This email is already subscribed.', false);
-      } else {
-        showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
+      if (!email || !email.includes('@')) {
+        showToast('Please enter a valid email.', true);
+        return;
       }
-    } catch {
-      showToast('Could not connect. Check your connection.', true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Subscribe';
-    }
-  });
+
+      btn!.disabled = true;
+      btn!.textContent = 'Subscribing...';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          form!.style.display = 'none';
+          success!.style.display = 'flex';
+        } else if (res.status === 409) {
+          showToast('This email is already subscribed.', false);
+        } else {
+          showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
+        }
+      } catch {
+        showToast('Could not connect. Check your connection.', true);
+      } finally {
+        btn!.disabled = false;
+        btn!.textContent = 'Subscribe';
+      }
+    });
+  }
+  document.addEventListener('astro:page-load', initNewsletterForm);
 </script>

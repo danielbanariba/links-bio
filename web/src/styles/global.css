@@ -37,7 +37,39 @@
   --max-width:         1760px;  /* METAL_ARCHIVE_MAX_WIDTH (wide) */
   --detail-max-width:  1800px;  /* ALBUM_DETAIL_MAX_WIDTH */
   --gutter:            clamp(1rem, 4vw, 3rem);
+
+  /* ─── 2026 Music-player redesign tokens (metal-archive only) ───────────────
+     ADDITIVE on purpose: the bio (/) never references these, so it is untouched.
+     --accent is the DYNAMIC brand color — the per-album dominant color baked on
+     <html> as --album-color (vibrant.ts) — falling back to warm amber on covers
+     with no swatch AND on pages with no album (home / browse).  REQ-003/004/007/008. */
+  --accent-fallback: #dda15e;                                    /* REQ-007 fallback */
+  --accent:          var(--album-color, var(--accent-fallback)); /* REQ-004/008 flood */
+  --accent-bright:   color-mix(in srgb, var(--accent) 72%, #fff);/* REQ-003 hi-contrast text */
+  --accent-soft:     color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-glow:     color-mix(in srgb, var(--accent) 58%, transparent);
+  --on-accent:       #100b06;  /* near-black ink for text/glyphs ON an accent fill */
+
+  /* Pure white title (REQ-002) — brighter than the brand bone --text-header. */
+  --title-white: #ffffff;
+
+  /* Radius scale — mockups round generously. Also defines the --radius-lg /
+     --radius-pill the in-progress home carousel already referenced (latent bug). */
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   22px;
+  --radius-pill: 999px;
+
+  /* Glassmorphism panel surface (frosted, sits over the accent wash). */
+  --glass-bg:     color-mix(in srgb, #1b1510 58%, transparent);
+  --glass-border: color-mix(in srgb, #ffffff 10%, transparent);
+  --glass-blur:   18px;
 }
+
+/* Metal-archive pages repoint the cyan --primary onto the dynamic --accent so
+   the whole archive UI flows with the album/amber color. Scoped via .ma on the
+   page <body>; the bio (/) keeps the original cyan --primary, untouched. */
+.ma { --primary: var(--accent); }
 
 /* ─── Font faces ─────────────────────────────────────────────────────────────
    Fonts served from /fonts/ (public/fonts/, no Astro base).                */
@@ -65,6 +97,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  overflow-x: clip;   /* kill horizontal scroll from full-bleed 100vw sections */
 }
 
 body {
@@ -164,7 +197,7 @@ img {
    and a play affordance fades in. --card-accent (optional, set inline per card)
    tints the ring/glow; falls back to the cyan brand.                          */
 .album-card {
-  --card-accent: var(--primary);
+  --card-accent: var(--accent);
   display: block;
   width: 100%;
   background: transparent;
@@ -197,7 +230,9 @@ img {
 }
 
 .album-card:hover .album-card__art {
-  transform: translateY(-6px) scale(1.04);
+  /* Lift + glow only — NO scale (scaling the framed cover clipped the artwork
+     on hover, and the brand guide bans scale on cards anyway). */
+  transform: translateY(-6px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55),
               0 0 0 1px color-mix(in srgb, var(--card-accent) 55%, transparent),
               0 0 28px color-mix(in srgb, var(--card-accent) 40%, transparent);
@@ -417,6 +452,14 @@ img {
   z-index: 10;
 }
 
+/* Metal-archive navbar takes the album color (REQ-004 global flood). On album
+   pages --accent = the cover color; on home/browse it = the amber base. The bio
+   uses plain .navbar (no --ma), so it keeps var(--content) and is untouched. */
+.navbar--ma {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  border-bottom-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 .navbar__brand {
   font-family: var(--font-logo);
   font-weight: 500;
@@ -495,145 +538,6 @@ img {
 .footer__brand {
   font-family: var(--font-logo);
   color: var(--primary);
-}
-
-/* ─── Hero album (gallery cover-first featured header) ───────────────────────*/
-.hero {
-  position: relative;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  padding: clamp(2.5em, 6vw, 5em) 2em clamp(2.5em, 5vw, 4em);
-  background: linear-gradient(160deg, var(--secondary) 0%, rgba(2, 43, 68, 0.5) 40%, var(--bg) 100%);
-  border-bottom: 1px solid var(--border);
-  overflow: hidden;
-  isolation: isolate;
-  transition: background 0.6s ease;
-}
-
-.hero__inner {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: clamp(2rem, 5vw, 4rem);
-  align-items: center;
-}
-
-@media (max-width: 720px) {
-  .hero { padding: 2em 1.2em 2.5em; }
-  .hero__inner { grid-template-columns: 1fr; gap: 1.75rem; }
-}
-
-/* Big square cover, the hero of the hero. Carries its own play affordance. */
-.hero__art {
-  position: relative;
-  display: block;
-  width: clamp(240px, 34vw, 460px);
-  aspect-ratio: 1;
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 8px 18px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 115, 168, 0.33);
-}
-
-.hero__cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.hero__cover--empty { background: linear-gradient(135deg, var(--content), var(--secondary)); }
-
-.hero__art:hover .hero__cover { transform: scale(1.04); }
-
-.hero__play {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  width: 3.4rem;
-  height: 3.4rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-header);
-  background: var(--primary);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(8px) scale(0.85);
-  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.hero__play svg { margin-left: 3px; }
-.hero__art:hover .hero__play,
-.hero__art:focus-visible .hero__play { opacity: 1; transform: translateY(0) scale(1); }
-
-@media (prefers-reduced-motion: reduce) {
-  .hero__cover { transition: none; }
-  .hero__art:hover .hero__cover { transform: none; }
-  .hero__play { transition: opacity 0.2s ease; }
-}
-
-.hero__meta { min-width: 0; }
-
-.hero__release-type {
-  font-size: 0.78em;
-  color: var(--primary);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-weight: 600;
-  margin-bottom: 0.4em;
-}
-
-.hero__band {
-  font-size: clamp(2.4em, 7.5vw, 5.5em);
-  font-weight: 900;
-  color: var(--text-header);
-  line-height: 0.92;
-  letter-spacing: -0.035em;
-  margin-bottom: 0.18em;
-}
-
-.hero__album {
-  font-size: clamp(1.1em, 2.5vw, 1.6em);
-  color: var(--text-header);
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.7em;
-}
-
-.hero__meta-row {
-  color: var(--text-body);
-  font-size: 0.95em;
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  margin-bottom: 1.5em;
-}
-
-.hero__cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  background: var(--primary);
-  color: var(--text-header);
-  padding: 0.75em 1.6em;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 1em;
-  transition: transform 0.18s ease, filter 0.18s ease;
-  border: none;
-  cursor: pointer;
-}
-
-.hero__cta:hover {
-  filter: brightness(1.12);
-  transform: translateY(-2px);
-  color: var(--text-header);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero__cta:hover { transform: none; }
 }
 
 /* ─── Section headers ────────────────────────────────────────────────────────*/
@@ -778,7 +682,7 @@ img {
 
 .facet-card:hover {
   background: var(--secondary);
-  border-color: rgba(0, 115, 168, 0.4);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   transform: translateY(-2px);
   color: var(--text-header);
 }
@@ -862,8 +766,14 @@ body.album-detail { padding-bottom: 80px; }
 /* Album-color halo on the page background. --album-color falls back to the
    cyan brand if Vibrant produced nothing. */
 .album-detail-bg {
+  /* Global accent wash (REQ-004/008): the per-album color floods the whole page
+     from the top and fades into the neutral base — recolors per album page.
+     Richer / more opaque gradient (client feedback: more gradient opacity). */
   background:
-    radial-gradient(ellipse 120% 700px at top, var(--album-color, var(--primary)) -30%, transparent 60%),
+    radial-gradient(140% 90% at 50% -15%,
+      color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 30%, transparent) 38%,
+      transparent 72%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -881,141 +791,292 @@ body.album-detail { padding-bottom: 80px; }
   gap: 0.5em;
 }
 
-/* ─── Hero ───────────────────────────────────────────────────────────────────*/
-#album-hero {
+/* ═══════════════════════════════════════════════════════════════════════════
+   NOW PLAYING SCREEN (REQ-001..008)
+   Mobile: full-bleed square cover up top, controls panel below.
+   Desktop/tablet (≥768px): large square cover left, controls right.
+   Everything tinted by --accent (= per-album --album-color, amber fallback).
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stage {
   position: relative;
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
-  padding: 2.5em 0 1.2em;
-  /* gradient baked inline per-page from --album-color; this is the fallback */
-  background: linear-gradient(180deg, var(--secondary) 0%, rgba(2, 43, 68, 0.5) 35%, var(--bg) 100%);
-  transition: background 0.6s ease;
-  border-bottom: 2px solid var(--primary);
-  overflow: hidden;
+  padding: 0 0 clamp(1.5rem, 4vw, 2.5rem);
   isolation: isolate;
 }
 
-@media (max-width: 767px) {
-  #album-hero { padding-top: 1.5em; }
+.stage__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.1rem, 3vw, 1.6rem);
 }
 
-#album-hero::before {
+/* ─── Cover: square 1:1 (REQ-001) ─── */
+.stage__cover-wrap {
+  position: relative;
+  width: 100%;
+}
+.stage__cover {
+  display: block;
+  width: 100%;
+  height: auto;          /* show the ORIGINAL artwork at its true ratio — never crop */
+}
+.stage__cover--empty {
+  aspect-ratio: 1 / 1;   /* only the empty placeholder is forced square */
+  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
+}
+/* On mobile the cover is full-bleed; fade its bottom edge into the page. */
+.stage__cover-wrap::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  opacity: 0.08;
-  mix-blend-mode: overlay;
+  inset: auto 0 0 0;
+  height: 34%;
+  background: linear-gradient(to top, var(--bg) 2%, transparent 100%);
   pointer-events: none;
-  z-index: 0;
-}
-#album-hero > * { position: relative; z-index: 1; }
-
-.album-hero__inner {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  padding: 0 clamp(1.2em, 4vw, 3em);
-  width: 100%;
 }
 
-.album-hero__top {
+/* ─── Controls panel ─── */
+.stage__panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 1.2em;
-  width: 100%;
+  gap: 0.65rem;
+  padding: 0 clamp(1.2rem, 5vw, 2rem);
 }
 
-@media (min-width: 768px) {
-  .album-hero__top {
-    flex-direction: row;
-    align-items: flex-end;
-    text-align: left;
-    gap: 1.8em;
-  }
-}
-
-.album-hero__cover {
-  width: clamp(180px, 22vw, 280px);
-  height: clamp(180px, 22vw, 280px);
-  object-fit: cover;
-  border-radius: 2px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 6px 14px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 115, 168, 0.33);
-  flex-shrink: 0;
-}
-
-.album-hero__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6em;
-  justify-content: flex-end;
-  min-width: 0;
-  flex: 1;
-}
-
-.album-hero__release-type {
-  font-size: 0.78em;
-  color: var(--primary);
-  letter-spacing: 0.22em;
+.stage__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  font-weight: 600;
+  color: var(--accent-bright);
 }
 
-.album-hero__band {
-  font-size: clamp(2.2em, 7vw, 5em);
-  font-weight: 900;
-  color: var(--text-header);
-  line-height: 0.95;
-  letter-spacing: -0.035em;
+.stage__title {
   margin: 0;
+  font-size: clamp(1.9rem, 7vw, 3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--title-white);          /* REQ-002: pure white */
+  overflow-wrap: anywhere;
 }
 
-@media (max-width: 767px) {
-  .album-hero__band { letter-spacing: -0.02em; }
+.stage__artist {
+  font-size: clamp(1rem, 3vw, 1.25rem);
+  font-weight: 600;
+  color: var(--accent-bright);        /* REQ-003: high-contrast accent */
 }
+.stage__artist-link {
+  color: inherit;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+.stage__artist-link:hover { color: var(--accent-bright); border-bottom-color: currentColor; }
 
-.album-hero__title {
-  font-family: var(--font-default);
-  font-size: clamp(1.1em, 2.5vw, 1.5em);
+/* Album name — small line under the band; stays put while the big title (the
+   now-playing track) changes. */
+.stage__album {
+  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
+  font-weight: 600;
   color: var(--text-header);
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
 }
 
-.album-hero__metarow {
+.stage__metarow {
   color: var(--text-body);
-  font-size: clamp(0.85em, 2vw, 0.95em);
+  font-size: 0.88rem;
   font-weight: 300;
 }
-.album-hero__metarow .sep { color: var(--text-footer); }
-
-/* Discovery links in the metadata row (genre, year) */
-.album-hero__metarow .meta-link {
+.stage__metarow .sep { color: var(--text-footer); }
+.stage__metarow .meta-link {
   color: var(--text-body);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: color 0.15s, border-color 0.15s;
 }
-.album-hero__metarow .meta-link:hover {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
+.stage__metarow .meta-link:hover { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
+
+/* ─── Progress ─── */
+.stage__progress {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.stage__bar {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, #fff 13%, transparent);
+  overflow: hidden;
+}
+.stage__bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: var(--radius-pill);
+  background: var(--accent-bright);
+  transition: width 0.4s linear;
+}
+.stage__times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-footer);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Band name link in the hero h1 */
-.album-hero__band .band-link {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: border-color 0.18s;
+/* ─── Transport ─── */
+.stage__transport {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.4rem, 7vw, 2.4rem);
+  margin-top: 0.7rem;
 }
-.album-hero__band .band-link:hover {
-  border-bottom-color: var(--primary);
+.stage__ctl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-pill);
   color: var(--text-header);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.stage__ctl:hover { color: var(--accent-bright); background: color-mix(in srgb, #fff 7%, transparent); }
+.stage__ctl:active { transform: scale(0.92); }
+
+.stage__play {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border: none;
+  border-radius: var(--radius-pill);
+  /* Lightened accent fill so the dark glyph reads on ANY album hue. */
+  background: color-mix(in srgb, var(--accent) 86%, #fff);
+  color: var(--on-accent);
+  cursor: pointer;
+  box-shadow: 0 12px 34px var(--accent-glow);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.stage__play:hover { transform: scale(1.05); }
+.stage__play:active { transform: scale(0.97); }
+.stage__play .ic-play { margin-left: 3px; }       /* optically centre the triangle */
+
+/* Radial gradient behind the play button (REQ-005) + subtle pulse (REQ-006). */
+.stage__play-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 240%;
+  height: 240%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 68%);
+  z-index: -1;
+  pointer-events: none;
+  animation: stage-pulse 4.5s ease-in-out infinite;
+}
+@keyframes stage-pulse {
+  0%, 100% { opacity: 0.5;  transform: translate(-50%, -50%) scale(0.9); }
+  50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+/* SVG play/pause/buffering swap driven by data-state — shared by EVERY .js-pp
+   control (the Now Playing hero button and the bottom-bar toggle). */
+.js-pp .ic { position: absolute; }
+.js-pp .ic-pause,
+.js-pp .ic-spinner { display: none; }
+.js-pp[data-state="playing"] .ic-play { display: none; }
+.js-pp[data-state="playing"] .ic-pause { display: block; }
+.js-pp[data-state="buffering"] .ic-play,
+.js-pp[data-state="buffering"] .ic-pause { display: none; }
+.js-pp[data-state="buffering"] .ic-spinner { display: block; }
+.js-pp .ic-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--on-accent) 28%, transparent);
+  border-top-color: var(--on-accent);
+  animation: mp-spin 0.8s linear infinite;
+}
+.stage__play .ic-spinner { width: 26px; height: 26px; border-width: 3px; }
+
+/* ─── Secondary actions (glass pills) ─── */
+.stage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.stage__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.6em 1.15em;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--text-header);
+  font-family: var(--font-default);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.stage__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
+.stage__action-ico { display: inline-flex; align-items: center; }
+.stage__action svg,
+.stage__action-ico svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* Visible keyboard focus on every interactive control (a11y — CRITICAL). */
+.stage__play:focus-visible,
+.stage__ctl:focus-visible,
+.stage__action:focus-visible,
+.stage__artist-link:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
+/* ─── Desktop / tablet: cover left, controls right ─── */
+@media (min-width: 768px) {
+  .stage { padding-top: clamp(1.5rem, 4vw, 3rem); }
+  .stage__inner {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(2rem, 5vw, 4rem);
+    padding-inline: clamp(1.5rem, 5vw, 3rem);
+  }
+  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42vw, 560px); }  /* REQ-001 ~35-45% */
+  .stage__cover {
+    border-radius: var(--radius-lg);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 60px var(--accent-glow);
+  }
+  .stage__cover-wrap::after { display: none; }
+  .stage__panel { flex: 1 1 0; min-width: 0; padding: 0; }
+  .stage__title { font-size: clamp(2.4rem, 4.2vw, 3.8rem); }
+  .stage__transport { justify-content: flex-start; }
+  .stage__actions { justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage__play-glow { animation: none; }
+  .stage__play:hover,
+  .stage__ctl:active,
+  .stage__play:active { transform: none; }
+  .stage__bar-fill { transition: none; }
 }
 
 /* ─── Band page ──────────────────────────────────────────────────────────────*/
@@ -1023,48 +1084,6 @@ body.album-detail { padding-bottom: 80px; }
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 var(--gutter) 4rem;
-}
-
-.band-header {
-  padding: 2.5rem 0 2rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2rem;
-}
-
-.band-header__name {
-  font-size: clamp(2rem, 6vw, 3.8rem);
-  font-weight: 900;
-  color: var(--text-header);
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  margin-bottom: 0.6rem;
-}
-
-.band-header__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  color: var(--text-footer);
-  font-size: 0.9rem;
-}
-
-.band-header__meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.band-header__meta-label {
-  color: var(--text-footer);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.band-header__meta-value {
-  color: var(--text-body);
-  font-size: 0.9rem;
 }
 
 .band-section-title {
@@ -1079,47 +1098,6 @@ body.album-detail { padding-bottom: 80px; }
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid var(--border);
-}
-
-.album-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.8em;
-  margin-top: 1.5em;
-  justify-content: center;
-}
-
-@media (min-width: 768px) {
-  .album-hero__actions { justify-content: flex-start; }
-}
-
-/* The big round ▶ play-album button. */
-.play-circle {
-  background: var(--primary);
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-header);
-  border: none;
-  padding: 0;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-}
-.play-circle:hover {
-  transform: scale(1.06);
-  box-shadow: 0 8px 22px rgba(0, 115, 168, 0.5);
-}
-.play-circle__glyph {
-  font-size: 1.4em;
-  margin-left: 0.15em;
-  line-height: 1;
-}
-@media (min-width: 768px) {
-  .play-circle { width: 64px; height: 64px; }
 }
 
 /* ─── Tracklist ──────────────────────────────────────────────────────────────*/
@@ -1192,48 +1170,16 @@ body.album-detail { padding-bottom: 80px; }
 
 /* Active row (set by the Player island). Tint uses --album-color. */
 .track-row.track-active {
-  background: color-mix(in srgb, var(--album-color, var(--primary)) 13%, transparent) !important;
-  border-left: 2px solid var(--album-color, var(--primary)) !important;
+  background: color-mix(in srgb, var(--accent) 13%, transparent) !important;
+  border-left: 2px solid var(--accent) !important;
 }
 .track-row.track-active .track-row__title {
-  color: var(--album-color, var(--primary));
+  color: var(--accent);
   font-weight: 500;
 }
 .track-row.track-active .track-number { display: none; }
 .track-row.track-active .track-play-icon { display: none; }
-.track-row.track-active .track-active-icon { display: inline; color: var(--album-color, var(--primary)) !important; }
-
-/* ─── Streaming links ────────────────────────────────────────────────────────*/
-.streaming-section {
-  width: 100%;
-  padding-top: 1.5em;
-  padding-bottom: 0.5em;
-  border-top: 1px solid var(--secondary);
-  margin-top: 1.5em;
-}
-.streaming-section__label {
-  color: var(--text-footer);
-  font-size: 0.75em;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin-bottom: 0.8em;
-}
-.streaming-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-}
-.streaming-link {
-  background: var(--secondary);
-  color: var(--text-header);
-  padding: 0.5em 1em;
-  border-radius: 0.5em;
-  font-size: 0.9em;
-  text-decoration: none;
-  transition: background 0.15s;
-}
-.streaming-link:hover { background: var(--primary); color: var(--text-header); }
+.track-row.track-active .track-active-icon { display: inline; color: var(--accent) !important; }
 
 /* ─── Similar bands pills ─────────────────────────────────────────────────────*/
 .similar-bands-section { width: 100%; padding-top: 1em; }
@@ -1286,19 +1232,29 @@ body.album-detail { padding-bottom: 80px; }
 }
 
 /* ═══ Now-playing bar (ported from now_playing_bar.py) ═══════════════════════ */
+/* The bar is now GLOBAL + persistent across the whole metal-archive section
+   (rendered from the Navbar, transition:persist), so every archive page must
+   reserve space for it — not just the album detail page. :has() scopes the
+   padding to pages that actually render the bar (the bio never does), so the bio
+   is untouched. The mobile override (134px = tab bar + bar) lives in the
+   max-width media query below. */
+body:has(#now-playing-bar) { padding-bottom: 80px; }
+
 #now-playing-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   height: 72px;
-  background: var(--content);
-  border-top: 2px solid var(--primary);
+  background: color-mix(in srgb, var(--accent) 22%, var(--glass-bg));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border-top: 1px solid var(--glass-border);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--accent-soft);
   display: flex;
   align-items: center;
   padding: 0 1.5em;
   z-index: 100;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.55);
 }
 
 .np-left {
@@ -1314,7 +1270,7 @@ body.album-detail { padding-bottom: 80px; }
   border-radius: 2px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--secondary);
+  border: 1px solid var(--accent-soft);
 }
 .np-text {
   display: flex;
@@ -1356,35 +1312,47 @@ body.album-detail { padding-bottom: 80px; }
   gap: 0.4em;
 }
 .np-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   background: transparent;
   color: var(--text-body);
   border: none;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-size: 1.2em;
-  padding: 0.3em 0.5em;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.np-icon-btn:hover {
+  color: var(--text-header);
+  background: color-mix(in srgb, #fff 8%, transparent);
 }
 .np-toggle {
-  background: var(--primary);
-  color: var(--text-header);
+  position: relative;
+  background: var(--accent);
+  color: var(--on-accent);
   border: none;
   cursor: pointer;
-  font-size: 0.9em;
-  width: 36px;
-  height: 36px;
-  border-radius: 2px;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: transform 0.15s ease;
+  box-shadow: 0 4px 14px var(--accent-glow);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 .np-toggle:hover { transform: scale(1.08); }
+.np-toggle .ic-play { margin-left: 2px; }
 
 .np-progress {
   width: 100%;
   max-width: 360px;
   height: 4px;
-  background: var(--secondary);
+  background: color-mix(in srgb, #fff 12%, transparent);
   border-radius: 999px;
   overflow: hidden;
   margin-top: 0.4em;
@@ -1392,7 +1360,7 @@ body.album-detail { padding-bottom: 80px; }
 .np-progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--text-header);
+  background: var(--accent-bright);
   border-radius: 999px;
   transition: width 0.4s linear;
 }
@@ -1421,7 +1389,7 @@ body.album-detail { padding-bottom: 80px; }
   width: 240px;
   height: 135px;
   border-radius: 2px;
-  border: 1px solid var(--primary);
+  border: 1px solid var(--accent);
   overflow: hidden;
   z-index: 50;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
@@ -1436,7 +1404,7 @@ body.album-detail { padding-bottom: 80px; }
   width: 28px;
   height: 28px;
   border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--album-color, var(--primary));
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: mp-spin 0.8s linear infinite;
 }
@@ -1508,7 +1476,7 @@ body.album-detail { padding-bottom: 80px; }
   max-width: 900px;
   margin-inline: auto;
   background: var(--content);
-  border: 1px solid rgba(0, 115, 168, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   border-radius: 0.8em;
   padding: 0.5rem 0.6rem 0.5rem 1rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -1516,8 +1484,8 @@ body.album-detail { padding-bottom: 80px; }
 }
 
 .home-search__form:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0, 115, 168, 0.18), 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .home-search__icon {
@@ -2022,3 +1990,397 @@ body.album-detail { padding-bottom: 80px; }
 .form-success__back:hover {
   border-color: var(--primary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOME REDESIGN (2026) — greeting + themed hero carousel.
+   Neutral base tokens are untouched; each hero slide is tinted by its own
+   album cover via --slide-color (set inline, sourced from vibrant.ts).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Greeting header ────────────────────────────────────────────────────────*/
+.home-greeting {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+.home-greeting__hello {
+  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+  font-weight: 700;
+  color: var(--text-header);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.home-greeting__sub {
+  color: var(--text-footer);
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+.home-greeting__actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+.home-greeting__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-body);
+  background: color-mix(in srgb, var(--content) 85%, transparent);
+  border: 1px solid var(--border);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.home-greeting__icon:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ─── Hero carousel ──────────────────────────────────────────────────────────*/
+.hero-carousel { margin-top: 1.25rem; }
+
+.hero-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.hero-track::-webkit-scrollbar { display: none; }
+
+.hero-slide {
+  scroll-snap-align: center;
+  position: relative;
+  display: block;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: clamp(220px, 40vw, 360px);
+  color: var(--text-header);
+  text-decoration: none;
+  isolation: isolate;
+}
+
+/* cover image layer (behind the gradient + text) */
+.hero-slide__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+
+/* color + dark gradient: text-legible on the left, cover/tint bleeds right */
+.hero-slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    100deg,
+    rgba(8, 6, 4, 0.92) 0%,
+    rgba(8, 6, 4, 0.60) 44%,
+    color-mix(in srgb, var(--slide-color, var(--primary)) 62%, transparent) 100%
+  );
+}
+
+.hero-slide__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  height: 100%;
+  min-height: inherit;
+  padding: clamp(1.4rem, 4vw, 2.6rem);
+  max-width: 62%;
+}
+@media (max-width: 600px) {
+  .hero-slide__inner { max-width: 84%; }
+}
+
+.hero-slide__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--slide-color, var(--primary));
+  filter: brightness(1.35);
+}
+
+.hero-slide__band {
+  font-size: clamp(1.9rem, 6vw, 3.4rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--text-header);
+}
+
+.hero-slide__album {
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--slide-color, var(--primary)) 65%, white);
+}
+
+.hero-slide__meta {
+  color: var(--text-body);
+  font-size: 0.88rem;
+  margin-bottom: 0.3rem;
+}
+
+.hero-slide__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: auto;
+  background: var(--slide-color, var(--primary));
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  padding: 0.7em 1.5em;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.hero-slide__cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  color: #fff;
+}
+
+/* dots */
+.hero-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+.hero-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s ease, width 0.2s ease;
+}
+.hero-dot.is-active {
+  background: var(--primary);
+  width: 18px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide__cta:hover { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE CHROME (metal-archive only) — minimal top + bottom tab bar, matching
+   the player mockups. Scoped via .navbar--ma and :has(): the bio (/) renders no
+   tab bar and keeps its full navbar, so it stays untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.tabbar { display: none; }   /* desktop: the top navbar handles navigation */
+
+@media (max-width: 767px) {
+  /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
+     over primary nav) and centre the brand. */
+  .navbar--ma .navbar__links { display: none; }
+  .navbar--ma { justify-content: center; }
+
+  /* Bottom tab bar */
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 110;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    height: 58px;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    border-top: 1px solid var(--glass-border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--text-footer);
+    font-size: 0.66rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .tabbar__item.is-active,
+  .tabbar__item:active { color: var(--accent-bright); }
+
+  /* Now-playing bar sits ABOVE the tab bar (mockups #4 / #6). */
+  #now-playing-bar { bottom: 58px; }
+
+  /* Reserve space so the fixed bars never cover content. :has() scopes the
+     padding to metal-archive pages only — the bio has neither bar. */
+  body:has(.tabbar) { padding-bottom: 58px; }
+  body:has(#now-playing-bar) { padding-bottom: 134px; }   /* 58 tab + 72 bar + 4 */
+}
+
+/* ─── Home: "Bands" circular avatar row (representative cover as the avatar) ── */
+.bands-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(108px, 28vw, 148px);
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+}
+.bands-row::-webkit-scrollbar { display: none; }
+
+.band-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-decoration: none;
+  color: inherit;
+  scroll-snap-align: start;
+}
+.band-avatar__img-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--content);
+  border: 2px solid transparent;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.band-avatar:hover .band-avatar__img-wrap {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+}
+.band-avatar__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.band-avatar__img--empty {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
+}
+.band-avatar__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-header);
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.band-avatar__count { font-size: 0.72rem; color: var(--text-footer); }
+
+@media (prefers-reduced-motion: reduce) {
+  .band-avatar:hover .band-avatar__img-wrap { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BAND ("artist") PAGE HEADER — cover backdrop + circular avatar + real stats.
+   --album-color is set per band (its newest cover) so the header takes that
+   band's colour. No fabricated monthly-listeners / follow.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.artist-header {
+  position: relative;
+  margin: 0 calc(-1 * var(--gutter)) 2.5rem;
+  padding: clamp(2rem, 6vw, 4rem) var(--gutter) clamp(1.5rem, 4vw, 2.5rem);
+  overflow: hidden;
+  isolation: isolate;
+}
+.artist-header__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: center;
+  filter: blur(44px) saturate(1.25);
+  transform: scale(1.25);
+  opacity: 0.55;
+}
+.artist-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 32%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 82%, transparent) 68%,
+    var(--bg) 100%);
+}
+.artist-header__inner {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(1.2rem, 4vw, 2.2rem);
+}
+.artist-header__avatar {
+  width: clamp(120px, 26vw, 196px);
+  height: clamp(120px, 26vw, 196px);
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 3px solid color-mix(in srgb, #fff 12%, transparent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 50px var(--accent-glow);
+}
+.artist-header__avatar--empty { background: linear-gradient(135deg, var(--content), var(--accent-soft)); }
+.artist-header__info { min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.artist-header__eyebrow {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--accent-bright);
+}
+.artist-header__name {
+  margin: 0;
+  font-size: clamp(2.2rem, 8vw, 4.5rem);
+  font-weight: 800; line-height: 1; letter-spacing: -0.02em;
+  color: var(--title-white); overflow-wrap: anywhere;
+}
+.artist-header__stats { color: var(--text-body); font-size: 0.95rem; }
+.artist-header__stats .sep { color: var(--text-footer); }
+.artist-header__origin { color: var(--text-footer); font-size: 0.85rem; }
+.artist-header__actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.7rem; }
+.artist-header__play {
+  display: inline-flex; align-items: center; gap: 0.5em;
+  padding: 0.7em 1.5em; border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 88%, #fff); color: var(--on-accent);
+  font-weight: 700; font-size: 0.95rem; text-decoration: none;
+  box-shadow: 0 10px 26px var(--accent-glow);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.artist-header__play:hover { transform: translateY(-2px); filter: brightness(1.05); color: var(--on-accent); }
+.artist-header__action {
+  display: inline-flex; align-items: center; gap: 0.5em;
+  padding: 0.7em 1.2em; border-radius: var(--radius-pill);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+  color: var(--text-header); font-family: var(--font-default);
+  font-size: 0.9rem; font-weight: 500; cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.artist-header__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
+@media (max-width: 640px) {
+  .artist-header__inner { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { .artist-header__play:hover { transform: none; } }
+

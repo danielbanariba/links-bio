@@ -8,7 +8,9 @@
 // Route: /metal-archive/band/{slug}
 // Slugify is identical to genre/[genre].astro — defined inside getStaticPaths
 // so it is available in the prerender chunk.
+import { ClientRouter } from 'astro:transitions';
 import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording } from '../../../lib/db.js';
+import { getAlbumColor } from '../../../lib/vibrant.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
@@ -44,12 +46,22 @@ const liveAlbums   = allAlbums.filter((a) =>  isLiveRecording(a.album_title));
 const genres    = [...new Set(allAlbums.map((a) => a.genre).filter(Boolean))];
 const countries = [...new Set(allAlbums.map((a) => a.country).filter(Boolean))];
 
+// Header visuals: the newest cover drives the avatar + blurred backdrop AND the
+// page's dynamic --album-color, so the whole band page takes that band's colour.
+const latest = allAlbums[0] ?? null;
+const cover = latest?.thumb || '';
+const bandColor = cover ? await getAlbumColor(cover) : '#dda15e';
+const years = allAlbums.map((a) => a.year).filter((y): y is number => !!y);
+const yearRange = years.length
+  ? (Math.min(...years) === Math.max(...years) ? String(Math.min(...years)) : `${Math.min(...years)}–${Math.max(...years)}`)
+  : null;
+
 const pageTitle = `${realName} — Discography · Metal Archive`;
 const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" style={`--album-color: ${bandColor};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -59,30 +71,41 @@ const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${
     <meta property="og:description" content={metaDesc} />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary" />
+    <ClientRouter />
   </head>
-  <body>
+  <body class="ma">
     <Navbar />
 
     <div class="band-page">
-      <!-- ─── Band header ──────────────────────────────────────────────────── -->
-      <header class="band-header">
-        <h1 class="band-header__name">{realName}</h1>
-        <div class="band-header__meta">
-          {genres.length > 0 && (
-            <div class="band-header__meta-item">
-              <span class="band-header__meta-label">Genre</span>
-              <span class="band-header__meta-value">{genres.join(' / ')}</span>
+      <!-- ─── Artist-style header (cover backdrop + avatar + real stats) ─────── -->
+      <header class="artist-header">
+        {cover && <div class="artist-header__backdrop" style={`background-image: url('${cover}')`} aria-hidden="true"></div>}
+        <div class="artist-header__inner">
+          {cover
+            ? <img class="artist-header__avatar" src={cover} alt="" loading="eager" decoding="async" />
+            : <div class="artist-header__avatar artist-header__avatar--empty" aria-hidden="true"></div>
+          }
+          <div class="artist-header__info">
+            <span class="artist-header__eyebrow">Band</span>
+            <h1 class="artist-header__name">{realName}</h1>
+            <div class="artist-header__stats">
+              <span>{totalCount} {totalCount === 1 ? 'release' : 'releases'}</span>
+              {yearRange && <><span class="sep"> · </span><span>{yearRange}</span></>}
+              {genres.length > 0 && <><span class="sep"> · </span><span>{genres.slice(0, 3).join(', ')}</span></>}
             </div>
-          )}
-          {countries.length > 0 && (
-            <div class="band-header__meta-item">
-              <span class="band-header__meta-label">Origin</span>
-              <span class="band-header__meta-value">{countries.join(', ')}</span>
+            {countries.length > 0 && <div class="artist-header__origin">{countries.join(', ')}</div>}
+            <div class="artist-header__actions">
+              {latest && (
+                <a class="artist-header__play" href={`/metal-archive/album/${latest.id}`}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
+                  Latest release
+                </a>
+              )}
+              <button type="button" class="artist-header__action" data-share="1" aria-label="Share this band">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+                <span>Share</span>
+              </button>
             </div>
-          )}
-          <div class="band-header__meta-item">
-            <span class="band-header__meta-label">Releases</span>
-            <span class="band-header__meta-value">{totalCount}</span>
           </div>
         </div>
       </header>
