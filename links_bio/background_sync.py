@@ -109,32 +109,62 @@ def _run_sync_cycle():
     return True
 
 
+def _find_node_bin():
+    """Locate the nvm bin dir that holds npm/vercel (highest version first).
+
+    The reflex process PATH is env/bin:/usr/local/bin:/usr/bin:/bin — it does NOT
+    include nvm's bin, so a bare subprocess(["npm", ...]) raises FileNotFoundError.
+    We resolve it ourselves instead of hardcoding a version so a node upgrade
+    doesn't silently break the deploy again.
+    """
+    import glob
+    import re
+
+    def _ver(path: str):
+        m = re.search(r"/v(\d+)\.(\d+)\.(\d+)/", path)
+        return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
+
+    candidates = glob.glob(os.path.expanduser("~/.local/share/nvm/v*/bin"))
+    for d in sorted(candidates, key=_ver, reverse=True):
+        if os.path.exists(os.path.join(d, "vercel")) and os.path.exists(os.path.join(d, "npm")):
+            return d
+    return None
+
+
 def _run_astro_deploy():
     """Rebuild the Astro static site from the updated DB and deploy to Vercel.
 
-    No-op if VERCEL_TOKEN is not set (e.g. dev), so the sync never fails over deploy.
+    Tokenless: reuses the logged-in Vercel CLI session (it auto-refreshes via the
+    stored refresh token), exactly like .git/hooks/pre-push. An explicit
+    VERCEL_TOKEN is still honoured if present (e.g. CI). Never raises into the
+    sync cycle — failures are logged by the caller.
     """
     import subprocess
     from pathlib import Path
-
-    token = os.environ.get("VERCEL_TOKEN")
-    if not token:
-        _log("VERCEL_TOKEN no configurado. Deploy Astro omitido.")
-        return
 
     web_dir = Path(__file__).resolve().parent.parent / "web"
     if not web_dir.exists():
         _log(f"Directorio web/ no encontrado ({web_dir}). Deploy omitido.")
         return
 
+    node_bin = _find_node_bin()
+    if not node_bin:
+        _log("npm/vercel no encontrados en nvm (~/.local/share/nvm/v*/bin). Deploy omitido.")
+        return
+
+    # Prepend nvm's bin so npm, node, npx AND vercel all resolve in the subprocess.
+    env = dict(os.environ)
+    env["PATH"] = node_bin + os.pathsep + env.get("PATH", "")
+
+    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes"]
+    token = os.environ.get("VERCEL_TOKEN")
+    if token:
+        deploy_cmd += ["--token", token]
+
     _log("Rebuild del sitio Astro...")
-    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True)
+    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True, env=env)
     _log("Deploy a Vercel (prod)...")
-    subprocess.run(
-        ["vercel", "deploy", "--prod", "--prebuilt", "--token", token, "--yes"],
-        cwd=str(web_dir),
-        check=True,
-    )
+    subprocess.run(deploy_cmd, cwd=str(web_dir), check=True, env=env)
     _log("Deploy Astro completado.")
 
 
