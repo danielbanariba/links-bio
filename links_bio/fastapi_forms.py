@@ -147,6 +147,7 @@ async def submit_band(req: SubmitRequest):
                 genre=req.genre,
                 country=req.country,
                 album_title=req.album_title.strip(),
+                year=req.year.strip(),
                 youtube_url=req.youtube_url.strip(),
                 bandcamp_url=req.bandcamp_url.strip(),
                 description=req.description.strip(),
@@ -157,6 +158,28 @@ async def submit_band(req: SubmitRequest):
     except Exception as exc:
         logger.error(f"DB error on submit: {exc}")
         raise HTTPException(status_code=500, detail="Error al guardar. Intentalo de nuevo.")
+
+    # Send email notification — reuse _send_email_notification from form_state.py
+    links = [l for l in (req.youtube_url.strip(), req.bandcamp_url.strip()) if l]
+    links_text = "\n".join(f"  - {l}" for l in links) if links else "  (ninguno)"
+    email_body = (
+        f"Nueva banda enviada al Metal Archive\n"
+        f"{'=' * 50}\n\n"
+        f"Banda: {req.band_name}\n"
+        f"Email de contacto: {req.contact_email}\n"
+        f"Genero: {req.genre}\n"
+        f"Pais: {req.country}\n"
+        f"Album: {req.album_title or '(no indicado)'}\n"
+        f"Ano: {req.year or '(no indicado)'}\n\n"
+        f"Links:\n{links_text}\n\n"
+        f"Descripcion:\n{req.description or '(sin descripcion)'}\n"
+    )
+    err = _send_email_notification(
+        subject=f"Metal Archive: nueva banda - {req.band_name}",
+        body=email_body,
+    )
+    if err:
+        logger.warning(f"Email not sent (non-fatal): {err}")
 
     return {"ok": True, "message": "Banda enviada correctamente. Revisaremos tu envio pronto."}
 
@@ -209,7 +232,7 @@ async def promo_band(req: PromoRequest):
         f"Genero: {genre}\n"
         f"Pais: {req.country or '(no indicado)'}\n"
         f"Ano: {req.year or '(no indicado)'}\n"
-        f"Formato: {req.release_format or '(no indicado)'}\n"
+        f"Paquete de interes: {req.release_format or '(no indicado)'}\n"
         f"Album: {req.album_title}\n\n"
         f"Links:\n{links_text}\n"
     )

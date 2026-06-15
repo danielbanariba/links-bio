@@ -19,6 +19,7 @@ interface BrowseEntry {
   country: string | null;
   year: number | null;
   release_type: string | null;
+  views: number | null;
   thumb: string;
 }
 
@@ -34,13 +35,14 @@ interface SearchProps {
 
 const PAGE_SIZE = 24;
 
-// Sort keys mapped to UI labels.
+// Sort keys mapped to UI labels. Logic keys off o.value (never the label),
+// so translating the labels is safe and does not affect sorting behavior.
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'newest', label: 'Newest' },
-  { value: 'oldest', label: 'Oldest' },
+  { value: 'newest', label: 'Mas recientes' },
+  { value: 'oldest', label: 'Mas antiguos' },
   { value: 'az',     label: 'A — Z' },
   { value: 'za',     label: 'Z — A' },
-  { value: 'views',  label: 'Most Viewed' },
+  { value: 'views',  label: 'Mas vistos' },
 ];
 
 // Read a string param from the current URL search string.
@@ -129,8 +131,15 @@ export default function Search({ genres, countries, years, totalCount, initial }
     const needle = query.toLowerCase().trim();
 
     let result = index.filter((e) => {
-      // Text search over band + album + genre.
-      if (needle && !contains(e.band_name, needle) && !contains(e.album_title, needle) && !contains(e.genre, needle)) {
+      // Text search over band + album + genre + country, so typing a country
+      // (e.g. "Honduras") returns results instead of silently emptying.
+      if (
+        needle &&
+        !contains(e.band_name, needle) &&
+        !contains(e.album_title, needle) &&
+        !contains(e.genre, needle) &&
+        !contains(e.country, needle)
+      ) {
         return false;
       }
       if (genre       && e.genre        !== genre)       return false;
@@ -152,10 +161,16 @@ export default function Search({ genres, countries, years, totalCount, initial }
       result = result.slice().sort((a, b) => b.id - a.id);
     } else if (sort === 'oldest') {
       result = result.slice().sort((a, b) => a.id - b.id);
+    } else if (sort === 'views') {
+      // Real "Mas vistos" — views now travels in the index. NULL views sort to
+      // the bottom (treated as -1); ties break by id desc (newer first) so the
+      // order is stable and deterministic.
+      result = result.slice().sort((a, b) => {
+        const av = a.views ?? -1;
+        const bv = b.views ?? -1;
+        return bv - av || b.id - a.id;
+      });
     }
-    // 'views' not available in the index (views not included to keep it compact).
-    // Fall back to id-desc (newest) for 'views' — same visual result until
-    // views are added to the index in a future phase.
 
     return result;
   }, [index, query, genre, country, year, releaseType, sort]);
@@ -206,7 +221,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
   // While the full index is downloading, hide the result count so it doesn't
   // flash "24 resultados" (initial data) then jump to the real number.
   const resultLabel = indexLoaded
-    ? `${filtered.length} result${filtered.length === 1 ? '' : 's'}`
+    ? `${filtered.length} ${filtered.length === 1 ? 'resultado' : 'resultados'}`
     : '';
 
   return (
@@ -217,35 +232,35 @@ export default function Search({ genres, countries, years, totalCount, initial }
           <input
             type="search"
             class="search-input"
-            placeholder="Search bands, albums, genres..."
+            placeholder="Busca bandas, albumes, generos..."
             defaultValue={query}
             onInput={onQueryInput}
-            aria-label="Search albums"
+            aria-label="Buscar albumes"
           />
         </div>
 
         <div class="search-filters">
-          <select class="search-select" value={genre} onChange={handleGenre} aria-label="Filter by genre">
-            <option value="">All Genres</option>
+          <select class="search-select" value={genre} onChange={handleGenre} aria-label="Filtrar por genero">
+            <option value="">Todos los generos</option>
             {genres.map((g) => <option value={g}>{g}</option>)}
           </select>
 
-          <select class="search-select" value={country} onChange={handleCountry} aria-label="Filter by country">
-            <option value="">All Countries</option>
+          <select class="search-select" value={country} onChange={handleCountry} aria-label="Filtrar por pais">
+            <option value="">Todos los paises</option>
             {countries.map((c) => <option value={c}>{c}</option>)}
           </select>
 
-          <select class="search-select" value={year} onChange={handleYear} aria-label="Filter by year">
-            <option value="">All Years</option>
+          <select class="search-select" value={year} onChange={handleYear} aria-label="Filtrar por ano">
+            <option value="">Todos los anos</option>
             {years.map((y) => <option value={y}>{y}</option>)}
           </select>
 
-          <select class="search-select" value={releaseType} onChange={handleRelType} aria-label="Filter by release type">
-            <option value="">All Types</option>
+          <select class="search-select" value={releaseType} onChange={handleRelType} aria-label="Filtrar por tipo de lanzamiento">
+            <option value="">Todos los tipos</option>
             {releaseTypes.map((rt) => <option value={rt}>{rt}</option>)}
           </select>
 
-          <select class="search-select" value={sort} onChange={handleSort} aria-label="Sort">
+          <select class="search-select" value={sort} onChange={handleSort} aria-label="Ordenar">
             {SORT_OPTIONS.map((o) => <option value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -258,7 +273,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
       {showEmpty && (
-        <p class="search-empty">No albums found for these filters.</p>
+        <p class="search-empty">No se encontraron albumes con estos filtros.</p>
       )}
 
       {/* ── Album grid ────────────────────────────────────────────────── */}
@@ -281,9 +296,10 @@ export default function Search({ genres, countries, years, totalCount, initial }
                   )
                   : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
                 }
-                <span class="album-card__play" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
+                <span class="album-card__open" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 17 17 7" />
+                    <path d="M8 7h9v9" />
                   </svg>
                 </span>
               </div>
@@ -310,7 +326,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
             class="btn-load-more"
             onClick={() => setPage((p) => p + 1)}
           >
-            Load More ({filtered.length - visible.length} remaining)
+            Cargar mas ({filtered.length - visible.length} restantes)
           </button>
         </div>
       )}

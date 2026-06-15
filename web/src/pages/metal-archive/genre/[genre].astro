@@ -4,65 +4,76 @@
 //   "Brutal Death Metal/Goregrind" -> "brutal-death-metal-goregrind"
 // The real genre value travels as a prop so we can query without lossy decoding.
 // Pattern: getStaticPaths returns { params: { genre: slug }, props: { realGenre } }
-//
-// NOTE: slugify is defined inside getStaticPaths (not in frontmatter scope) because
-// Astro compiles getStaticPaths into a separate prerender chunk — functions defined
-// in frontmatter are NOT available there.
+// slugify is imported from db.ts (the single source of truth, shared with the
+// pages that link here). Imports are available in the prerender chunk; the old
+// inline copy is gone so paths and links can never drift apart.
 import { ClientRouter } from 'astro:transitions';
-import { getAllGenres, getAlbumsByGenre } from '../../../lib/db.js';
+import { getAllGenres, getAlbumsByGenre, slugify } from '../../../lib/db.js';
+import { getAlbumColor } from '../../../lib/vibrant.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
-  function slugify(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
   const genres = getAllGenres();
   return genres.map((facet) => ({
     params: { genre: slugify(facet.value) },
-    props: { realGenre: facet.value, count: facet.count },
+    props: { realGenre: facet.value },
   }));
 }
 
 interface Props {
   realGenre: string;
-  count: number;
 }
 
-const { realGenre, count } = Astro.props;
+const { realGenre } = Astro.props;
+// NOT_LIVE applied inside getAlbumsByGenre; derive the count from the same list
+// so the header number and the grid always agree (comparable to Browse).
 const albums = getAlbumsByGenre(realGenre);
+const count = albums.length;
+
+// P2 mini-hero color: inherit --album-color from the representative (newest)
+// cover via the cached vibrant extractor — reads .vibrant-cache.json, never a
+// cold build. albums is already ordered upload_date DESC (discovery order), and
+// Card.thumb is already the mqdefault URL the cache is keyed by.
+const repCover = albums[0]?.thumb ?? '';
+const genreColor = repCover ? await getAlbumColor(repCover) : '#dda15e';
+
+// Chain to Browse with this genre pre-applied. The Search island restores its
+// dropdown from the exact value (e.genre === genre), so the URL must carry the
+// REAL genre, not the slug.
+const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(realGenre)}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es" style={`--album-color: ${genreColor};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{realGenre} — Metal Archive</title>
-    <meta name="description" content={`${count} ${realGenre} albums in the Metal Archive.`} />
+    <meta name="description" content={`${count} ${realGenre} ${count === 1 ? 'album' : 'albumes'} en el Metal Archive.`} />
     <ClientRouter />
   </head>
   <body>
     <Navbar />
 
     <main class="wrap" style="padding-top: 2rem;">
-      <header style="margin-bottom: 1.5rem;">
-        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">{realGenre}</h1>
-        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
-          {count} {count === 1 ? 'album' : 'albums'}
+      <header class="facet-hero">
+        <h1 class="facet-hero__title">{realGenre}</h1>
+        <p class="facet-hero__count">
+          {count} {count === 1 ? 'album' : 'albumes'}
         </p>
+        {albums.length > 0 && (
+          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+        )}
       </header>
 
       {albums.length > 0
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No albums in this genre.</p>
+        : <p style="color: var(--text-footer);">No hay albumes en este genero.</p>
       }
     </main>
 

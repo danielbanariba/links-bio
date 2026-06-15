@@ -3,7 +3,7 @@
 // "Reino Unido"). Slugify to URL-safe string; real value travels as prop.
 // Country flag emojis: inline map ported from links_bio/states/metal_archive_state.py.
 import { ClientRouter } from 'astro:transitions';
-import { getAllCountries, getAlbumsByCountry } from '../../../lib/db.js';
+import { getAllCountries, getAlbumsByCountry, slugify } from '../../../lib/db.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
@@ -108,60 +108,62 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "Vietnam": "🇻🇳",
 };
 
-// NOTE: slugify is defined inside getStaticPaths (not in frontmatter scope) because
-// Astro compiles getStaticPaths into a separate prerender chunk — functions defined
-// in frontmatter are NOT available there.
+// slugify is imported from db.ts — single source of truth shared with the pages
+// that link here. Imports are available in the prerender chunk.
 export function getStaticPaths() {
-  function slugify(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
   const countries = getAllCountries();
   return countries.map((facet) => ({
     params: { country: slugify(facet.value) },
-    props: { realCountry: facet.value, count: facet.count },
+    props: { realCountry: facet.value },
   }));
 }
 
 interface Props {
   realCountry: string;
-  count: number;
 }
 
-const { realCountry, count } = Astro.props;
+const { realCountry } = Astro.props;
+// NOT_LIVE applied inside getAlbumsByCountry; derive the count from the same
+// list so the header number and the grid agree (comparable to Browse).
 const albums = getAlbumsByCountry(realCountry);
+const count = albums.length;
 const flag = COUNTRY_FLAGS[realCountry] ?? '';
+
+// Chain to Browse with this country pre-applied. Search restores from the exact
+// value (e.country === country), so the URL carries the REAL country, not the slug.
+const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCountry)}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{realCountry} — Metal Archive</title>
-    <meta name="description" content={`${count} albums from ${realCountry} in the Metal Archive.`} />
+    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albumes'} de ${realCountry} en el Metal Archive.`} />
     <ClientRouter />
   </head>
   <body>
     <Navbar />
 
     <main class="wrap" style="padding-top: 2rem;">
-      <header style="margin-bottom: 1.5rem;">
-        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">
+      <header class="facet-hero">
+        <h1 class="facet-hero__title">
           {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{realCountry}
         </h1>
-        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
-          {count} {count === 1 ? 'album' : 'albums'}
+        <p class="facet-hero__count">
+          {count} {count === 1 ? 'album' : 'albumes'}
         </p>
+        {albums.length > 0 && (
+          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+        )}
       </header>
 
       {albums.length > 0
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No albums from this country.</p>
+        : <p style="color: var(--text-footer);">No hay albumes de este pais.</p>
       }
     </main>
 

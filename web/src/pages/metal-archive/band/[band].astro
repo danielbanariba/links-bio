@@ -6,10 +6,10 @@
 // main discography so studio albums stay prominent.
 //
 // Route: /metal-archive/band/{slug}
-// Slugify is identical to genre/[genre].astro — defined inside getStaticPaths
-// so it is available in the prerender chunk.
+// slugify is imported from db.ts — single source of truth shared with the pages
+// that link here, so generated paths and rendered links can never drift apart.
 import { ClientRouter } from 'astro:transitions';
-import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording } from '../../../lib/db.js';
+import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording, slugify } from '../../../lib/db.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -17,12 +17,6 @@ import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
-  function slugify(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
   const bands = getBandsWithMultipleAlbums();
   return bands.map((b) => ({
     params: { band: slugify(b.band_name) },
@@ -56,12 +50,12 @@ const yearRange = years.length
   ? (Math.min(...years) === Math.max(...years) ? String(Math.min(...years)) : `${Math.min(...years)}–${Math.max(...years)}`)
   : null;
 
-const pageTitle = `${realName} — Discography · Metal Archive`;
-const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
+const pageTitle = `${realName} — Discografia · Metal Archive`;
+const metaDesc  = `${totalCount} ${totalCount === 1 ? 'lanzamiento' : 'lanzamientos'} de ${realName} en el Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${bandColor};`}>
+<html lang="es" style={`--album-color: ${bandColor};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -86,10 +80,10 @@ const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${
             : <div class="artist-header__avatar artist-header__avatar--empty" aria-hidden="true"></div>
           }
           <div class="artist-header__info">
-            <span class="artist-header__eyebrow">Band</span>
+            <span class="artist-header__eyebrow">Banda</span>
             <h1 class="artist-header__name">{realName}</h1>
             <div class="artist-header__stats">
-              <span>{totalCount} {totalCount === 1 ? 'release' : 'releases'}</span>
+              <span>{totalCount} {totalCount === 1 ? 'lanzamiento' : 'lanzamientos'}</span>
               {yearRange && <><span class="sep"> · </span><span>{yearRange}</span></>}
               {genres.length > 0 && <><span class="sep"> · </span><span>{genres.slice(0, 3).join(', ')}</span></>}
             </div>
@@ -98,12 +92,12 @@ const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${
               {latest && (
                 <a class="artist-header__play" href={`/metal-archive/album/${latest.id}`}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                  Latest release
+                  Ultimo lanzamiento
                 </a>
               )}
-              <button type="button" class="artist-header__action" data-share="1" aria-label="Share this band">
+              <button type="button" class="artist-header__action" data-share="1" aria-label="Compartir esta banda">
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
-                <span>Share</span>
+                <span>Compartir</span>
               </button>
             </div>
           </div>
@@ -114,7 +108,7 @@ const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${
       {studioAlbums.length > 0 && (
         <section class="band-section">
           {liveAlbums.length > 0 && (
-            <h2 class="band-section-title">Discography</h2>
+            <h2 class="band-section-title">Discografia</h2>
           )}
           <div class="album-grid">
             {studioAlbums.map((album) => <AlbumCard album={album} />)}
@@ -126,10 +120,10 @@ const metaDesc  = `${totalCount} releases by ${realName} in the Metal Archive.${
       {liveAlbums.length > 0 && (
         <section class="band-section live-section">
           <div class="live-section__heading">
-            <h2 class="band-section-title" style="margin-bottom: 0;">Live Recordings</h2>
+            <h2 class="band-section-title" style="margin-bottom: 0;">Grabaciones en vivo</h2>
             <span class="live-section__badge">LIVE</span>
           </div>
-          <p class="live-section__note">Live sets and concert recordings</p>
+          <p class="live-section__note">Sets en vivo y grabaciones de conciertos</p>
           <div class="album-grid">
             {liveAlbums.map((album) => <AlbumCard album={album} livePlaceholder={true} />)}
           </div>

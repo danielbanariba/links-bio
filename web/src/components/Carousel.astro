@@ -22,7 +22,7 @@ const containerClass = layout === 'scroll' ? 'carousel-row' : 'gallery-grid';
 <section class:list={['section', deferred && 'carousel-deferred']}>
   <div class="section-header">
     <h3>{title}</h3>
-    {href && <a href={href} class="section-header__link">See All →</a>}
+    {href && <a href={href} class="section-header__link">Ver todo →</a>}
   </div>
   <div class={containerClass}>
     {albums.map((a) => <AlbumCard album={a} loading="lazy" />)}

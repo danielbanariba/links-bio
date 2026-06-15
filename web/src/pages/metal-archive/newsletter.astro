@@ -7,12 +7,12 @@ import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
 ---
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Newsletter | Metal Archive</title>
-  <meta name="description" content="Subscribe to get updates on new albums, bands and underground metal events." />
+  <meta name="description" content="Suscribete para recibir novedades sobre nuevos albumes, bandas y eventos de metal underground." />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -26,7 +26,7 @@ import '../../styles/global.css';
       </svg>
       <h1 class="form-page__title">Newsletter</h1>
       <p class="form-page__subtitle">
-        Subscribe to get updates on new albums, bands and underground metal events.
+        Suscribete para recibir novedades sobre nuevos albumes, bandas y eventos de metal underground.
       </p>
     </div>
 
@@ -35,22 +35,22 @@ import '../../styles/global.css';
       <!-- Success state -->
       <div class="form-success" id="success-state" style="display:none">
         <span class="form-success__icon">&#9993;</span>
-        <h2 class="form-success__title">You're subscribed</h2>
+        <h2 class="form-success__title">Estas suscrito</h2>
         <p class="form-success__body">
-          Welcome to the archive. We'll let you know when there's news from the underground.
+          Bienvenido al archivo. Te avisaremos cuando haya novedades del underground.
         </p>
-        <a href="/metal-archive/" class="form-success__back">&#8592; Back to the archive</a>
+        <a href="/metal-archive/" class="form-success__back">&#8592; Volver al archivo</a>
       </div>
 
       <!-- The form -->
       <form id="newsletter-form" class="form-stack" novalidate>
         <div class="form-field">
           <label class="form-label" for="email">
-            Your email <span class="form-label__required">*</span>
+            Tu email <span class="form-label__required">*</span>
           </label>
           <input
             id="email" name="email" type="email"
-            class="form-input" placeholder="you@email.com"
+            class="form-input" placeholder="tu@email.com"
             autocomplete="email" required
           />
         </div>
@@ -59,7 +59,7 @@ import '../../styles/global.css';
         <div class="form-toast" id="form-toast" role="alert"></div>
 
         <button type="submit" class="form-submit" id="submit-btn">
-          Subscribe
+          Suscribirme
         </button>
       </form>
     </div>
@@ -95,12 +95,12 @@ import '../../styles/global.css';
       const email = (document.getElementById('email') as HTMLInputElement).value.trim();
 
       if (!email || !email.includes('@')) {
-        showToast('Please enter a valid email.', true);
+        showToast('Por favor ingresa un email valido.', true);
         return;
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Subscribing...';
+      btn!.textContent = 'Suscribiendo...';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
@@ -115,15 +115,15 @@ import '../../styles/global.css';
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else if (res.status === 409) {
-          showToast('This email is already subscribed.', false);
+          showToast('Este email ya esta suscrito.', false);
         } else {
-          showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
+          showToast(json.detail ?? 'No se pudo suscribir. Intentalo de nuevo.', true);
         }
       } catch {
-        showToast('Could not connect. Check your connection.', true);
+        showToast('No se pudo conectar. Revisa tu conexion.', true);
       } finally {
         btn!.disabled = false;
-        btn!.textContent = 'Subscribe';
+        btn!.textContent = 'Suscribirme';
       }
     });
   }

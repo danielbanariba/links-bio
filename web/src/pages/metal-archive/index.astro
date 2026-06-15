@@ -12,6 +12,7 @@ import {
   getAllYears,
   getAllAlbumIds,
   getTopBands,
+  slugify,
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
 import { getAlbumColor } from '../../lib/vibrant.js';
@@ -38,14 +39,6 @@ const heroSource = (editorPicks.length ? editorPicks : hiddenGems).slice(0, 5);
 const heroAlbums = await Promise.all(
   heroSource.map(async (album) => ({ album, color: await getAlbumColor(album.thumb) })),
 );
-
-// ─── Slug helper (matches genre/[genre].astro and country/[country].astro) ───
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 // ─── Country flag lookup (same map as country/[country].astro) ────────────────
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -81,21 +74,21 @@ const ogImage = heroSource[0]?.thumb;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Metal Archive — Underground metal catalog</title>
-    <meta name="description" content="The definitive underground metal archive: death metal, brutal death, grindcore and more. Discover bands from all over the world." />
+    <title>Metal Archive — Catalogo de metal underground</title>
+    <meta name="description" content="El archivo definitivo del metal underground: death metal, brutal death, grindcore y mas. Descubre bandas de todo el mundo." />
     <!-- OG / social meta -->
-    <meta property="og:title" content="Metal Archive — Underground metal catalog" />
-    <meta property="og:description" content="Underground metal catalog: death metal, brutal death, grindcore and more." />
+    <meta property="og:title" content="Metal Archive — Catalogo de metal underground" />
+    <meta property="og:description" content="Catalogo de metal underground: death metal, brutal death, grindcore y mas." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://xeroxunderground.com/metal-archive/" />
     {ogImage && <meta property="og:image" content={ogImage} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Metal Archive" />
-    <meta name="twitter:description" content="Underground metal archive." />
+    <meta name="twitter:description" content="Archivo de metal underground." />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href="https://xeroxunderground.com/metal-archive/" />
     <ClientRouter />
@@ -109,8 +102,8 @@ const ogImage = heroSource[0]?.thumb;
              visitor's local hour) ──────────────────────────────────────────── -->
         <header class="home-greeting">
           <div>
-            <h1 class="home-greeting__hello" id="greeting">Hello</h1>
-            <p class="home-greeting__sub">Underground metal catalog</p>
+            <h1 class="home-greeting__hello" id="greeting">Hola</h1>
+            <p class="home-greeting__sub">Catalogo de metal underground</p>
           </div>
           <div class="home-greeting__actions">
             <a class="home-greeting__icon" href="/metal-archive/newsletter" aria-label="Newsletter">
@@ -124,7 +117,7 @@ const ogImage = heroSource[0]?.thumb;
 
         <!-- ─── Hero carousel — each slide tinted by its own cover color ─────── -->
         {heroAlbums.length > 0 && (
-          <section class="hero-carousel" aria-label="Featured albums">
+          <section class="hero-carousel" aria-label="Albumes destacados">
             <div class="hero-track" id="hero-track">
               {heroAlbums.map((h, i) => (
                 <a
@@ -137,7 +130,7 @@ const ogImage = heroSource[0]?.thumb;
                     : <div class="hero-slide__bg" style="background: var(--content);" aria-hidden="true"></div>
                   }
                   <div class="hero-slide__inner">
-                    <span class="hero-slide__eyebrow">✦ Featured</span>
+                    <span class="hero-slide__eyebrow">✦ Destacado</span>
                     <span class="hero-slide__band">{h.album.band_name}</span>
                     <span class="hero-slide__album">{h.album.album_title}</span>
                     <span class="hero-slide__meta">
@@ -145,7 +138,7 @@ const ogImage = heroSource[0]?.thumb;
                     </span>
                     <span class="hero-slide__cta">
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                      Listen now
+                      Reproducir
                     </span>
                   </div>
                 </a>
@@ -154,7 +147,7 @@ const ogImage = heroSource[0]?.thumb;
             {heroAlbums.length > 1 && (
               <div class="hero-dots" id="hero-dots">
                 {heroAlbums.map((_, i) => (
-                  <button class="hero-dot" type="button" aria-label={`Go to featured ${i + 1}`}></button>
+                  <button class="hero-dot" type="button" aria-label={`Ir al destacado ${i + 1}`}></button>
                 ))}
               </div>
             )}
@@ -174,11 +167,11 @@ const ogImage = heroSource[0]?.thumb;
               class="home-search__input"
               type="search"
               name="q"
-              placeholder="Search bands, albums, genres..."
-              aria-label="Search bands, albums, genres"
+              placeholder="Busca bandas, albumes, generos..."
+              aria-label="Busca bandas, albumes, generos"
               autocomplete="off"
             />
-            <button class="home-search__btn" type="submit">Search</button>
+            <button class="home-search__btn" type="submit">Buscar</button>
           </form>
         </section>
 
@@ -186,8 +179,8 @@ const ogImage = heroSource[0]?.thumb;
         {topBands.length > 0 && (
           <section class="carousel-deferred">
             <div class="section-header">
-              <h3>Bands</h3>
-              <a href="/metal-archive/browse" class="section-header__link">See All →</a>
+              <h3>Bandas</h3>
+              <a href="/metal-archive/browse" class="section-header__link">Ver todo →</a>
             </div>
             <div class="bands-row">
               {topBands.map((b) => (
@@ -199,7 +192,7 @@ const ogImage = heroSource[0]?.thumb;
                     }
                   </span>
                   <span class="band-avatar__name">{b.band_name}</span>
-                  <span class="band-avatar__count">{b.count} albums</span>
+                  <span class="band-avatar__count">{b.count} {b.count === 1 ? 'album' : 'albumes'}</span>
                 </a>
               ))}
             </div>
@@ -209,7 +202,7 @@ const ogImage = heroSource[0]?.thumb;
         <!-- Hidden Gems — horizontal scroll row ─────────────────────────────── -->
         {hiddenGems.length > 0 && (
           <Carousel
-            title="Hidden Gems"
+            title="Joyas ocultas"
             albums={hiddenGems}
             href="/metal-archive/browse"
             layout="scroll"
@@ -231,7 +224,7 @@ const ogImage = heroSource[0]?.thumb;
         <!-- Country rotation "Explore {country}" ───────────────────────────── -->
         {countryRotation.length > 0 && (
           <Carousel
-            title={`Explore ${countryRotation[0]?.country ?? 'the world'}`}
+            title={`Explora ${countryRotation[0]?.country ?? 'el mundo'}`}
             albums={countryRotation.map((c) => c.album)}
             layout="scroll"
             deferred={true}
@@ -243,12 +236,12 @@ const ogImage = heroSource[0]?.thumb;
           <section class="section carousel-deferred live-section">
             <div class="section-header">
               <div class="live-section__heading">
-                <h3>Live Recordings</h3>
-                <span class="live-section__badge">Live sets</span>
+                <h3>Grabaciones en vivo</h3>
+                <span class="live-section__badge">Sets en vivo</span>
               </div>
             </div>
             <p class="live-section__note">
-              Personal live recordings — separate from the official album catalog.
+              Grabaciones en vivo personales — separadas del catalogo oficial de albumes.
             </p>
             <div class="carousel-row">
               {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
@@ -262,15 +255,15 @@ const ogImage = heroSource[0]?.thumb;
         {allCountries.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Browse by Country</h3>
-              <a href="/metal-archive/browse" class="section-header__link">See All →</a>
+              <h3>Explora por pais</h3>
+              <a href="/metal-archive/browse" class="section-header__link">Ver todo →</a>
             </div>
             <div class="country-grid">
               {allCountries.map((facet) => (
                 <a
                   class="facet-card"
                   href={`/metal-archive/country/${slugify(facet.value)}`}
-                  title={`${facet.count} albums from ${facet.value}`}
+                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albumes'} de ${facet.value}`}
                 >
                   {COUNTRY_FLAGS[facet.value] && (
                     <span class="facet-card__flag" aria-hidden="true">
@@ -279,7 +272,7 @@ const ogImage = heroSource[0]?.thumb;
                   )}
                   <span class="facet-card__name">{facet.value}</span>
                   <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
+                    {facet.count} {facet.count === 1 ? 'album' : 'albumes'}
                   </span>
                 </a>
               ))}
@@ -290,19 +283,19 @@ const ogImage = heroSource[0]?.thumb;
         {allYears.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Browse by Year</h3>
-              <a href="/metal-archive/browse" class="section-header__link">See All →</a>
+              <h3>Explora por ano</h3>
+              <a href="/metal-archive/browse" class="section-header__link">Ver todo →</a>
             </div>
             <div class="year-grid">
               {allYears.map((facet) => (
                 <a
                   class="facet-card"
                   href={`/metal-archive/year/${facet.value}`}
-                  title={`${facet.count} albums from ${facet.value}`}
+                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albumes'} de ${facet.value}`}
                 >
                   <span class="facet-card__name">{facet.value}</span>
                   <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
+                    {facet.count} {facet.count === 1 ? 'album' : 'albumes'}
                   </span>
                 </a>
               ))}
@@ -313,7 +306,7 @@ const ogImage = heroSource[0]?.thumb;
         <!-- Surprise Me ────────────────────────────────────────────────────── -->
         <div class="home-cta-row">
           <button id="btn-random" class="btn-sorprendeme" type="button">
-            Surprise Me
+            Sorprendeme
           </button>
         </div>
 
@@ -346,7 +339,7 @@ const ogImage = heroSource[0]?.thumb;
             target="_blank"
             rel="noopener noreferrer"
           >
-            Subscribe to the Channel
+            Suscribete al canal
           </a>
         </div>
       </div><!-- /.wrap -->
@@ -367,7 +360,7 @@ const ogImage = heroSource[0]?.thumb;
           if (g) {
             var h = new Date().getHours();
             g.textContent =
-              h < 6 ? 'Good evening' : h < 12 ? 'Good morning' : h < 19 ? 'Good afternoon' : 'Good evening';
+              h < 6 ? 'Buenas noches' : h < 12 ? 'Buenos dias' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
           }
 
           var track = document.getElementById('hero-track');

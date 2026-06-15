@@ -14,17 +14,73 @@ const GENRES = [
   "Speed Metal", "Brutal Death Metal",
 ];
 
-const RELEASE_FORMATS = [
-  "Full-length", "EP", "Demo", "Split", "Single", "Compilation", "Live Album",
+// ── Promote packages (STATIC MOCKUP) ────────────────────────────────────────
+// OWNER CONTENT PENDING: every price, tier name, delivery time and inclusion
+// list below is a PLACEHOLDER. Daniel must define the real packages before this
+// page goes live. Do NOT invent amounts, currencies or delivery times.
+//
+// Each package's `value` is what gets submitted in the "Paquete de interes"
+// <select>. It is sent to the backend as `release_format`, which /promo maps to
+// ContactMessage.package_interest (verified in links_bio/fastapi_forms.py).
+// Keep `value` stable/identifiable even while the labels are placeholders.
+const PACKAGES = [
+  {
+    value: "Paquete Basico",
+    // OWNER CONTENT PENDING: real tier name
+    name: "Paquete Basico",
+    // OWNER CONTENT PENDING: real price (e.g. "Desde $X")
+    price: "Precio a definir",
+    // OWNER CONTENT PENDING: confirm real inclusions per tier
+    includes: [
+      "Video con caratula y tracklist",
+      "Publicacion en YouTube",
+      "Ficha en el Metal Archive",
+    ],
+    // OWNER CONTENT PENDING: real delivery time
+    delivery: "Tiempo de entrega: a definir",
+    featured: false,
+  },
+  {
+    value: "Paquete Estandar",
+    // OWNER CONTENT PENDING: real tier name
+    name: "Paquete Estandar",
+    // OWNER CONTENT PENDING: real price (e.g. "Desde $X")
+    price: "Precio a definir",
+    // OWNER CONTENT PENDING: confirm real inclusions per tier
+    includes: [
+      "Todo lo del paquete basico",
+      "Espectro de audio animado",
+      "Difusion en redes sociales",
+    ],
+    // OWNER CONTENT PENDING: real delivery time
+    delivery: "Tiempo de entrega: a definir",
+    featured: true,
+  },
+  {
+    value: "Paquete Premium",
+    // OWNER CONTENT PENDING: real tier name
+    name: "Paquete Premium",
+    // OWNER CONTENT PENDING: real price (e.g. "Desde $X")
+    price: "Precio a definir",
+    // OWNER CONTENT PENDING: confirm real inclusions per tier
+    includes: [
+      "Todo lo del paquete estandar",
+      "Mayor alcance y prioridad de publicacion",
+      "Cobertura ampliada en redes",
+    ],
+    // OWNER CONTENT PENDING: real delivery time
+    delivery: "Tiempo de entrega: a definir",
+    featured: false,
+  },
 ];
 ---
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Promote your music | Metal Archive</title>
-  <meta name="description" content="Promote your band, album or label to an extreme metal audience." />
+  <title>Promociona tu musica | Metal Archive</title>
+  <meta name="description" content="Promociona tu banda, album o sello ante una audiencia de metal extremo." />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -36,22 +92,70 @@ const RELEASE_FORMATS = [
       <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 9a3 3 0 1 1 6 0c0 6-7.5 7-7.5 7H12m0 0h2.25m-2.25 0V21" />
       </svg>
-      <h1 class="form-page__title">Promote your music</h1>
+      <h1 class="form-page__title">Promociona tu musica</h1>
       <p class="form-page__subtitle">
-        Reach an extreme metal audience with your band, album or label through the Metal Archive.
+        Llega a una audiencia de metal extremo con tu banda, album o sello a traves del Metal Archive.
       </p>
     </div>
+
+    <!-- ── Packages (STATIC MOCKUP — OWNER CONTENT PENDING) ──────────────────
+         All tier names, prices, inclusions and delivery times are PLACEHOLDERS.
+         Daniel must supply the real content before this section goes live.
+         Do NOT invent prices, currencies, delivery times or video IDs. -->
+    <section class="promo-packages" aria-label="Paquetes de promocion">
+      <h2 class="promo-packages__title">Elige tu paquete</h2>
+      <p class="promo-packages__note">
+        <!-- OWNER CONTENT PENDING: replace this notice once real pricing is set. -->
+        Los precios y tiempos de entrega son provisionales: estan pendientes de
+        definir por el equipo.
+      </p>
+
+      <div class="promo-packages__grid">
+        {PACKAGES.map(pkg => (
+          <article class={pkg.featured ? "promo-pkg promo-pkg--featured" : "promo-pkg"}>
+            {pkg.featured && <span class="promo-pkg__badge">Mas elegido</span>}
+            <h3 class="promo-pkg__name">{pkg.name}</h3>
+            {/* OWNER CONTENT PENDING: real price */}
+            <p class="promo-pkg__price">{pkg.price}</p>
+            <ul class="promo-pkg__includes">
+              {pkg.includes.map(item => (
+                <li class="promo-pkg__include">{item}</li>
+              ))}
+            </ul>
+            {/* OWNER CONTENT PENDING: real delivery time */}
+            <p class="promo-pkg__delivery">{pkg.delivery}</p>
+          </article>
+        ))}
+      </div>
+
+      <!-- ── Example video (PLACEHOLDER) ──────────────────────────────────────
+           OWNER CONTENT PENDING: real YouTube video ID of a finished promo.
+           Replace the placeholder below with a privacy-friendly embed, e.g.:
+           <iframe
+             src="https://www.youtube-nocookie.com/embed/REAL_VIDEO_ID"
+             title="Ejemplo de promocion"
+             loading="lazy" allowfullscreen
+             style="width:100%;aspect-ratio:16/9;border:0"></iframe>
+           Do NOT invent a video ID — leave this placeholder until Daniel
+           provides a real one. -->
+      <div class="promo-example">
+        <h3 class="promo-example__title">Ejemplo de trabajo</h3>
+        <div class="promo-example__frame" role="img" aria-label="Video de ejemplo pendiente">
+          <span class="promo-example__placeholder">Video de ejemplo: pendiente</span>
+        </div>
+      </div>
+    </section>
 
     <!-- Form card -->
     <div class="form-card">
       <!-- Success state -->
       <div class="form-success" id="success-state" style="display:none">
         <span class="form-success__icon">&#10004;</span>
-        <h2 class="form-success__title">Request received</h2>
+        <h2 class="form-success__title">Solicitud recibida</h2>
         <p class="form-success__body">
-          We'll review your music and get back to you soon. Keep an eye on your inbox.
+          Revisaremos tu musica y te contactaremos pronto. Mantente atento a tu bandeja de entrada.
         </p>
-        <a href="/metal-archive/" class="form-success__back">&#8592; Back to the archive</a>
+        <a href="/metal-archive/" class="form-success__back">&#8592; Volver al archivo</a>
       </div>
 
       <!-- The form -->
@@ -60,20 +164,20 @@ const RELEASE_FORMATS = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="band_name">
-              Band name <span class="form-label__required">*</span>
+              Nombre de la banda <span class="form-label__required">*</span>
             </label>
             <input
               id="band_name" name="band_name" type="text"
-              class="form-input" placeholder="e.g. Blasfemia" required
+              class="form-input" placeholder="ej. Blasfemia" required
             />
           </div>
           <div class="form-field">
             <label class="form-label" for="email">
-              Contact email <span class="form-label__required">*</span>
+              Email de contacto <span class="form-label__required">*</span>
             </label>
             <input
               id="email" name="email" type="email"
-              class="form-input" placeholder="band@email.com" required
+              class="form-input" placeholder="banda@email.com" required
             />
           </div>
         </div>
@@ -82,25 +186,25 @@ const RELEASE_FORMATS = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="genre">
-              Genre <span class="form-label__required">*</span>
+              Genero <span class="form-label__required">*</span>
             </label>
             <select id="genre" name="genre" class="form-select">
-              <option value="">Select a genre</option>
+              <option value="">Elige un genero</option>
               {GENRES.map(g => <option value={g}>{g}</option>)}
-              <option value="Other">Other...</option>
+              <option value="Other">Otro...</option>
             </select>
             <!-- Custom genre input — shown via JS when "Other" selected -->
             <input
               id="custom_genre" name="custom_genre" type="text"
-              class="form-input" placeholder="Type your genre"
+              class="form-input" placeholder="Escribe tu genero"
               style="margin-top:0.5rem;display:none"
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="country">Country</label>
+            <label class="form-label" for="country">Pais</label>
             <input
               id="country" name="country" type="text"
-              class="form-input" placeholder="e.g. Honduras"
+              class="form-input" placeholder="ej. Honduras"
             />
           </div>
         </div>
@@ -109,36 +213,42 @@ const RELEASE_FORMATS = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="album_title">
-              Album title <span class="form-label__required">*</span>
+              Titulo del album <span class="form-label__required">*</span>
             </label>
             <input
               id="album_title" name="album_title" type="text"
-              class="form-input" placeholder="e.g. Inmaculada Concepcion" required
+              class="form-input" placeholder="ej. Inmaculada Concepcion" required
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="year">Release year</label>
+            <label class="form-label" for="year">Ano de lanzamiento</label>
             <input
               id="year" name="year" type="number"
-              class="form-input" placeholder="e.g. 2024" min="1960" max="2030"
+              class="form-input" placeholder="ej. 2024" min="1960" max="2030"
             />
           </div>
         </div>
 
-        <!-- Release format -->
+        <!-- Package of interest — submitted as `release_format`, which the
+             /promo endpoint maps to ContactMessage.package_interest (verified
+             in links_bio/fastapi_forms.py). No migration needed: the column
+             already exists. -->
         <div class="form-field">
-          <label class="form-label" for="release_format">Format</label>
+          <label class="form-label" for="release_format">Paquete de interes</label>
           <select id="release_format" name="release_format" class="form-select">
-            <option value="">Release type</option>
-            {RELEASE_FORMATS.map(f => <option value={f}>{f}</option>)}
+            <option value="">Elige un paquete (opcional)</option>
+            {PACKAGES.map(pkg => <option value={pkg.value}>{pkg.name}</option>)}
           </select>
+          <span class="form-label__hint">
+            Opcional. Tambien puedes consultarnos sin elegir paquete.
+          </span>
         </div>
 
         <!-- Links section -->
         <div class="form-field">
           <span class="form-label">
-            Links <span class="form-label__required">*</span>
-            <span class="form-label__hint">&nbsp;(at least one)</span>
+            Enlaces <span class="form-label__required">*</span>
+            <span class="form-label__hint">&nbsp;(al menos uno)</span>
           </span>
 
           <div class="form-row" style="margin-top:0.5rem">
@@ -165,7 +275,7 @@ const RELEASE_FORMATS = [
           <!-- Dynamic extra links (up to 5) -->
           <div class="extra-links" id="extra-links"></div>
           <button type="button" class="btn-add-link" id="add-link-btn">
-            + Add another link
+            + Agregar otro enlace
           </button>
         </div>
 
@@ -173,33 +283,33 @@ const RELEASE_FORMATS = [
         <div class="form-toast" id="form-toast" role="alert"></div>
 
         <button type="submit" class="form-submit" id="submit-btn">
-          Send Request
+          Enviar solicitud
         </button>
       </form>
     </div>
 
     <!-- How it works -->
     <section class="form-steps">
-      <h2 class="form-steps__title">How it works</h2>
+      <h2 class="form-steps__title">Como funciona</h2>
       <div class="step-item">
         <span class="step-item__num">1</span>
         <div>
-          <p class="step-item__title">We review your submission</p>
-          <p class="step-item__desc">We listen to your music and verify the information.</p>
+          <p class="step-item__title">Revisamos tu envio</p>
+          <p class="step-item__desc">Escuchamos tu musica y verificamos la informacion.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">2</span>
         <div>
-          <p class="step-item__title">We produce the video</p>
-          <p class="step-item__desc">We create the video with cover art, tracklist and audio spectrum.</p>
+          <p class="step-item__title">Producimos el video</p>
+          <p class="step-item__desc">Creamos el video con la caratula, el tracklist y el espectro de audio.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">3</span>
         <div>
-          <p class="step-item__title">We publish it</p>
-          <p class="step-item__desc">Your album goes live on YouTube and on the Metal Archive.</p>
+          <p class="step-item__title">Lo publicamos</p>
+          <p class="step-item__desc">Tu album sale en YouTube y en el Metal Archive.</p>
         </div>
       </div>
     </section>
@@ -242,7 +352,7 @@ const RELEASE_FORMATS = [
       row.className = 'extra-link-row';
       row.innerHTML = `
         <input type="url" name="extra_link_${idx}" class="form-input" placeholder="https://..." />
-        <button type="button" class="btn-remove-link" data-idx="${idx}" aria-label="Remove link">&times;</button>
+        <button type="button" class="btn-remove-link" data-idx="${idx}" aria-label="Eliminar enlace">&times;</button>
       `;
       row.querySelector('.btn-remove-link')!.addEventListener('click', () => {
         row.remove();
@@ -258,33 +368,56 @@ const RELEASE_FORMATS = [
       toast!.style.display = 'block';
     }
 
+    // Per-field validation: mark the offending input and show a message next to
+    // it (in Spanish). Errors are cleared on every submit attempt. No extra
+    // hydration — this runs inside the form's existing submit handler.
+    function clearFieldErrors() {
+      form!.querySelectorAll('.form-input--error').forEach((el) => {
+        el.classList.remove('form-input--error');
+      });
+      form!.querySelectorAll('.form-field__error').forEach((el) => el.remove());
+    }
+
+    function markFieldError(name: string, message: string) {
+      const input = form!.querySelector(`[name="${name}"]`) as HTMLElement | null;
+      if (!input) return;
+      input.classList.add('form-input--error');
+      const msg = document.createElement('span');
+      msg.className = 'form-field__error';
+      msg.textContent = message;
+      input.insertAdjacentElement('afterend', msg);
+      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      (input as HTMLInputElement).focus({ preventScroll: true });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       toast!.style.display = 'none';
+      clearFieldErrors();
 
       const fd   = new FormData(form!);
       const data: Record<string, string> = {};
       fd.forEach((v, k) => { data[k] = String(v); });
 
-      // Required field check
+      // Required field check — mark the FIRST empty required field.
       for (const field of ['band_name', 'email', 'album_title']) {
         if (!String(data[field] ?? '').trim()) {
-          showToast('Please fill in all required fields.', true);
+          markFieldError(field, 'Este campo es obligatorio.');
           return;
         }
       }
 
-      // At least one link
+      // At least one link — mark the first link field if none provided.
       const hasLink = ['youtube_url', 'bandcamp_url',
         'extra_link_0', 'extra_link_1', 'extra_link_2', 'extra_link_3', 'extra_link_4']
         .some(k => String(data[k] ?? '').trim());
       if (!hasLink) {
-        showToast('Add at least one link.', true);
+        markFieldError('youtube_url', 'Agrega al menos un enlace.');
         return;
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Submitting...';
+      btn!.textContent = 'Enviando...';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/promo`, {
@@ -299,13 +432,13 @@ const RELEASE_FORMATS = [
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else {
-          showToast(json.detail ?? 'Something went wrong. Please try again.', true);
+          showToast(json.detail ?? 'Algo salio mal. Intentalo de nuevo.', true);
         }
       } catch {
-        showToast('Could not connect. Check your connection.', true);
+        showToast('No se pudo conectar. Revisa tu conexion.', true);
       } finally {
         btn!.disabled = false;
-        btn!.textContent = 'Send Request';
+        btn!.textContent = 'Enviar solicitud';
       }
     });
   }

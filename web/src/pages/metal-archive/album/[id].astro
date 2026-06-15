@@ -19,6 +19,8 @@ import {
   getSimilarAlbums,
   getMoreToExplore,
   getBandAlbumCount,
+  getBandPageNameSet,
+  slugify,
 } from '../../../lib/db.js';
 import { thumb } from '../../../lib/thumb.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
@@ -50,6 +52,17 @@ const rawTracks = getTracks(id);
 const similarBands = getSimilarBands(id);
 const similarAlbums = getSimilarAlbums(album.genre, id);
 const moreToExplore = getMoreToExplore(id);
+
+// Names of bands that have their own page (2+ albums), built from a single query
+// so each "Bandas similares" pill can resolve its destination without an N+1.
+// A pill links to the band page when it exists, else to a Browse text search so
+// the discovery jump always lands somewhere.
+const bandPageNames = getBandPageNameSet();
+function similarBandHref(name: string): string {
+  return bandPageNames.has(name)
+    ? `/metal-archive/band/${slugify(name)}`
+    : `/metal-archive/browse?q=${encodeURIComponent(name)}`;
+}
 
 // ─── Parse "MM:SS" / "HH:MM:SS" timestamps to seconds (build-time) ───────────
 function tsToSeconds(ts: string | null): number {
@@ -154,19 +167,12 @@ function platformIcon(label: string): string {
 const releaseType = album.release_type && album.release_type.trim() !== '' ? album.release_type : 'Album';
 
 // ─── Discovery links (genre / year / band) ────────────────────────────────────
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
 const genreSlug = album.genre ? slugify(album.genre) : null;
 const bandAlbumCount = getBandAlbumCount(album.band_name);
 const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
 
 const pageTitle = `${album.band_name} — ${album.album_title}`;
-const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Listen to the full album on the Metal Archive.`;
+const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Escucha el album completo en el Metal Archive.`;
 const ogImage = coverThumb || coverUrl;
 
 // ─── Player data island ──────────────────────────────────────────────────────
@@ -194,7 +200,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${albumColor};`}>
+<html lang="es" style={`--album-color: ${albumColor};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -217,7 +223,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
 
     <div class="album-detail-main">
       <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
-      <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
+      <section class="stage" aria-label={`Reproduciendo: ${album.album_title}`}>
         <div class="stage__inner">
           <!-- Square 1:1 cover, the protagonist (REQ-001) -->
           <div class="stage__cover-wrap">
@@ -225,9 +231,13 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
               ? <img
                   class="stage__cover"
                   src={coverUrl}
+                  srcset={coverThumb ? `${coverThumb} 320w, ${coverUrl} 1280w` : undefined}
+                  sizes="(min-width: 880px) clamp(340px, 42vw, 560px), 100vw"
                   alt={album.album_title}
                   loading="eager"
                   decoding="async"
+                  width="640"
+                  height="640"
                 />
               : <div class="stage__cover stage__cover--empty" aria-hidden="true"></div>
             }
@@ -257,7 +267,14 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
 
             <!-- Progress (accent fill) -->
             <div class="stage__progress">
-              <div class="stage__bar" aria-hidden="true">
+              <div
+                class="stage__bar js-progressbar"
+                role="progressbar"
+                aria-label="Progreso de reproducción"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              >
                 <div class="stage__bar-fill js-progress-fill"></div>
               </div>
               <div class="stage__times">
@@ -268,16 +285,16 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
 
             <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004) -->
             <div class="stage__transport">
-              <button type="button" class="stage__ctl" aria-label="Previous track" data-np-prev="1">
+              <button type="button" class="stage__ctl" aria-label="Pista anterior" data-np-prev="1">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
               </button>
-              <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
+              <button type="button" class="stage__play js-pp" aria-label="Reproducir o pausar" data-np-main="1" data-state="paused">
                 <span class="stage__play-glow" aria-hidden="true"></span>
                 <svg class="ic ic-play" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
                 <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
                 <span class="ic ic-spinner" aria-hidden="true"></span>
               </button>
-              <button type="button" class="stage__ctl" aria-label="Next track" data-np-next="1">
+              <button type="button" class="stage__ctl" aria-label="Pista siguiente" data-np-next="1">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
               </button>
             </div>
@@ -290,9 +307,9 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
                   <span>YouTube</span>
                 </a>
               )}
-              <button type="button" class="stage__action" data-share="1" aria-label="Share this album">
+              <button type="button" class="stage__action" data-share="1" aria-label="Compartir este album">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
-                <span>Share</span>
+                <span>Compartir</span>
               </button>
               {/* Streaming / social links — brand logos, pulled from the description + DB */}
               {platformLinks.map((l) => (
@@ -313,20 +330,26 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
           <section class="tracklist-section">
             <div class="track-header">
               <div style="text-align: center;">#</div>
-              <div>Title</div>
+              <div>Titulo</div>
               <div style="text-align: right;">⏱</div>
             </div>
             <div class="track-rows">
               {tracks.map((t) => (
-                <div class="track-row" data-track-idx={String(t.idx)} data-seconds={String(t.seconds)}>
-                  <div class="track-row__index">
+                <button
+                  type="button"
+                  class="track-row"
+                  data-track-idx={String(t.idx)}
+                  data-seconds={String(t.seconds)}
+                  aria-label={`Reproducir pista ${t.number}: ${t.name}`}
+                >
+                  <span class="track-row__index">
                     <span class="track-number">{t.number}</span>
                     <span class="track-play-icon">▸</span>
                     <span class="track-active-icon">▸</span>
-                  </div>
+                  </span>
                   <span class="track-row__title" data-track-name="1">{t.name}</span>
                   <span class="track-row__time">{t.timestamp}</span>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -335,9 +358,11 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
         <!-- Similar bands -->
         {similarBands.length > 0 && (
           <section class="similar-bands-section">
-            <h2>Similar Bands</h2>
+            <h2>Bandas similares</h2>
             <div class="similar-bands">
-              {similarBands.map((b) => <span class="band-pill">{b.band_name}</span>)}
+              {similarBands.map((b) => (
+                <a class="band-pill" href={similarBandHref(b.band_name)}>{b.band_name}</a>
+              ))}
             </div>
           </section>
         )}
@@ -345,7 +370,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
         <!-- Similar albums -->
         {similarAlbums.length > 0 && (
           <section class="related-section">
-            <h2>If You Liked This...</h2>
+            <h2>Si te gusto esto...</h2>
             <div class="album-grid">
               {similarAlbums.map((a) => <AlbumCard album={a} />)}
             </div>
@@ -356,8 +381,8 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
         {moreToExplore.length > 0 && (
           <section class="related-section related-section--bordered">
             <div class="related-section__header">
-              <h2>Keep Exploring</h2>
-              <a href="/metal-archive/browse" class="related-section__more">See All →</a>
+              <h2>Sigue explorando</h2>
+              <a href="/metal-archive/browse" class="related-section__more">Ver todo →</a>
             </div>
             <div class="album-grid">
               {moreToExplore.map((a) => <AlbumCard album={a} />)}

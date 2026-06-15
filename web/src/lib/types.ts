@@ -70,5 +70,6 @@ export interface BrowseEntry {
   country: string | null;
   year: number | null;
   release_type: string | null;
+  views: number | null;
   thumb: string;
 }
