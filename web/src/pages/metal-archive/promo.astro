@@ -73,6 +73,11 @@ const PACKAGES = [
     featured: false,
   },
 ];
+
+// Flag: while false, the placeholder packages section AND the "Paquete de interes"
+// select stay HIDDEN, so visitors never see "Precio a definir". Flip to true once
+// PACKAGES holds real prices/tiers (OWNER CONTENT — see comments above).
+const PACKAGES_READY = false;
 ---
 <!doctype html>
 <html lang="es">
@@ -98,14 +103,13 @@ const PACKAGES = [
       </p>
     </div>
 
-    <!-- ── Packages (STATIC MOCKUP — OWNER CONTENT PENDING) ──────────────────
-         All tier names, prices, inclusions and delivery times are PLACEHOLDERS.
-         Daniel must supply the real content before this section goes live.
-         Do NOT invent prices, currencies, delivery times or video IDs. -->
+    {/* Packages (STATIC MOCKUP — OWNER CONTENT PENDING). Hidden until
+        PACKAGES_READY is true, so visitors never see placeholder prices.
+        Do NOT invent prices, currencies, delivery times or video IDs. */}
+    {PACKAGES_READY && (
     <section class="promo-packages" aria-label="Paquetes de promocion">
       <h2 class="promo-packages__title">Elige tu paquete</h2>
       <p class="promo-packages__note">
-        <!-- OWNER CONTENT PENDING: replace this notice once real pricing is set. -->
         Los precios y tiempos de entrega son provisionales: estan pendientes de
         definir por el equipo.
       </p>
@@ -128,16 +132,9 @@ const PACKAGES = [
         ))}
       </div>
 
-      <!-- ── Example video (PLACEHOLDER) ──────────────────────────────────────
-           OWNER CONTENT PENDING: real YouTube video ID of a finished promo.
-           Replace the placeholder below with a privacy-friendly embed, e.g.:
-           <iframe
-             src="https://www.youtube-nocookie.com/embed/REAL_VIDEO_ID"
-             title="Ejemplo de promocion"
-             loading="lazy" allowfullscreen
-             style="width:100%;aspect-ratio:16/9;border:0"></iframe>
-           Do NOT invent a video ID — leave this placeholder until Daniel
-           provides a real one. -->
+      {/* Example video (PLACEHOLDER). OWNER CONTENT PENDING: real YouTube ID of a
+          finished promo. Replace with a privacy-friendly youtube-nocookie embed
+          once Daniel provides a real video ID — do NOT invent one. */}
       <div class="promo-example">
         <h3 class="promo-example__title">Ejemplo de trabajo</h3>
         <div class="promo-example__frame" role="img" aria-label="Video de ejemplo pendiente">
@@ -145,6 +142,7 @@ const PACKAGES = [
         </div>
       </div>
     </section>
+    )}
 
     <!-- Form card -->
     <div class="form-card">
@@ -229,10 +227,10 @@ const PACKAGES = [
           </div>
         </div>
 
-        <!-- Package of interest — submitted as `release_format`, which the
-             /promo endpoint maps to ContactMessage.package_interest (verified
-             in links_bio/fastapi_forms.py). No migration needed: the column
-             already exists. -->
+        {/* Package of interest — submitted as `release_format`, mapped to
+            ContactMessage.package_interest. Hidden until PACKAGES_READY: with no
+            real packages there is nothing to choose, so the select stays out. */}
+        {PACKAGES_READY && (
         <div class="form-field">
           <label class="form-label" for="release_format">Paquete de interes</label>
           <select id="release_format" name="release_format" class="form-select">
@@ -243,6 +241,7 @@ const PACKAGES = [
             Opcional. Tambien puedes consultarnos sin elegir paquete.
           </span>
         </div>
+        )}
 
         <!-- Links section -->
         <div class="form-field">
