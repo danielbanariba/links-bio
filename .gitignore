@@ -16,3 +16,6 @@ frontend.zip
 .vercel/
 # Astro POC (replaced by web/)
 astro-spike/
+
+# Local agent tooling cache (skill registry)
+.atl/
