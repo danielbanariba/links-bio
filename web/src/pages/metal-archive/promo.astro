@@ -84,8 +84,8 @@ const PACKAGES_READY = false;
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Promociona tu musica | Metal Archive</title>
-  <meta name="description" content="Promociona tu banda, album o sello ante una audiencia de metal extremo." />
+  <title>Promociona tu música | Metal Archive</title>
+  <meta name="description" content="Promociona tu banda, álbum o sello ante una audiencia de metal extremo." />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -97,9 +97,9 @@ const PACKAGES_READY = false;
       <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 9a3 3 0 1 1 6 0c0 6-7.5 7-7.5 7H12m0 0h2.25m-2.25 0V21" />
       </svg>
-      <h1 class="form-page__title">Promociona tu musica</h1>
+      <h1 class="form-page__title">Promociona tu música</h1>
       <p class="form-page__subtitle">
-        Llega a una audiencia de metal extremo con tu banda, album o sello a traves del Metal Archive.
+        Llega a una audiencia de metal extremo con tu banda, álbum o sello a través del Metal Archive.
       </p>
     </div>
 
@@ -107,7 +107,7 @@ const PACKAGES_READY = false;
         PACKAGES_READY is true, so visitors never see placeholder prices.
         Do NOT invent prices, currencies, delivery times or video IDs. */}
     {PACKAGES_READY && (
-    <section class="promo-packages" aria-label="Paquetes de promocion">
+    <section class="promo-packages" aria-label="Paquetes de promoción">
       <h2 class="promo-packages__title">Elige tu paquete</h2>
       <p class="promo-packages__note">
         Los precios y tiempos de entrega son provisionales: estan pendientes de
@@ -117,7 +117,7 @@ const PACKAGES_READY = false;
       <div class="promo-packages__grid">
         {PACKAGES.map(pkg => (
           <article class={pkg.featured ? "promo-pkg promo-pkg--featured" : "promo-pkg"}>
-            {pkg.featured && <span class="promo-pkg__badge">Mas elegido</span>}
+            {pkg.featured && <span class="promo-pkg__badge">Más elegido</span>}
             <h3 class="promo-pkg__name">{pkg.name}</h3>
             {/* OWNER CONTENT PENDING: real price */}
             <p class="promo-pkg__price">{pkg.price}</p>
@@ -184,22 +184,22 @@ const PACKAGES_READY = false;
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="genre">
-              Genero <span class="form-label__required">*</span>
+              Género <span class="form-label__required">*</span>
             </label>
             <select id="genre" name="genre" class="form-select">
-              <option value="">Elige un genero</option>
+              <option value="">Elige un género</option>
               {GENRES.map(g => <option value={g}>{g}</option>)}
               <option value="Other">Otro...</option>
             </select>
             <!-- Custom genre input — shown via JS when "Other" selected -->
             <input
               id="custom_genre" name="custom_genre" type="text"
-              class="form-input" placeholder="Escribe tu genero"
+              class="form-input" placeholder="Escribe tu género"
               style="margin-top:0.5rem;display:none"
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="country">Pais</label>
+            <label class="form-label" for="country">País</label>
             <input
               id="country" name="country" type="text"
               class="form-input" placeholder="ej. Honduras"
@@ -211,7 +211,7 @@ const PACKAGES_READY = false;
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="album_title">
-              Titulo del album <span class="form-label__required">*</span>
+              Título del álbum <span class="form-label__required">*</span>
             </label>
             <input
               id="album_title" name="album_title" type="text"
@@ -219,7 +219,7 @@ const PACKAGES_READY = false;
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="year">Ano de lanzamiento</label>
+            <label class="form-label" for="year">Año de lanzamiento</label>
             <input
               id="year" name="year" type="number"
               class="form-input" placeholder="ej. 2024" min="1960" max="2030"
@@ -232,13 +232,13 @@ const PACKAGES_READY = false;
             real packages there is nothing to choose, so the select stays out. */}
         {PACKAGES_READY && (
         <div class="form-field">
-          <label class="form-label" for="release_format">Paquete de interes</label>
+          <label class="form-label" for="release_format">Paquete de interés</label>
           <select id="release_format" name="release_format" class="form-select">
             <option value="">Elige un paquete (opcional)</option>
             {PACKAGES.map(pkg => <option value={pkg.value}>{pkg.name}</option>)}
           </select>
           <span class="form-label__hint">
-            Opcional. Tambien puedes consultarnos sin elegir paquete.
+            Opcional. También puedes consultarnos sin elegir paquete.
           </span>
         </div>
         )}
@@ -289,26 +289,26 @@ const PACKAGES_READY = false;
 
     <!-- How it works -->
     <section class="form-steps">
-      <h2 class="form-steps__title">Como funciona</h2>
+      <h2 class="form-steps__title">¿Cómo funciona?</h2>
       <div class="step-item">
         <span class="step-item__num">1</span>
         <div>
           <p class="step-item__title">Revisamos tu envio</p>
-          <p class="step-item__desc">Escuchamos tu musica y verificamos la informacion.</p>
+          <p class="step-item__desc">Escuchamos tu música y verificamos la información.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">2</span>
         <div>
           <p class="step-item__title">Producimos el video</p>
-          <p class="step-item__desc">Creamos el video con la caratula, el tracklist y el espectro de audio.</p>
+          <p class="step-item__desc">Creamos el video con la carátula, el tracklist y el espectro de audio.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">3</span>
         <div>
           <p class="step-item__title">Lo publicamos</p>
-          <p class="step-item__desc">Tu album sale en YouTube y en el Metal Archive.</p>
+          <p class="step-item__desc">Tu álbum sale en YouTube y en el Metal Archive.</p>
         </div>
       </div>
     </section>
@@ -431,10 +431,10 @@ const PACKAGES_READY = false;
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else {
-          showToast(json.detail ?? 'Algo salio mal. Intentalo de nuevo.', true);
+          showToast(json.detail ?? 'Algo salió mal. Inténtalo de nuevo.', true);
         }
       } catch {
-        showToast('No se pudo conectar. Revisa tu conexion.', true);
+        showToast('No se pudo conectar. Revisa tu conexión.', true);
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Enviar solicitud';

@@ -140,7 +140,7 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{realCountry} — Metal Archive</title>
-    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albumes'} de ${realCountry} en el Metal Archive.`} />
+    <meta name="description" content={`${count} ${count === 1 ? 'álbum' : 'álbumes'} de ${realCountry} en el Metal Archive.`} />
     <ClientRouter />
   </head>
   <body>
@@ -152,7 +152,7 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
           {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{realCountry}
         </h1>
         <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albumes'}
+          {count} {count === 1 ? 'álbum' : 'álbumes'}
         </p>
         {albums.length > 0 && (
           <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
@@ -163,7 +163,7 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No hay albumes de este pais.</p>
+        : <p style="color: var(--text-footer);">No hay álbumes de este país.</p>
       }
     </main>
 

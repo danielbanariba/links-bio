@@ -12,7 +12,7 @@ import '../../styles/global.css';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Newsletter | Metal Archive</title>
-  <meta name="description" content="Suscribete para recibir novedades sobre nuevos albumes, bandas y eventos de metal underground." />
+  <meta name="description" content="Suscríbete para recibir novedades sobre nuevos álbumes, bandas y eventos de metal underground." />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -26,7 +26,7 @@ import '../../styles/global.css';
       </svg>
       <h1 class="form-page__title">Newsletter</h1>
       <p class="form-page__subtitle">
-        Suscribete para recibir novedades sobre nuevos albumes, bandas y eventos de metal underground.
+        Suscríbete para recibir novedades sobre nuevos álbumes, bandas y eventos de metal underground.
       </p>
     </div>
 
@@ -95,7 +95,7 @@ import '../../styles/global.css';
       const email = (document.getElementById('email') as HTMLInputElement).value.trim();
 
       if (!email || !email.includes('@')) {
-        showToast('Por favor ingresa un email valido.', true);
+        showToast('Por favor ingresa un email válido.', true);
         return;
       }
 
@@ -115,12 +115,12 @@ import '../../styles/global.css';
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else if (res.status === 409) {
-          showToast('Este email ya esta suscrito.', false);
+          showToast('Este email ya está suscrito.', false);
         } else {
-          showToast(json.detail ?? 'No se pudo suscribir. Intentalo de nuevo.', true);
+          showToast(json.detail ?? 'No se pudo suscribir. Inténtalo de nuevo.', true);
         }
       } catch {
-        showToast('No se pudo conectar. Revisa tu conexion.', true);
+        showToast('No se pudo conectar. Revisa tu conexión.', true);
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Suscribirme';
