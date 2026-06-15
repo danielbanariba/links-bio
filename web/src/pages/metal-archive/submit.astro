@@ -19,8 +19,8 @@ const GENRES = [
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Envia tu banda | Metal Archive</title>
-  <meta name="description" content="Envia tu banda o album para revision e inclusion gratuita en el archivo." />
+  <title>Envía tu banda | Metal Archive</title>
+  <meta name="description" content="Envía tu banda o álbum para revisión e inclusión gratuita en el archivo." />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -32,9 +32,9 @@ const GENRES = [
       <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
       </svg>
-      <h1 class="form-page__title">Envia tu banda</h1>
+      <h1 class="form-page__title">Envía tu banda</h1>
       <p class="form-page__subtitle">
-        Envia tu banda o album para revision e inclusion gratuita en el archivo.
+        Envía tu banda o álbum para revisión e inclusión gratuita en el archivo.
       </p>
     </div>
 
@@ -43,7 +43,7 @@ const GENRES = [
       <!-- Success state (hidden by default, shown via JS) -->
       <div class="form-success" id="success-state" style="display:none">
         <span class="form-success__icon">&#10004;</span>
-        <h2 class="form-success__title">Banda enviada con exito</h2>
+        <h2 class="form-success__title">Banda enviada con éxito</h2>
         <p class="form-success__body">
           Revisaremos tu envio y te contactaremos pronto. Mantente atento a tu bandeja de entrada.
         </p>
@@ -78,16 +78,16 @@ const GENRES = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="genre">
-              Genero <span class="form-label__required">*</span>
+              Género <span class="form-label__required">*</span>
             </label>
             <select id="genre" name="genre" class="form-select" required>
-              <option value="">Elige un genero</option>
+              <option value="">Elige un género</option>
               {GENRES.map(g => <option value={g}>{g}</option>)}
             </select>
           </div>
           <div class="form-field">
             <label class="form-label" for="country">
-              Pais <span class="form-label__required">*</span>
+              País <span class="form-label__required">*</span>
             </label>
             <input
               id="country" name="country" type="text"
@@ -99,14 +99,14 @@ const GENRES = [
         <!-- Album title + Year -->
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label" for="album_title">Titulo del album</label>
+            <label class="form-label" for="album_title">Título del álbum</label>
             <input
               id="album_title" name="album_title" type="text"
               class="form-input" placeholder="ej. Inmaculada Concepcion"
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="year">Ano de lanzamiento</label>
+            <label class="form-label" for="year">Año de lanzamiento</label>
             <input
               id="year" name="year" type="number"
               class="form-input" placeholder="ej. 2024" min="1960" max="2030"
@@ -134,7 +134,7 @@ const GENRES = [
 
         <!-- Description -->
         <div class="form-field">
-          <label class="form-label" for="description">Descripcion</label>
+          <label class="form-label" for="description">Descripción</label>
           <textarea
             id="description" name="description"
             class="form-textarea" placeholder="Cuentanos sobre tu banda..."
@@ -153,12 +153,12 @@ const GENRES = [
 
     <!-- What happens next -->
     <section class="form-steps">
-      <h2 class="form-steps__title">Que pasa despues?</h2>
+      <h2 class="form-steps__title">¿Qué pasa después?</h2>
       <div class="step-item">
         <span class="step-item__num">1</span>
         <div>
           <p class="step-item__title">Revisamos tu envio</p>
-          <p class="step-item__desc">Escuchamos tu musica y verificamos la informacion.</p>
+          <p class="step-item__desc">Escuchamos tu música y verificamos la información.</p>
         </div>
       </div>
       <div class="step-item">
@@ -171,8 +171,8 @@ const GENRES = [
       <div class="step-item">
         <span class="step-item__num">3</span>
         <div>
-          <p class="step-item__title">Publicamos tu album</p>
-          <p class="step-item__desc">Tu album aparece en el archivo con todos los detalles.</p>
+          <p class="step-item__title">Publicamos tu álbum</p>
+          <p class="step-item__desc">Tu álbum aparece en el archivo con todos los detalles.</p>
         </div>
       </div>
     </section>
@@ -256,10 +256,10 @@ const GENRES = [
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else {
-          showToast(json.detail ?? 'Algo salio mal. Intentalo de nuevo.', true);
+          showToast(json.detail ?? 'Algo salió mal. Inténtalo de nuevo.', true);
         }
       } catch {
-        showToast('No se pudo conectar. Revisa tu conexion.', true);
+        showToast('No se pudo conectar. Revisa tu conexión.', true);
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Enviar banda';

@@ -35,13 +35,13 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
         <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle>
         <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
       </svg>
-      <span class="navbar__surprise-label">Sorprendeme</span>
+      <span class="navbar__surprise-label">Sorpréndeme</span>
     </button>
   </nav>
 </header>
 
 {isMetalArchive && (
-  <nav class="tabbar" aria-label="Navegacion principal">
+  <nav class="tabbar" aria-label="Navegación principal">
     <a href="/metal-archive/" class={tabClass(path === '/metal-archive' || path === '/metal-archive/')}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 9.5V21h14V9.5"/></svg>
       <span>Inicio</span>

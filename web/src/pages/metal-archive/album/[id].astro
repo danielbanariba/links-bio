@@ -172,7 +172,7 @@ const bandAlbumCount = getBandAlbumCount(album.band_name);
 const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
 
 const pageTitle = `${album.band_name} — ${album.album_title}`;
-const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Escucha el album completo en el Metal Archive.`;
+const metaDesc = `${album.band_name} · ${album.album_title}${album.genre ? ' · ' + album.genre : ''}${album.year ? ' · ' + album.year : ''}. Escucha el álbum completo en el Metal Archive.`;
 const ogImage = coverThumb || coverUrl;
 
 // ─── Player data island ──────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
                   <span>YouTube</span>
                 </a>
               )}
-              <button type="button" class="stage__action" data-share="1" aria-label="Compartir este album">
+              <button type="button" class="stage__action" data-share="1" aria-label="Compartir este álbum">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
                 <span>Compartir</span>
               </button>
@@ -330,7 +330,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
           <section class="tracklist-section">
             <div class="track-header">
               <div style="text-align: center;">#</div>
-              <div>Titulo</div>
+              <div>Título</div>
               <div style="text-align: right;">⏱</div>
             </div>
             <div class="track-rows">
@@ -370,7 +370,7 @@ const npDataJson = npData ? JSON.stringify(npData).replace(/</g, '\\u003c') : ''
         <!-- Similar albums -->
         {similarAlbums.length > 0 && (
           <section class="related-section">
-            <h2>Si te gusto esto...</h2>
+            <h2>Si te gustó esto...</h2>
             <div class="album-grid">
               {similarAlbums.map((a) => <AlbumCard album={a} />)}
             </div>

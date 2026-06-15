@@ -738,7 +738,7 @@ export default function Player() {
             Video no disponible
           </span>
           <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
-            No se puede reproducir aqui.
+            No se puede reproducir aquí.
           </span>
           <a
             ref={ytErrorLinkRef}
@@ -753,10 +753,10 @@ export default function Player() {
 
         <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
           <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
-            El reproductor esta tardando en cargar.
+            El reproductor está tardando en cargar.
           </span>
           <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
-            Revisa tu conexion.
+            Revisa tu conexión.
           </span>
           <button
             type="button"
@@ -777,7 +777,7 @@ export default function Player() {
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />
           <div class="np-text">
-            <span id="now-playing-name" ref={npNameRef} class="np-name">Elige una cancion</span>
+            <span id="now-playing-name" ref={npNameRef} class="np-name">Elige una canción</span>
             <span id="now-playing-artist" ref={npArtistRef} class="np-artist"></span>
           </div>
         </div>

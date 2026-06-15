@@ -78,11 +78,11 @@ const ogImage = heroSource[0]?.thumb;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Metal Archive — Catalogo de metal underground</title>
-    <meta name="description" content="El archivo definitivo del metal underground: death metal, brutal death, grindcore y mas. Descubre bandas de todo el mundo." />
+    <title>Metal Archive — Catálogo de metal underground</title>
+    <meta name="description" content="El archivo definitivo del metal underground: death metal, brutal death, grindcore y más. Descubre bandas de todo el mundo." />
     <!-- OG / social meta -->
-    <meta property="og:title" content="Metal Archive — Catalogo de metal underground" />
-    <meta property="og:description" content="Catalogo de metal underground: death metal, brutal death, grindcore y mas." />
+    <meta property="og:title" content="Metal Archive — Catálogo de metal underground" />
+    <meta property="og:description" content="Catálogo de metal underground: death metal, brutal death, grindcore y más." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://xeroxunderground.com/metal-archive/" />
     {ogImage && <meta property="og:image" content={ogImage} />}
@@ -103,7 +103,7 @@ const ogImage = heroSource[0]?.thumb;
         <header class="home-greeting">
           <div>
             <h1 class="home-greeting__hello" id="greeting">Hola</h1>
-            <p class="home-greeting__sub">Catalogo de metal underground</p>
+            <p class="home-greeting__sub">Catálogo de metal underground</p>
           </div>
           <div class="home-greeting__actions">
             <a class="home-greeting__icon" href="/metal-archive/newsletter" aria-label="Newsletter">
@@ -117,7 +117,7 @@ const ogImage = heroSource[0]?.thumb;
 
         <!-- ─── Hero carousel — each slide tinted by its own cover color ─────── -->
         {heroAlbums.length > 0 && (
-          <section class="hero-carousel" aria-label="Albumes destacados">
+          <section class="hero-carousel" aria-label="Álbumes destacados">
             <div class="hero-track" id="hero-track">
               {heroAlbums.map((h, i) => (
                 <a
@@ -167,8 +167,8 @@ const ogImage = heroSource[0]?.thumb;
               class="home-search__input"
               type="search"
               name="q"
-              placeholder="Busca bandas, albumes, generos..."
-              aria-label="Busca bandas, albumes, generos"
+              placeholder="Busca bandas, álbumes, géneros..."
+              aria-label="Busca bandas, álbumes, géneros"
               autocomplete="off"
             />
             <button class="home-search__btn" type="submit">Buscar</button>
@@ -192,7 +192,7 @@ const ogImage = heroSource[0]?.thumb;
                     }
                   </span>
                   <span class="band-avatar__name">{b.band_name}</span>
-                  <span class="band-avatar__count">{b.count} {b.count === 1 ? 'album' : 'albumes'}</span>
+                  <span class="band-avatar__count">{b.count} {b.count === 1 ? 'álbum' : 'álbumes'}</span>
                 </a>
               ))}
             </div>
@@ -241,7 +241,7 @@ const ogImage = heroSource[0]?.thumb;
               </div>
             </div>
             <p class="live-section__note">
-              Grabaciones en vivo personales — separadas del catalogo oficial de albumes.
+              Grabaciones en vivo personales — separadas del catálogo oficial de álbumes.
             </p>
             <div class="carousel-row">
               {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
@@ -255,7 +255,7 @@ const ogImage = heroSource[0]?.thumb;
         {allCountries.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Explora por pais</h3>
+              <h3>Explora por país</h3>
               <a href="/metal-archive/browse" class="section-header__link">Ver todo →</a>
             </div>
             <div class="country-grid">
@@ -263,7 +263,7 @@ const ogImage = heroSource[0]?.thumb;
                 <a
                   class="facet-card"
                   href={`/metal-archive/country/${slugify(facet.value)}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albumes'} de ${facet.value}`}
+                  title={`${facet.count} ${facet.count === 1 ? 'álbum' : 'álbumes'} de ${facet.value}`}
                 >
                   {COUNTRY_FLAGS[facet.value] && (
                     <span class="facet-card__flag" aria-hidden="true">
@@ -272,7 +272,7 @@ const ogImage = heroSource[0]?.thumb;
                   )}
                   <span class="facet-card__name">{facet.value}</span>
                   <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albumes'}
+                    {facet.count} {facet.count === 1 ? 'álbum' : 'álbumes'}
                   </span>
                 </a>
               ))}
@@ -283,7 +283,7 @@ const ogImage = heroSource[0]?.thumb;
         {allYears.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Explora por ano</h3>
+              <h3>Explora por año</h3>
               <a href="/metal-archive/browse" class="section-header__link">Ver todo →</a>
             </div>
             <div class="year-grid">
@@ -291,11 +291,11 @@ const ogImage = heroSource[0]?.thumb;
                 <a
                   class="facet-card"
                   href={`/metal-archive/year/${facet.value}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albumes'} de ${facet.value}`}
+                  title={`${facet.count} ${facet.count === 1 ? 'álbum' : 'álbumes'} de ${facet.value}`}
                 >
                   <span class="facet-card__name">{facet.value}</span>
                   <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albumes'}
+                    {facet.count} {facet.count === 1 ? 'álbum' : 'álbumes'}
                   </span>
                 </a>
               ))}
@@ -306,7 +306,7 @@ const ogImage = heroSource[0]?.thumb;
         <!-- Surprise Me ────────────────────────────────────────────────────── -->
         <div class="home-cta-row">
           <button id="btn-random" class="btn-sorprendeme" type="button">
-            Sorprendeme
+            Sorpréndeme
           </button>
         </div>
 
@@ -339,7 +339,7 @@ const ogImage = heroSource[0]?.thumb;
             target="_blank"
             rel="noopener noreferrer"
           >
-            Suscribete al canal
+            Suscríbete al canal
           </a>
         </div>
       </div><!-- /.wrap -->
@@ -360,7 +360,7 @@ const ogImage = heroSource[0]?.thumb;
           if (g) {
             var h = new Date().getHours();
             g.textContent =
-              h < 6 ? 'Buenas noches' : h < 12 ? 'Buenos dias' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+              h < 6 ? 'Buenas noches' : h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
           }
 
           var track = document.getElementById('hero-track');
