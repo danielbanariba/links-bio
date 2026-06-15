@@ -22,9 +22,9 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   </a>
   <nav class="navbar__links">
     <a href="/">Bio</a>
-    <a href="/metal-archive/">Archive</a>
-    <a href="/metal-archive/browse">Browse</a>
-    <a href="/metal-archive/submit">Submit</a>
+    <a href="/metal-archive/">Archivo</a>
+    <a href="/metal-archive/browse">Explorar</a>
+    <a href="/metal-archive/submit">Enviar</a>
     <a href="/metal-archive/newsletter">Newsletter</a>
     <button id="navbar-surprise" class="navbar__surprise" type="button">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -35,24 +35,32 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
         <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle>
         <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
       </svg>
-      <span class="navbar__surprise-label">Surprise Me</span>
+      <span class="navbar__surprise-label">Sorprendeme</span>
     </button>
   </nav>
 </header>
 
 {isMetalArchive && (
-  <nav class="tabbar" aria-label="Primary navigation">
+  <nav class="tabbar" aria-label="Navegacion principal">
     <a href="/metal-archive/" class={tabClass(path === '/metal-archive' || path === '/metal-archive/')}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-      <span>Home</span>
+      <span>Inicio</span>
     </a>
     <a href="/metal-archive/browse" class={tabClass(path.startsWith('/metal-archive/browse'))}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-      <span>Search</span>
+      <span>Buscar</span>
     </a>
     <a href="/metal-archive/submit" class={tabClass(path.startsWith('/metal-archive/submit'))}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m6 10 6-6 6 6"/><path d="M5 20h14"/></svg>
-      <span>Submit</span>
+      <span>Enviar</span>
+    </a>
+    <a href="/metal-archive/promo" class={tabClass(path.startsWith('/metal-archive/promo'))}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a3 3 0 0 1 0 6"/><path d="M19 7a6 6 0 0 1 0 10"/></svg>
+      <span>Promocionar</span>
+    </a>
+    <a href="/metal-archive/newsletter" class={tabClass(path.startsWith('/metal-archive/newsletter'))}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      <span>Newsletter</span>
     </a>
   </nav>
 )}

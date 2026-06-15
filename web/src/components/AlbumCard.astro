@@ -1,7 +1,7 @@
 ---
 // AlbumCard: zero-JS, cover-first gallery card (Bandcamp-style).
 // The artwork is the protagonist: a large square cover that scales and reveals
-// a play affordance on hover; band/album text sits cleanly below.
+// an "open" affordance on hover; band/album text sits cleanly below.
 // `accent` (optional) tints the hover ring/glow with the album's dominant color;
 // defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
 // `livePlaceholder` (optional) — when true, renders a branded placeholder instead
@@ -43,10 +43,14 @@ const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
           />
         : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
     }
-    <!-- Hover affordance: play circle in the album accent, revealed bottom-right. -->
-    <span class="album-card__play" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <path d="M8 5v14l11-7z" />
+    <!-- Hover affordance: "open" arrow in the album accent, revealed bottom-right.
+         NOT a play button — the card is a zero-JS link to the album page, where
+         the global Player takes over; an "open" arrow avoids promising in-situ
+         playback the card cannot deliver. -->
+    <span class="album-card__open" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 17 17 7" />
+        <path d="M8 7h9v9" />
       </svg>
     </span>
   </div>

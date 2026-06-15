@@ -12,44 +12,53 @@ export function getStaticPaths() {
   const years = getAllYears();
   return years.map((facet) => ({
     params: { year: String(facet.value) },
-    props: { year: facet.value as number, count: facet.count },
+    props: { year: facet.value as number },
   }));
 }
 
 interface Props {
   year: number;
-  count: number;
 }
 
-const { year, count } = Astro.props;
+const { year } = Astro.props;
+// NOT_LIVE applied inside getAlbumsByYear; derive the count from the same list
+// so the header number and the grid agree (comparable to Browse).
 const albums = getAlbumsByYear(year);
+const count = albums.length;
+
+// Chain to Browse with this year pre-applied. Search restores from the exact
+// value (String(e.year) === year), so the URL carries the REAL year.
+const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year))}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{year} — Metal Archive</title>
-    <meta name="description" content={`${count} albums from ${year} in the Metal Archive.`} />
+    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albumes'} de ${year} en el Metal Archive.`} />
     <ClientRouter />
   </head>
   <body>
     <Navbar />
 
     <main class="wrap" style="padding-top: 2rem;">
-      <header style="margin-bottom: 1.5rem;">
-        <h1 style="font-size: clamp(1.6rem, 5vw, 2.5rem);">{year}</h1>
-        <p style="color: var(--text-footer); font-size: 0.9rem; margin-top: 0.4rem;">
-          {count} {count === 1 ? 'album' : 'albums'}
+      <header class="facet-hero">
+        <h1 class="facet-hero__title">{year}</h1>
+        <p class="facet-hero__count">
+          {count} {count === 1 ? 'album' : 'albumes'}
         </p>
+        {albums.length > 0 && (
+          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+        )}
       </header>
 
       {albums.length > 0
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No albums from this year.</p>
+        : <p style="color: var(--text-footer);">No hay albumes de este ano.</p>
       }
     </main>
 

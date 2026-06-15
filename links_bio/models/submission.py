@@ -11,6 +11,7 @@ class Submission(rx.Model, table=True):
     genre: str = sqlmodel.Field(default="")
     country: str = sqlmodel.Field(default="")
     album_title: str = sqlmodel.Field(default="")
+    year: str = sqlmodel.Field(default="")
     youtube_url: str = sqlmodel.Field(default="")
     bandcamp_url: str = sqlmodel.Field(default="")
     description: str = sqlmodel.Field(default="")

@@ -100,6 +100,20 @@ html {
   overflow-x: clip;   /* kill horizontal scroll from full-bleed 100vw sections */
 }
 
+/* Visually-hidden but exposed to assistive tech (e.g. the #np-live region that
+   announces the current track). Standard clip-rect pattern. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body {
   background: var(--bg);
   color: var(--text-body);
@@ -332,8 +346,10 @@ img {
   white-space: nowrap;
 }
 
-/* Play affordance: cyan/accent circle, bottom-right, fades + slides in on hover. */
-.album-card__play {
+/* "Open" affordance: cyan/accent circle, bottom-right, fades + slides in on
+   hover. An arrow (not a play triangle) — the card links to the album page, it
+   does not play in place, so it must not imply in-situ playback. */
+.album-card__open {
   position: absolute;
   right: 0.6rem;
   bottom: 0.6rem;
@@ -351,10 +367,9 @@ img {
   transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
   pointer-events: none;
 }
-.album-card__play svg { margin-left: 2px; }
 
-.album-card:hover .album-card__play,
-.album-card:focus-visible .album-card__play {
+.album-card:hover .album-card__open,
+.album-card:focus-visible .album-card__open {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -392,7 +407,7 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .album-card__art,
   .album-card__cover,
-  .album-card__play {
+  .album-card__open {
     transition: opacity 0.2s ease;
   }
   .album-card:hover .album-card__art { transform: none; }
@@ -711,6 +726,58 @@ img {
   color: var(--text-footer);
 }
 
+/* ─── Facet pages: mini-hero + chain-to-Browse refine button ─────────────────*/
+/* Genre pages set --album-color on <html> (inherited from the representative
+   cover via vibrant cache), so --accent tints the hero there; country/year keep
+   the resting fallback. */
+.facet-hero {
+  margin-bottom: 1.5rem;
+  padding: 1.4rem 1.2rem;
+  border-radius: 0.9em;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 70%),
+    var(--content);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+.facet-hero__title {
+  font-size: clamp(1.6rem, 5vw, 2.5rem);
+  color: var(--text-header);
+  line-height: 1.1;
+}
+.facet-hero__count {
+  color: var(--text-footer);
+  font-size: 0.9rem;
+}
+.facet-refine {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.5em 1.1em;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--accent-bright);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.facet-refine:hover,
+.facet-refine:focus-visible {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  border-color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .facet-refine { transition: none; }
+}
+
 /* ─── Home: Sorpréndeme button ───────────────────────────────────────────────*/
 .btn-sorprendeme {
   display: inline-flex;
@@ -818,11 +885,13 @@ body.album-detail { padding-bottom: 80px; }
 .stage__cover-wrap {
   position: relative;
   width: 100%;
+  aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
 }
 .stage__cover {
   display: block;
   width: 100%;
-  height: auto;          /* show the ORIGINAL artwork at its true ratio — never crop */
+  height: 100%;
+  object-fit: contain;   /* fit the WHOLE cover inside the reserved 1:1 box — never crop (covers may be 16:9 YouTube thumbs) */
 }
 .stage__cover--empty {
   aspect-ratio: 1 / 1;   /* only the empty placeholder is forced square */
@@ -1128,6 +1197,17 @@ body.album-detail { padding-bottom: 80px; }
 }
 
 .track-row {
+  /* track-row is a real <button> for keyboard operability: reset the native
+     button chrome but keep the 3-column grid (#/title/time). The native click
+     that Enter/Space emit is what the delegated Player handler intercepts, so
+     the synchronous autoplay path is preserved. */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  font: inherit;
+  text-align: left;
   display: grid;
   grid-template-columns: 40px 1fr 80px;
   column-gap: 1em;
@@ -1194,12 +1274,24 @@ body.album-detail { padding-bottom: 80px; }
   gap: 0.5em;
 }
 .band-pill {
+  display: inline-block;
   background: var(--content);
   color: var(--text-body);
   padding: 0.4em 0.9em;
   border-radius: 999px;
   font-size: 0.85em;
   border: 1px solid var(--secondary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+a.band-pill:hover,
+a.band-pill:focus-visible {
+  color: var(--accent-bright);
+  border-color: var(--accent);
+  background: var(--secondary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .band-pill { transition: none; }
 }
 
 /* ─── Related album sections (similar / more to explore) ─────────────────────*/
@@ -1375,11 +1467,18 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   min-width: 0;
 }
 .np-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
   color: var(--text-footer);
   font-size: 0.8em;
   text-decoration: none;
   white-space: nowrap;
 }
+.np-yt-link:hover { color: var(--text-header); }
+/* Desktop shows the text label; the icon is reserved for the compact mobile
+   icon-button (revealed in the ≤767px media query). */
+.np-yt-icon { display: none; }
 
 /* ═══ Mini-player (ported from mini_player.py) ═══════════════════════════════ */
 #mini-player {
@@ -1423,13 +1522,73 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   z-index: 2;
 }
 
-/* ─── Mobile: hide mini-player + right-side now-playing controls ──────────────*/
+/* ─── Mobile: keep the player reachable (YouTube out + collapsible video) ─────*/
 @media (max-width: 767px) {
-  #mini-player { display: none !important; }
-  .now-playing-right { display: none !important; }
   #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
   #now-playing-bar .np-cover { width: 40px; height: 40px; }
   #now-playing-progress { max-width: 100%; }
+
+  /* The right-side YouTube link stays visible on mobile (it used to be hidden,
+     leaving no path out to the video). Collapse it to a compact icon-button
+     with a ≥44px tap target so it is always reachable in the bar. */
+  .now-playing-right { flex: 0 0 auto; }
+  .np-yt-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-pill);
+    color: var(--text-header);
+    gap: 0;
+  }
+  .np-yt-link:active { background: color-mix(in srgb, #fff 8%, transparent); }
+  .np-yt-icon { display: block; }
+  .np-yt-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  /* The mini-player (video iframe) becomes an on-demand bottom-sheet instead of
+     being hidden outright. It is shown by the Player (inline display:'' once an
+     album is cued) — so we no longer force display:none. Collapsed by default:
+     a slim strip docked above the bottom bar that, when tapped (the whole
+     #mini-player is data-mini-toggle), expands to a 16:9 video via .expanded.
+     Tapping it toggles toggleMiniSize() -> .expanded. */
+  #mini-player {
+    left: 0.6em;
+    right: 0.6em;
+    width: auto;
+    bottom: calc(58px + 72px + 0.5em);   /* above the now-playing bar + tab bar */
+    height: 40px;
+    transition: height 0.3s ease;
+  }
+  /* Collapsed affordance label ("Ver video") shown over the slim strip. */
+  #mini-player::after {
+    content: 'Ver video';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-header);
+    font-size: 0.78em;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    background: color-mix(in srgb, var(--accent) 28%, #000);
+    pointer-events: none;   /* the parent #mini-player is the toggle target */
+    z-index: 1;             /* below mp-overlay (z-index:2) so loader/error/retry win */
+  }
+  #mini-player.expanded {
+    width: auto;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+  #mini-player.expanded::after { content: none; }   /* hide the label when open */
 }
 @media (max-width: 480px) {
   #now-playing-name, #now-playing-artist { max-width: 140px; }
@@ -1854,6 +2013,18 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   color: #fca5a5;
 }
 
+/* Per-field validation: red border on the offending input + inline message.
+   Used by submit.astro and promo.astro field-by-field validation. */
+.form-input--error {
+  border-color: #dc2626 !important;
+}
+
+.form-field__error {
+  color: #fca5a5;
+  font-size: 0.82em;
+  margin-top: 0.25rem;
+}
+
 /* Extra link rows (promo) */
 .extra-links {
   display: flex;
@@ -1904,6 +2075,144 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 
 .btn-add-link:hover {
   border-color: var(--primary);
+}
+
+/* ── Promote packages (static mockup; owner content pending) ───────────────── */
+.promo-packages {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.promo-packages__title {
+  font-size: 1.3em;
+  color: var(--text-header);
+  text-align: center;
+}
+
+.promo-packages__note {
+  color: var(--text-footer);
+  font-size: 0.85em;
+  text-align: center;
+  margin: 0 auto;
+  max-width: 520px;
+}
+
+.promo-packages__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .promo-packages__grid {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
+  }
+}
+
+.promo-pkg {
+  position: relative;
+  background: var(--content);
+  border: 1px solid var(--secondary);
+  border-radius: 0.85em;
+  padding: 1.25em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.promo-pkg--featured {
+  border-color: var(--primary);
+}
+
+.promo-pkg__badge {
+  position: absolute;
+  top: -0.7em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: var(--text-header);
+  font-size: 0.7em;
+  font-weight: 600;
+  padding: 0.2em 0.7em;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.promo-pkg__name {
+  color: var(--text-header);
+  font-size: 1.05em;
+  font-weight: 600;
+}
+
+.promo-pkg__price {
+  color: var(--primary);
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.promo-pkg__includes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.promo-pkg__include {
+  color: var(--text-body);
+  font-size: 0.85em;
+  padding-left: 1.2em;
+  position: relative;
+}
+
+.promo-pkg__include::before {
+  content: "+";
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.promo-pkg__delivery {
+  color: var(--text-footer);
+  font-size: 0.8em;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+/* Example video placeholder (owner content pending: real embed). */
+.promo-example {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.promo-example__title {
+  color: var(--text-header);
+  font-size: 1.05em;
+  font-weight: 500;
+}
+
+.promo-example__frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg);
+  border: 1px dashed var(--secondary);
+  border-radius: 0.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.promo-example__placeholder {
+  color: var(--text-footer);
+  font-size: 0.9em;
 }
 
 /* Info steps section (submit / promo) */
@@ -2216,18 +2525,27 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     padding-bottom: env(safe-area-inset-bottom);
   }
   .tabbar__item {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;   /* allow 4–5 columns to shrink evenly without overflow */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
+    padding: 0 2px;
     color: var(--text-footer);
-    font-size: 0.66rem;
+    font-size: 0.6rem;
     font-weight: 500;
     text-decoration: none;
     transition: color 0.15s ease;
   }
+  .tabbar__item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tabbar__item svg { width: 20px; height: 20px; }
   .tabbar__item.is-active,
   .tabbar__item:active { color: var(--accent-bright); }
 
