@@ -9,6 +9,7 @@
 // like /browse?genre=Death+Metal).
 
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
+import { countryLabel, genreLabel } from '../lib/labels.js';
 
 // Mirrors BrowseEntry from types.ts — must stay in sync.
 interface BrowseEntry {
@@ -38,11 +39,11 @@ const PAGE_SIZE = 24;
 // Sort keys mapped to UI labels. Logic keys off o.value (never the label),
 // so translating the labels is safe and does not affect sorting behavior.
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'newest', label: 'Más recientes' },
-  { value: 'oldest', label: 'Más antiguos' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
   { value: 'az',     label: 'A — Z' },
   { value: 'za',     label: 'Z — A' },
-  { value: 'views',  label: 'Más vistos' },
+  { value: 'views',  label: 'Most viewed' },
 ];
 
 // Read a string param from the current URL search string.
@@ -221,7 +222,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
   // While the full index is downloading, hide the result count so it doesn't
   // flash "24 resultados" (initial data) then jump to the real number.
   const resultLabel = indexLoaded
-    ? `${filtered.length} ${filtered.length === 1 ? 'resultado' : 'resultados'}`
+    ? `${filtered.length} ${filtered.length === 1 ? 'result' : 'results'}`
     : '';
 
   return (
@@ -232,35 +233,38 @@ export default function Search({ genres, countries, years, totalCount, initial }
           <input
             type="search"
             class="search-input"
-            placeholder="Busca bandas, álbumes, géneros..."
+            placeholder="Search bands, albums, genres..."
             defaultValue={query}
             onInput={onQueryInput}
-            aria-label="Buscar álbumes"
+            aria-label="Search albums"
           />
         </div>
 
         <div class="search-filters">
-          <select class="search-select" value={genre} onChange={handleGenre} aria-label="Filtrar por género">
-            <option value="">Todos los géneros</option>
-            {genres.map((g) => <option value={g}>{g}</option>)}
+          <select class="search-select" value={genre} onChange={handleGenre} aria-label="Filter by genre">
+            <option value="">All genres</option>
+            {genres.map((g) => <option value={g}>{genreLabel(g)}</option>)}
           </select>
 
-          <select class="search-select" value={country} onChange={handleCountry} aria-label="Filtrar por país">
-            <option value="">Todos los países</option>
-            {countries.map((c) => <option value={c}>{c}</option>)}
+          {/* The option VALUE stays the raw (Spanish) database string so
+              filtering and ?country= links keep working; only the visible text
+              is translated. */}
+          <select class="search-select" value={country} onChange={handleCountry} aria-label="Filter by country">
+            <option value="">All countries</option>
+            {countries.map((c) => <option value={c}>{countryLabel(c)}</option>)}
           </select>
 
-          <select class="search-select" value={year} onChange={handleYear} aria-label="Filtrar por año">
-            <option value="">Todos los años</option>
+          <select class="search-select" value={year} onChange={handleYear} aria-label="Filter by year">
+            <option value="">All years</option>
             {years.map((y) => <option value={y}>{y}</option>)}
           </select>
 
-          <select class="search-select" value={releaseType} onChange={handleRelType} aria-label="Filtrar por tipo de lanzamiento">
-            <option value="">Todos los tipos</option>
+          <select class="search-select" value={releaseType} onChange={handleRelType} aria-label="Filter by release type">
+            <option value="">All types</option>
             {releaseTypes.map((rt) => <option value={rt}>{rt}</option>)}
           </select>
 
-          <select class="search-select" value={sort} onChange={handleSort} aria-label="Ordenar">
+          <select class="search-select" value={sort} onChange={handleSort} aria-label="Sort">
             {SORT_OPTIONS.map((o) => <option value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -273,7 +277,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
 
       {/* ── Empty state ───────────────────────────────────────────────── */}
       {showEmpty && (
-        <p class="search-empty">No se encontraron álbumes con estos filtros.</p>
+        <p class="search-empty">No albums match these filters.</p>
       )}
 
       {/* ── Album grid ────────────────────────────────────────────────── */}
@@ -310,7 +314,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
                   <div class="album-card__meta">
                     {a.year && <span>{a.year}</span>}
                     {a.year && a.country && <span aria-hidden="true"> · </span>}
-                    {a.country && <span>{a.country}</span>}
+                    {a.country && <span>{countryLabel(a.country)}</span>}
                   </div>
                 )}
               </div>
@@ -326,7 +330,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
             class="btn-load-more"
             onClick={() => setPage((p) => p + 1)}
           >
-            Cargar más ({filtered.length - visible.length} restantes)
+            Load more ({filtered.length - visible.length} remaining)
           </button>
         </div>
       )}

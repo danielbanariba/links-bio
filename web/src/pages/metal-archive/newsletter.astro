@@ -7,12 +7,13 @@ import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
 ---
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Newsletter | Metal Archive</title>
-  <meta name="description" content="Suscríbete para recibir novedades sobre nuevos álbumes, bandas y eventos de metal underground." />
+  <meta name="description" content="Subscribe for news about new albums, bands and underground metal events." />
+  <link rel="canonical" href="https://danielbanariba.com/metal-archive/newsletter" />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -26,7 +27,7 @@ import '../../styles/global.css';
       </svg>
       <h1 class="form-page__title">Newsletter</h1>
       <p class="form-page__subtitle">
-        Suscríbete para recibir novedades sobre nuevos álbumes, bandas y eventos de metal underground.
+        Subscribe for news about new albums, bands and underground metal events.
       </p>
     </div>
 
@@ -35,22 +36,22 @@ import '../../styles/global.css';
       <!-- Success state -->
       <div class="form-success" id="success-state" style="display:none">
         <span class="form-success__icon">&#9993;</span>
-        <h2 class="form-success__title">Estas suscrito</h2>
+        <h2 class="form-success__title">You're subscribed</h2>
         <p class="form-success__body">
-          Bienvenido al archivo. Te avisaremos cuando haya novedades del underground.
+          Welcome to the archive. We'll let you know when there's news from the underground.
         </p>
-        <a href="/metal-archive/" class="form-success__back">&#8592; Volver al archivo</a>
+        <a href="/metal-archive" class="form-success__back">&#8592; Back to the archive</a>
       </div>
 
       <!-- The form -->
       <form id="newsletter-form" class="form-stack" novalidate>
         <div class="form-field">
           <label class="form-label" for="email">
-            Tu email <span class="form-label__required">*</span>
+            Your email <span class="form-label__required">*</span>
           </label>
           <input
             id="email" name="email" type="email"
-            class="form-input" placeholder="tu@email.com"
+            class="form-input" placeholder="you@email.com"
             autocomplete="email" required
           />
         </div>
@@ -59,7 +60,7 @@ import '../../styles/global.css';
         <div class="form-toast" id="form-toast" role="alert"></div>
 
         <button type="submit" class="form-submit" id="submit-btn">
-          Suscribirme
+          Subscribe
         </button>
       </form>
     </div>
@@ -95,12 +96,12 @@ import '../../styles/global.css';
       const email = (document.getElementById('email') as HTMLInputElement).value.trim();
 
       if (!email || !email.includes('@')) {
-        showToast('Por favor ingresa un email válido.', true);
+        showToast('Please enter a valid email address.', true);
         return;
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Suscribiendo...';
+      btn!.textContent = 'Subscribing...';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
@@ -115,15 +116,15 @@ import '../../styles/global.css';
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else if (res.status === 409) {
-          showToast('Este email ya está suscrito.', false);
+          showToast('This email is already subscribed.', false);
         } else {
-          showToast(json.detail ?? 'No se pudo suscribir. Inténtalo de nuevo.', true);
+          showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
         }
       } catch {
-        showToast('No se pudo conectar. Revisa tu conexión.', true);
+        showToast('Could not connect. Check your internet connection.', true);
       } finally {
         btn!.disabled = false;
-        btn!.textContent = 'Suscribirme';
+        btn!.textContent = 'Subscribe';
       }
     });
   }

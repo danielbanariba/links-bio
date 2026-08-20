@@ -1,0 +1,11 @@
+# danielbanariba.com — bio/portfolio + Metal Archive
+# Everything here is a public catalog meant to be indexed.
+
+User-agent: *
+Allow: /
+
+# browse-index.json is the client-side search payload, not a page. Keeping it
+# out of the index avoids a raw JSON blob showing up in search results.
+Disallow: /browse-index.json
+
+Sitemap: https://danielbanariba.com/sitemap.xml

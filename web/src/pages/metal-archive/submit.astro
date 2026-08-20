@@ -15,12 +15,13 @@ const GENRES = [
 ];
 ---
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Envía tu banda | Metal Archive</title>
-  <meta name="description" content="Envía tu banda o álbum para revisión e inclusión gratuita en el archivo." />
+  <title>Submit your band | Metal Archive</title>
+  <meta name="description" content="Submit your band or album for review and free inclusion in the archive." />
+  <link rel="canonical" href="https://danielbanariba.com/metal-archive/submit" />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -32,9 +33,9 @@ const GENRES = [
       <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
       </svg>
-      <h1 class="form-page__title">Envía tu banda</h1>
+      <h1 class="form-page__title">Submit your band</h1>
       <p class="form-page__subtitle">
-        Envía tu banda o álbum para revisión e inclusión gratuita en el archivo.
+        Submit your band or album for review and free inclusion in the archive.
       </p>
     </div>
 
@@ -43,11 +44,11 @@ const GENRES = [
       <!-- Success state (hidden by default, shown via JS) -->
       <div class="form-success" id="success-state" style="display:none">
         <span class="form-success__icon">&#10004;</span>
-        <h2 class="form-success__title">Banda enviada con éxito</h2>
+        <h2 class="form-success__title">Band submitted</h2>
         <p class="form-success__body">
-          Revisaremos tu envio y te contactaremos pronto. Mantente atento a tu bandeja de entrada.
+          We'll review your submission and get back to you soon. Keep an eye on your inbox.
         </p>
-        <a href="/metal-archive/" class="form-success__back">&#8592; Volver al archivo</a>
+        <a href="/metal-archive" class="form-success__back">&#8592; Back to the archive</a>
       </div>
 
       <!-- The form -->
@@ -56,20 +57,20 @@ const GENRES = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="band_name">
-              Nombre de la banda <span class="form-label__required">*</span>
+              Band name <span class="form-label__required">*</span>
             </label>
             <input
               id="band_name" name="band_name" type="text"
-              class="form-input" placeholder="ej. Blasfemia" required
+              class="form-input" placeholder="e.g. Blasfemia" required
             />
           </div>
           <div class="form-field">
             <label class="form-label" for="contact_email">
-              Email de contacto <span class="form-label__required">*</span>
+              Contact email <span class="form-label__required">*</span>
             </label>
             <input
               id="contact_email" name="contact_email" type="email"
-              class="form-input" placeholder="banda@email.com" required
+              class="form-input" placeholder="band@email.com" required
             />
           </div>
         </div>
@@ -78,20 +79,20 @@ const GENRES = [
         <div class="form-row">
           <div class="form-field">
             <label class="form-label" for="genre">
-              Género <span class="form-label__required">*</span>
+              Genre <span class="form-label__required">*</span>
             </label>
             <select id="genre" name="genre" class="form-select" required>
-              <option value="">Elige un género</option>
+              <option value="">Pick a genre</option>
               {GENRES.map(g => <option value={g}>{g}</option>)}
             </select>
           </div>
           <div class="form-field">
             <label class="form-label" for="country">
-              País <span class="form-label__required">*</span>
+              Country <span class="form-label__required">*</span>
             </label>
             <input
               id="country" name="country" type="text"
-              class="form-input" placeholder="ej. Honduras" required
+              class="form-input" placeholder="e.g. Honduras" required
             />
           </div>
         </div>
@@ -99,17 +100,17 @@ const GENRES = [
         <!-- Album title + Year -->
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label" for="album_title">Título del álbum</label>
+            <label class="form-label" for="album_title">Album title</label>
             <input
               id="album_title" name="album_title" type="text"
-              class="form-input" placeholder="ej. Inmaculada Concepcion"
+              class="form-input" placeholder="e.g. Inmaculada Concepcion"
             />
           </div>
           <div class="form-field">
-            <label class="form-label" for="year">Año de lanzamiento</label>
+            <label class="form-label" for="year">Release year</label>
             <input
               id="year" name="year" type="number"
-              class="form-input" placeholder="ej. 2024" min="1960" max="2030"
+              class="form-input" placeholder="e.g. 2024" min="1960" max="2030"
             />
           </div>
         </div>
@@ -134,10 +135,10 @@ const GENRES = [
 
         <!-- Description -->
         <div class="form-field">
-          <label class="form-label" for="description">Descripción</label>
+          <label class="form-label" for="description">Description</label>
           <textarea
             id="description" name="description"
-            class="form-textarea" placeholder="Cuentanos sobre tu banda..."
+            class="form-textarea" placeholder="Tell us about your band..."
             rows="4"
           ></textarea>
         </div>
@@ -146,33 +147,33 @@ const GENRES = [
         <div class="form-toast" id="form-toast" role="alert"></div>
 
         <button type="submit" class="form-submit" id="submit-btn">
-          Enviar banda
+          Submit band
         </button>
       </form>
     </div>
 
     <!-- What happens next -->
     <section class="form-steps">
-      <h2 class="form-steps__title">¿Qué pasa después?</h2>
+      <h2 class="form-steps__title">What happens next?</h2>
       <div class="step-item">
         <span class="step-item__num">1</span>
         <div>
-          <p class="step-item__title">Revisamos tu envio</p>
-          <p class="step-item__desc">Escuchamos tu música y verificamos la información.</p>
+          <p class="step-item__title">We review your submission</p>
+          <p class="step-item__desc">We listen to your music and verify the details.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">2</span>
         <div>
-          <p class="step-item__title">Te contactamos</p>
-          <p class="step-item__desc">Si tu banda es seleccionada, te contactaremos para coordinar.</p>
+          <p class="step-item__title">We get in touch</p>
+          <p class="step-item__desc">If your band is selected, we'll contact you to arrange the next steps.</p>
         </div>
       </div>
       <div class="step-item">
         <span class="step-item__num">3</span>
         <div>
-          <p class="step-item__title">Publicamos tu álbum</p>
-          <p class="step-item__desc">Tu álbum aparece en el archivo con todos los detalles.</p>
+          <p class="step-item__title">We publish your album</p>
+          <p class="step-item__desc">Your album goes live in the archive with all its details.</p>
         </div>
       </div>
     </section>
@@ -203,8 +204,8 @@ const GENRES = [
     }
 
     // Per-field validation: mark the offending input and show a message next to
-    // it (in Spanish). Errors are cleared on every submit attempt. No extra
-    // hydration — this runs inside the form's existing submit handler.
+    // it. Errors are cleared on every submit attempt. No extra hydration — this
+    // runs inside the form's existing submit handler.
     function clearFieldErrors() {
       form!.querySelectorAll('.form-input--error').forEach((el) => {
         el.classList.remove('form-input--error');
@@ -235,13 +236,13 @@ const GENRES = [
       const required = ['band_name', 'contact_email', 'genre', 'country'];
       for (const field of required) {
         if (!String(data[field] ?? '').trim()) {
-          markFieldError(field, 'Este campo es obligatorio.');
+          markFieldError(field, 'This field is required.');
           return;
         }
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Enviando...';
+      btn!.textContent = 'Submitting...';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/submit`, {
@@ -256,13 +257,13 @@ const GENRES = [
           form!.style.display = 'none';
           success!.style.display = 'flex';
         } else {
-          showToast(json.detail ?? 'Algo salió mal. Inténtalo de nuevo.', true);
+          showToast(json.detail ?? 'Something went wrong. Please try again.', true);
         }
       } catch {
-        showToast('No se pudo conectar. Revisa tu conexión.', true);
+        showToast('Could not connect. Check your internet connection.', true);
       } finally {
         btn!.disabled = false;
-        btn!.textContent = 'Enviar banda';
+        btn!.textContent = 'Submit band';
       }
     });
   }

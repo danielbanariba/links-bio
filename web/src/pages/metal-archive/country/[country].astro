@@ -1,112 +1,19 @@
 ---
 // Same slug strategy as genre: country names contain spaces (e.g. "Estados Unidos",
 // "Reino Unido"). Slugify to URL-safe string; real value travels as prop.
-// Country flag emojis: inline map ported from links_bio/states/metal_archive_state.py.
+//
+// The database stores country names in SPANISH, so the slug — and therefore the
+// public URL — stays Spanish (/country/estados-unidos) and no existing link
+// breaks. The flag and the English label both come from lib/labels.ts, which
+// replaced the ~95-entry flag map that used to be duplicated here and on the
+// archive home page.
 import { ClientRouter } from 'astro:transitions';
 import { getAllCountries, getAlbumsByCountry, slugify } from '../../../lib/db.js';
+import { countryFlag, countryLabel } from '../../../lib/labels.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
-
-// Ported from links_bio/states/metal_archive_state.py COUNTRY_FLAGS dict.
-const COUNTRY_FLAGS: Record<string, string> = {
-  "Alemania": "🇩🇪",
-  "Arabia Saudita": "🇸🇦",
-  "Argelia": "🇩🇿",
-  "Argentina": "🇦🇷",
-  "Armenia": "🇦🇲",
-  "Australia": "🇦🇺",
-  "Austria": "🇦🇹",
-  "Azerbaiyan": "🇦🇿",
-  "Bangladesh": "🇧🇩",
-  "Belgica": "🇧🇪",
-  "Bielorrusia": "🇧🇾",
-  "Bolivia": "🇧🇴",
-  "Bosnia": "🇧🇦",
-  "Brasil": "🇧🇷",
-  "Bulgaria": "🇧🇬",
-  "Canada": "🇨🇦",
-  "Chile": "🇨🇱",
-  "China": "🇨🇳",
-  "Colombia": "🇨🇴",
-  "Corea del Sur": "🇰🇷",
-  "Costa Rica": "🇨🇷",
-  "Croacia": "🇭🇷",
-  "Cuba": "🇨🇺",
-  "Dinamarca": "🇩🇰",
-  "Ecuador": "🇪🇨",
-  "Egipto": "🇪🇬",
-  "El Salvador": "🇸🇻",
-  "Eslovaquia": "🇸🇰",
-  "Eslovenia": "🇸🇮",
-  "Espana": "🇪🇸",
-  "Estados Unidos": "🇺🇸",
-  "Estonia": "🇪🇪",
-  "Filipinas": "🇵🇭",
-  "Finlandia": "🇫🇮",
-  "Francia": "🇫🇷",
-  "Georgia": "🇬🇪",
-  "Grecia": "🇬🇷",
-  "Guatemala": "🇬🇹",
-  "Honduras": "🇭🇳",
-  "Hungria": "🇭🇺",
-  "India": "🇮🇳",
-  "Indonesia": "🇮🇩",
-  "Irak": "🇮🇶",
-  "Iran": "🇮🇷",
-  "Irlanda": "🇮🇪",
-  "Islandia": "🇮🇸",
-  "Israel": "🇮🇱",
-  "Italia": "🇮🇹",
-  "Jamaica": "🇯🇲",
-  "Japon": "🇯🇵",
-  "Kazajistan": "🇰🇿",
-  "Kenia": "🇰🇪",
-  "Letonia": "🇱🇻",
-  "Libano": "🇱🇧",
-  "Lituania": "🇱🇹",
-  "Luxemburgo": "🇱🇺",
-  "Malasia": "🇲🇾",
-  "Marruecos": "🇲🇦",
-  "Mexico": "🇲🇽",
-  "Mongolia": "🇲🇳",
-  "Myanmar": "🇲🇲",
-  "Nepal": "🇳🇵",
-  "Nicaragua": "🇳🇮",
-  "Nigeria": "🇳🇬",
-  "Noruega": "🇳🇴",
-  "Nueva Zelanda": "🇳🇿",
-  "Paises Bajos": "🇳🇱",
-  "Pakistan": "🇵🇰",
-  "Panama": "🇵🇦",
-  "Paraguay": "🇵🇾",
-  "Peru": "🇵🇪",
-  "Polonia": "🇵🇱",
-  "Portugal": "🇵🇹",
-  "Puerto Rico": "🇵🇷",
-  "Reino Unido": "🇬🇧",
-  "Republica Checa": "🇨🇿",
-  "Republica Dominicana": "🇩🇴",
-  "Rumania": "🇷🇴",
-  "Rusia": "🇷🇺",
-  "Serbia": "🇷🇸",
-  "Singapur": "🇸🇬",
-  "Sri Lanka": "🇱🇰",
-  "Sudafrica": "🇿🇦",
-  "Suecia": "🇸🇪",
-  "Suiza": "🇨🇭",
-  "Tailandia": "🇹🇭",
-  "Taiwan": "🇹🇼",
-  "Trinidad y Tobago": "🇹🇹",
-  "Tunez": "🇹🇳",
-  "Turquia": "🇹🇷",
-  "Ucrania": "🇺🇦",
-  "Uruguay": "🇺🇾",
-  "Uzbekistan": "🇺🇿",
-  "Venezuela": "🇻🇪",
-  "Vietnam": "🇻🇳",
-};
 
 // slugify is imported from db.ts — single source of truth shared with the pages
 // that link here. Imports are available in the prerender chunk.
@@ -127,7 +34,8 @@ const { realCountry } = Astro.props;
 // list so the header number and the grid agree (comparable to Browse).
 const albums = getAlbumsByCountry(realCountry);
 const count = albums.length;
-const flag = COUNTRY_FLAGS[realCountry] ?? '';
+const flag = countryFlag(realCountry);
+const label = countryLabel(realCountry);
 
 // Chain to Browse with this country pre-applied. Search restores from the exact
 // value (e.country === country), so the URL carries the REAL country, not the slug.
@@ -135,12 +43,13 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{realCountry} — Metal Archive</title>
-    <meta name="description" content={`${count} ${count === 1 ? 'álbum' : 'álbumes'} de ${realCountry} en el Metal Archive.`} />
+    <title>{label} — Metal Archive</title>
+    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albums'} from ${label} in the Metal Archive.`} />
+    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/country/${slugify(realCountry)}`} />
     <ClientRouter />
   </head>
   <body>
@@ -149,13 +58,13 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
     <main class="wrap" style="padding-top: 2rem;">
       <header class="facet-hero">
         <h1 class="facet-hero__title">
-          {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{realCountry}
+          {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{label}
         </h1>
         <p class="facet-hero__count">
-          {count} {count === 1 ? 'álbum' : 'álbumes'}
+          {count} {count === 1 ? 'album' : 'albums'}
         </p>
         {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
         )}
       </header>
 
@@ -163,7 +72,7 @@ const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCount
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No hay álbumes de este país.</p>
+        : <p style="color: var(--text-footer);">No albums from this country yet.</p>
       }
     </main>
 
