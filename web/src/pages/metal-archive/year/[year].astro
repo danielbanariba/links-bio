@@ -32,12 +32,13 @@ const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year)
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{year} — Metal Archive</title>
-    <meta name="description" content={`${count} ${count === 1 ? 'álbum' : 'álbumes'} de ${year} en el Metal Archive.`} />
+    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albums'} from ${year} in the Metal Archive.`} />
+    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/year/${year}`} />
     <ClientRouter />
   </head>
   <body>
@@ -47,10 +48,10 @@ const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year)
       <header class="facet-hero">
         <h1 class="facet-hero__title">{year}</h1>
         <p class="facet-hero__count">
-          {count} {count === 1 ? 'álbum' : 'álbumes'}
+          {count} {count === 1 ? 'album' : 'albums'}
         </p>
         {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
         )}
       </header>
 
@@ -58,7 +59,7 @@ const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year)
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No hay álbumes de este año.</p>
+        : <p style="color: var(--text-footer);">No albums from this year yet.</p>
       }
     </main>
 

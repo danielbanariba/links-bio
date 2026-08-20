@@ -517,7 +517,7 @@ export default function Player() {
       const label = btn ? btn.querySelector('span') : null;
       if (label) {
         const prev = label.textContent;
-        label.textContent = 'Enlace copiado';
+        label.textContent = 'Link copied';
         setTimeout(() => { label.textContent = prev; }, 1600);
       }
     };
@@ -718,7 +718,7 @@ export default function Player() {
   // On mobile the YouTube link shows as a compact icon and #mini-player becomes
   // a collapsible bottom-sheet (no longer display:none ≤767px — see global.css).
   //
-  // No props now: the bar starts EMPTY ("Elige una cancion", no cover) and is
+  // No props now: the bar starts EMPTY ("Pick a track", no cover) and is
   // filled by paintNowPlaying() on first play. --album-color is unset until then
   // (CSS falls back to the amber accent), then set imperatively per album.
   return (
@@ -729,16 +729,16 @@ export default function Player() {
         <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
           <div class="mp-spinner" />
           <span style={{ color: 'var(--text-body)', fontSize: '0.72em', marginTop: '0.6em' }}>
-            Cargando reproductor...
+            Loading player...
           </span>
         </div>
 
         <div id="mini-player-error" class="mp-overlay" ref={errorRef} style={{ display: 'none' }}>
           <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
-            Video no disponible
+            Video unavailable
           </span>
           <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
-            No se puede reproducir aquí.
+            This video cannot be played here.
           </span>
           <a
             ref={ytErrorLinkRef}
@@ -747,16 +747,16 @@ export default function Player() {
             rel="noopener noreferrer"
             style={{ color: 'var(--primary)', fontSize: '0.75em', textDecoration: 'none', marginTop: '0.6em', fontWeight: 600 }}
           >
-            Abrir en YouTube ↗
+            Open on YouTube ↗
           </a>
         </div>
 
         <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
           <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
-            El reproductor está tardando en cargar.
+            The player is taking a while to load.
           </span>
           <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
-            Revisa tu conexión.
+            Check your internet connection.
           </span>
           <button
             type="button"
@@ -767,7 +767,7 @@ export default function Player() {
               borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
             }}
           >
-            Reintentar
+            Retry
           </button>
         </div>
       </div>
@@ -777,7 +777,7 @@ export default function Player() {
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />
           <div class="np-text">
-            <span id="now-playing-name" ref={npNameRef} class="np-name">Elige una canción</span>
+            <span id="now-playing-name" ref={npNameRef} class="np-name">Pick a track</span>
             <span id="now-playing-artist" ref={npArtistRef} class="np-artist"></span>
           </div>
         </div>
@@ -785,15 +785,15 @@ export default function Player() {
         {/* center: transport + progress */}
         <div class="np-center">
           <div class="np-controls">
-            <button type="button" class="np-icon-btn" aria-label="Pista anterior" data-np-prev="1">
+            <button type="button" class="np-icon-btn" aria-label="Previous track" data-np-prev="1">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
             </button>
-            <button type="button" id="now-playing-toggle" class="np-toggle js-pp" aria-label="Reproducir o pausar" data-np-toggle="1" data-state="paused">
+            <button type="button" id="now-playing-toggle" class="np-toggle js-pp" aria-label="Play or pause" data-np-toggle="1" data-state="paused">
               <svg class="ic ic-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
               <svg class="ic ic-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
               <span class="ic ic-spinner" aria-hidden="true"></span>
             </button>
-            <button type="button" class="np-icon-btn" aria-label="Pista siguiente" data-np-next="1">
+            <button type="button" class="np-icon-btn" aria-label="Next track" data-np-next="1">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
             </button>
           </div>
@@ -812,10 +812,10 @@ export default function Player() {
             target="_blank"
             rel="noopener noreferrer"
             class="np-yt-link"
-            aria-label="Ver en YouTube"
+            aria-label="Watch on YouTube"
           >
             <svg class="np-yt-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
-            <span class="np-yt-label">Ver en YouTube ↗</span>
+            <span class="np-yt-label">Watch on YouTube ↗</span>
           </a>
         </div>
       </div>

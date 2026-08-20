@@ -145,7 +145,7 @@ const PROJECTS = [
 
       <!-- ─── Metal Archive ───────────────────────────────────────────────── -->
       <h2 class="bio-section-title">Metal Archive</h2>
-      <a class="bio-card-link" href="/metal-archive/">
+      <a class="bio-card-link" href="/metal-archive">
         <span class="bio-card-link__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0073a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
@@ -231,9 +231,8 @@ const PROJECTS = [
 
     <script>
       // Contact form: POST to the FastAPI forms service.
-      // NOTE: /api/metal-archive/contact is NOT yet implemented in
-      // links_bio/fastapi_forms.py (only submit/promo/newsletter exist).
-      // The backend must add this endpoint for the form to succeed.
+      // /api/metal-archive/contact IS implemented (links_bio/fastapi_forms.py);
+      // an older comment here claimed it was missing.
       const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
 
       const form    = document.getElementById('contact-form') as HTMLFormElement;
