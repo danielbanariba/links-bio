@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Personal site for Daniel Banariba. Two sections, one static site, all user-facing content in **Spanish**:
+Personal site for Daniel Banariba. Two sections, one static site, all user-facing content in **English** (the audience is mostly English-speaking; the archive was migrated from Spanish in Aug 2026):
 1. **Bio / portfolio** (`/`) — social links, audiovisual work, contact form.
 2. **Metal Archive** (`/metal-archive/`) — database-driven catalog of underground metal albums: gallery, browse/search, album & band pages, genre/country/year facets, band submissions, promo requests, newsletter.
 
@@ -80,6 +80,9 @@ The same build+deploy also fires automatically from (a) the in-app sync (`links_
 - **Per-album color theming:** `web/src/lib/vibrant.ts` extracts a dominant color per cover at build time (node-vibrant + `sharp` for webp decode), cached in `web/.vibrant-cache.json` so unchanged covers skip re-extraction. ~1300 covers behind a rate-limited CDN → it uses a concurrency gate + 429 backoff. Don't delete the cache file casually; a cold build re-fetches every cover.
 - **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match.
 - **URL slugs go through `slugify()` in `db.ts`** — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
+- **DB values are Spanish, the UI is English — translate in `web/src/lib/labels.ts`.** `albums.country` holds Spanish names (`Estados Unidos`, `Alemania`) because that is what the YouTube sync writes, and `albums.genre` holds one Spanish placeholder (`Género desconocido`). `labels.ts` is the single source of truth mapping a raw DB value to its English label + flag: `countryLabel()`, `countryFlag()`, `genreLabel()`. **Slugs and query values must keep using the RAW database value** — that is why `/metal-archive/country/estados-unidos` still works and no inbound link broke. Never render `album.country` or a country facet value directly; never hardcode a flag map (it used to be copy-pasted into two pages).
+- **Canonical origin is `https://danielbanariba.com`**, declared once as `site` in `astro.config.mjs`. Every page needs an absolute `<link rel="canonical">`. Archive pages previously pointed at `xeroxunderground.com`, a domain that does not resolve.
+- **`web/src/pages/sitemap.xml.ts`** generates the sitemap at build time from `db.ts` using the same `slugify()` as `getStaticPaths()`, so it can never list a path the build did not emit. `web/public/robots.txt` points at it. Add new page types to both the route and the sitemap.
 - **Styling:** one global stylesheet, `web/src/styles/global.css`. (The old per-component Reflex styles in `links_bio/styles/` are legacy — don't edit them for site changes.)
 
 ## Forms backend (`links_bio/fastapi_forms.py`)
