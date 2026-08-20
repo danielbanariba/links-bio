@@ -11,7 +11,11 @@ bandas.txt
 discografias.txt
 env
 .env
-public/
+# Root-only: the legacy Reflex export. The leading slash matters — without it
+# this pattern also matched web/public/, silently leaving every site asset
+# (avatar, favicon, fonts, social icons, band logos, video thumbnails)
+# untracked and living only on the build host.
+/public/
 frontend.zip
 .vercel/
 # Astro POC (replaced by web/)
@@ -19,3 +23,7 @@ astro-spike/
 
 # Local agent tooling cache (skill registry)
 .atl/
+
+# Build artifacts inside web/public/ (the rest of that folder IS site source).
+# browse-index.json is regenerated from the DB by browse.astro on every build.
+web/public/browse-index.json
