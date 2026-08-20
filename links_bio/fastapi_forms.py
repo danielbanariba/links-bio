@@ -157,7 +157,7 @@ async def submit_band(req: SubmitRequest):
             logger.info(f"Submission saved: {req.band_name}")
     except Exception as exc:
         logger.error(f"DB error on submit: {exc}")
-        raise HTTPException(status_code=500, detail="Error al guardar. Intentalo de nuevo.")
+        raise HTTPException(status_code=500, detail="Could not save your submission. Please try again.")
 
     # Send email notification — reuse _send_email_notification from form_state.py
     links = [l for l in (req.youtube_url.strip(), req.bandcamp_url.strip()) if l]
@@ -181,7 +181,7 @@ async def submit_band(req: SubmitRequest):
     if err:
         logger.warning(f"Email not sent (non-fatal): {err}")
 
-    return {"ok": True, "message": "Banda enviada correctamente. Revisaremos tu envio pronto."}
+    return {"ok": True, "message": "Band submitted. We will review your submission soon."}
 
 
 @app.post("/api/metal-archive/promo")
@@ -190,7 +190,7 @@ async def promo_band(req: PromoRequest):
     # Genre: custom wins over dropdown selection
     genre = req.custom_genre.strip() or req.genre.strip()
     if not genre:
-        raise HTTPException(status_code=400, detail="Selecciona un genero.")
+        raise HTTPException(status_code=400, detail="Please pick a genre.")
 
     # Collect all provided links
     links = []
@@ -203,7 +203,7 @@ async def promo_band(req: PromoRequest):
             links.append(extra.strip())
 
     if not links:
-        raise HTTPException(status_code=400, detail="Agrega al menos un link.")
+        raise HTTPException(status_code=400, detail="Add at least one link.")
 
     # Save to DB (reusing ContactMessage — same pattern as form_state.handle_contact_form)
     try:
@@ -220,7 +220,7 @@ async def promo_band(req: PromoRequest):
             logger.info(f"Promo saved: {req.band_name} - {req.album_title}")
     except Exception as exc:
         logger.error(f"DB error on promo: {exc}")
-        raise HTTPException(status_code=500, detail="Error al guardar. Intentalo de nuevo.")
+        raise HTTPException(status_code=500, detail="Could not save your submission. Please try again.")
 
     # Send email notification — reuse _send_email_notification from form_state.py
     links_text = "\n".join(f"  - {l}" for l in links)
@@ -243,7 +243,7 @@ async def promo_band(req: PromoRequest):
     if err:
         logger.warning(f"Email not sent (non-fatal): {err}")
 
-    return {"ok": True, "message": "Solicitud recibida. Te contactaremos pronto."}
+    return {"ok": True, "message": "Request received. We will get back to you soon."}
 
 
 @app.post("/api/metal-archive/newsletter")
@@ -259,7 +259,7 @@ async def newsletter_signup(req: NewsletterRequest):
             if existing:
                 raise HTTPException(
                     status_code=409,
-                    detail="Este email ya esta suscrito."
+                    detail="This email is already subscribed."
                 )
 
             subscriber = NewsletterSubscriber(email=req.email)
@@ -270,9 +270,9 @@ async def newsletter_signup(req: NewsletterRequest):
         raise
     except Exception as exc:
         logger.error(f"DB error on newsletter: {exc}")
-        raise HTTPException(status_code=500, detail="Error al suscribir. Intentalo de nuevo.")
+        raise HTTPException(status_code=500, detail="Could not subscribe. Please try again.")
 
-    return {"ok": True, "message": "Suscripcion exitosa. Bienvenido al archivo."}
+    return {"ok": True, "message": "Subscribed. Welcome to the archive."}
 
 
 @app.post("/api/metal-archive/contact")
@@ -292,7 +292,7 @@ async def contact(req: ContactRequest):
             logger.info(f"Contact message saved: {req.nombre} <{req.email}>")
     except Exception as exc:
         logger.error(f"DB error on contact: {exc}")
-        raise HTTPException(status_code=500, detail="Error al enviar. Intentalo de nuevo.")
+        raise HTTPException(status_code=500, detail="Could not send your message. Please try again.")
 
     email_body = (
         f"Nuevo mensaje de contacto desde el portfolio\n"

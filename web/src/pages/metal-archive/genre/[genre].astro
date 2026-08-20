@@ -9,6 +9,7 @@
 // inline copy is gone so paths and links can never drift apart.
 import { ClientRouter } from 'astro:transitions';
 import { getAllGenres, getAlbumsByGenre, slugify } from '../../../lib/db.js';
+import { genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -44,15 +45,20 @@ const genreColor = repCover ? await getAlbumColor(repCover) : '#dda15e';
 // dropdown from the exact value (e.genre === genre), so the URL must carry the
 // REAL genre, not the slug.
 const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(realGenre)}`;
+
+// Genres are already English except for one Spanish placeholder value; the slug
+// and the ?genre= link still carry the RAW value so nothing breaks.
+const genreName = genreLabel(realGenre);
 ---
 
 <!doctype html>
-<html lang="es" style={`--album-color: ${genreColor};`}>
+<html lang="en" style={`--album-color: ${genreColor};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{realGenre} — Metal Archive</title>
-    <meta name="description" content={`${count} ${realGenre} ${count === 1 ? 'álbum' : 'álbumes'} en el Metal Archive.`} />
+    <title>{genreName} — Metal Archive</title>
+    <meta name="description" content={`${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`} />
+    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/genre/${slugify(realGenre)}`} />
     <ClientRouter />
   </head>
   <body>
@@ -60,12 +66,12 @@ const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(realGenre)}
 
     <main class="wrap" style="padding-top: 2rem;">
       <header class="facet-hero">
-        <h1 class="facet-hero__title">{realGenre}</h1>
+        <h1 class="facet-hero__title">{genreName}</h1>
         <p class="facet-hero__count">
-          {count} {count === 1 ? 'álbum' : 'álbumes'}
+          {count} {count === 1 ? 'album' : 'albums'}
         </p>
         {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refinar en Explorar →</a>
+          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
         )}
       </header>
 
@@ -73,7 +79,7 @@ const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(realGenre)}
         ? <div class="album-grid">
             {albums.map((album) => <AlbumCard album={album} />)}
           </div>
-        : <p style="color: var(--text-footer);">No hay álbumes en este género.</p>
+        : <p style="color: var(--text-footer);">No albums in this genre yet.</p>
       }
     </main>
 
