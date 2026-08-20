@@ -6,6 +6,12 @@ import preact from '@astrojs/preact';
 // (the only machine that has reflex.db at build time — see design decision §6).
 export default defineConfig({
   output: 'static',
+  // Canonical origin for the whole site. Everything that emits an absolute URL
+  // (canonical tags, og:url, sitemap.xml) derives it from here, so the origin is
+  // declared in ONE place. It used to be hardcoded per page as
+  // "https://xeroxunderground.com" — a domain that does not resolve, which told
+  // search engines the real page lived somewhere that does not exist.
+  site: 'https://danielbanariba.com',
   // webAnalytics auto-injects the Vercel Insights script into every page at
   // build time (via the adapter's injectScript). No shared layout exists here,
   // so this is the only way to cover all 11 pages without editing each one.
