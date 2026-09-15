@@ -17,6 +17,9 @@ const SOCIAL = {
   youtube:   'https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q',
   tiktok:    'https://www.tiktok.com/@danielbanariba',
   linkedin:  'https://www.linkedin.com/in/danielbanariba/',
+  // El portfolio de ingeniería. Sin este enlace los buscadores tratan
+  // danielbanariba.com y danielbanariba.dev como dos personas distintas.
+  portfolio: 'https://www.danielbanariba.dev',
 };
 const EMAIL = 'danielbanariba@protonmail.com';
 
@@ -88,6 +91,24 @@ const PROJECTS = [
     <meta name="twitter:description" content="Software developer and music video editor." />
     <meta name="twitter:image" content="https://danielbanariba.com/avatar.jpg" />
     <link rel="canonical" href="https://danielbanariba.com" />
+    <!--
+      sameAs le dice a los buscadores que este sitio y danielbanariba.dev son
+      la misma persona. Sin esto compiten entre sí por el mismo nombre.
+    -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "@id": "https://danielbanariba.com/#person",
+      name: "Daniel Banariba",
+      url: "https://danielbanariba.com",
+      sameAs: [
+        SOCIAL.portfolio,
+        SOCIAL.github,
+        SOCIAL.linkedin,
+        SOCIAL.youtube,
+        SOCIAL.instagram,
+      ],
+    })} />
   </head>
   <body class="bio-page">
     <Navbar />
@@ -108,24 +129,26 @@ const PROJECTS = [
             <h1 class="bio-name">Daniel Banariba</h1>
             <p class="bio-handle">@danielbanariba</p>
             <nav class="bio-social bio-social--inline" aria-label="Social links">
-              <a href={SOCIAL.github}    target="_blank" rel="noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.github}    target="_blank" rel="me noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="22" height="22" loading="lazy" /></a>
               <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="22" height="22" loading="lazy" /></a>
               <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="22" height="22" loading="lazy" /></a>
               <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="22" height="22" loading="lazy" /></a>
               <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.linkedin}  target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.linkedin}  target="_blank" rel="me noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="22" height="22" loading="lazy" /></a>
+              <a href={SOCIAL.portfolio} target="_blank" rel="me noopener noreferrer" aria-label="Portfolio de ingeniería"><img src="/icons/git.svg" alt="Portfolio" width="22" height="22" loading="lazy" /></a>
             </nav>
           </div>
         </div>
 
         <!-- Social row for mobile (icons under the header, matching rx.mobile_only) -->
         <nav class="bio-social bio-social--mobile" aria-label="Social links">
-          <a href={SOCIAL.github}    target="_blank" rel="noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.github}    target="_blank" rel="me noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="24" height="24" loading="lazy" /></a>
           <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="24" height="24" loading="lazy" /></a>
           <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="24" height="24" loading="lazy" /></a>
           <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="24" height="24" loading="lazy" /></a>
           <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.linkedin}  target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="24" height="24" loading="lazy" /></a>
+          <a href={SOCIAL.linkedin}  target="_blank" rel="me noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="24" height="24" loading="lazy" /></a>
+              <a href={SOCIAL.portfolio} target="_blank" rel="me noopener noreferrer" aria-label="Portfolio de ingeniería"><img src="/icons/git.svg" alt="Portfolio" width="24" height="24" loading="lazy" /></a>
         </nav>
 
         <!-- Stats row -->
