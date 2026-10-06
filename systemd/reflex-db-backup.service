@@ -1,0 +1,11 @@
+[Unit]
+Description=Encrypted off-host backup of reflex.db (restic)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/home/banar/Desktop/links-bio/scripts/backup_reflex_db.sh backup
+TimeoutStartSec=1800
