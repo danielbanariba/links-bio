@@ -65,6 +65,13 @@ require_config() {
     if [[ -n "${RESTIC_PASSWORD_FILE:-}" && ! -f "$RESTIC_PASSWORD_FILE" ]]; then
         die "RESTIC_PASSWORD_FILE points to a missing file: $RESTIC_PASSWORD_FILE"
     fi
+    # A non-integer or negative value would make the restore-test's staleness
+    # check (`(( age_hours <= MAX_SNAPSHOT_AGE_HOURS ))`) either silently
+    # always pass/fail or error deep inside bash arithmetic; fail here with a
+    # clear config error instead.
+    if ! [[ "$MAX_SNAPSHOT_AGE_HOURS" =~ ^[0-9]+$ ]]; then
+        die "MAX_SNAPSHOT_AGE_HOURS must be a non-negative integer, got: '$MAX_SNAPSHOT_AGE_HOURS' (config file: $CONFIG_FILE)"
+    fi
 }
 
 acquire_lock() {
@@ -79,16 +86,27 @@ acquire_lock() {
 # python3's sqlite3 module. Both use the online backup API / a read-only
 # URI, never a raw file copy of a live database. ---------------------------
 
+# Busy timeout (ms) passed to every sqlite3 CLI invocation below, so a read
+# that lands mid-write (a sync script or fastapi_forms holding a write
+# transaction) retries instead of raising "database is locked" immediately.
+# `-cmd` runs it as a prelude before the trailing command argument executes --
+# putting `.timeout` as an earlier LINE of that same trailing argument (e.g.
+# ".timeout 10000\n.backup x") silently drops every command after it instead
+# of erroring, so `-cmd` is required, not just convenient.
+# `-init /dev/null` skips the user's ~/.sqliterc, so a stray setting in it
+# can't change how the backup/check/count run.
+readonly SQLITE_BUSY_TIMEOUT_MS=10000
+
 sqlite_online_backup() { # src dst
     local src="$1" dst="$2"
     if [[ -x "$SQLITE3" ]]; then
-        "$SQLITE3" "file:${src}?mode=ro" ".backup ${dst}"
+        "$SQLITE3" -init /dev/null -cmd ".timeout $SQLITE_BUSY_TIMEOUT_MS" "file:${src}?mode=ro" ".backup ${dst}"
     else
         "$PYTHON3" - "$src" "$dst" <<'PYEOF'
 import sqlite3, sys
 src, dst = sys.argv[1], sys.argv[2]
-source = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
-dest = sqlite3.connect(dst)
+source = sqlite3.connect(f"file:{src}?mode=ro", uri=True, timeout=10)
+dest = sqlite3.connect(dst, timeout=10)
 with dest:
     source.backup(dest)
 source.close()
@@ -100,11 +118,11 @@ PYEOF
 sqlite_integrity_check() { # db
     local db="$1"
     if [[ -x "$SQLITE3" ]]; then
-        "$SQLITE3" "file:${db}?mode=ro" 'PRAGMA integrity_check;'
+        "$SQLITE3" -init /dev/null -cmd ".timeout $SQLITE_BUSY_TIMEOUT_MS" "file:${db}?mode=ro" 'PRAGMA integrity_check;'
     else
         "$PYTHON3" - "$db" <<'PYEOF'
 import sqlite3, sys
-conn = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+conn = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True, timeout=10)
 for row in conn.execute("PRAGMA integrity_check;"):
     print(row[0])
 conn.close()
@@ -115,11 +133,11 @@ PYEOF
 sqlite_count() { # db table
     local db="$1" table="$2"
     if [[ -x "$SQLITE3" ]]; then
-        "$SQLITE3" "file:${db}?mode=ro" "SELECT COUNT(*) FROM \"${table}\";"
+        "$SQLITE3" -init /dev/null -cmd ".timeout $SQLITE_BUSY_TIMEOUT_MS" "file:${db}?mode=ro" "SELECT COUNT(*) FROM \"${table}\";"
     else
         "$PYTHON3" - "$db" "$table" <<'PYEOF'
 import sqlite3, sys
-conn = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+conn = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True, timeout=10)
 print(conn.execute(f'SELECT COUNT(*) FROM "{sys.argv[2]}"').fetchone()[0])
 conn.close()
 PYEOF

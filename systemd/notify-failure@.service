@@ -1,0 +1,16 @@
+# USER template unit: install into ~/.config/systemd/user/ and manage it
+# with `systemctl --user`. Needs `loginctl enable-linger banar` to run while
+# logged out.
+#
+# This is the single alert mechanism for the whole project. Any other unit
+# that can fail should point its own OnFailure= at notify-failure@%n.service
+# (systemd expands %n to that unit's own escaped instance name), never send
+# its own email directly -- that way there is exactly one alert per failure,
+# not a duplicate from both the failing unit and this one.
+[Unit]
+Description=Email alert for the failed unit %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/banar/Desktop/links-bio/.env
+ExecStart=/home/banar/Desktop/links-bio/env/bin/python /home/banar/Desktop/links-bio/scripts/notify_failure.py %i

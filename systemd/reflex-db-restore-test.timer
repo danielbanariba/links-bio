@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly restore-test of the reflex.db off-host backup (restic)
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
