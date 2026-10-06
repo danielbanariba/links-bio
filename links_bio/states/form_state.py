@@ -1,41 +1,13 @@
-import logging
-import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
 import reflex as rx
-from sqlmodel import select
+from sqlmodel import Session, select
+
+from links_bio.db import engine
 from links_bio.models.submission import Submission
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.contact_message import ContactMessage
-
-logger = logging.getLogger("form_state")
-
-
-def _send_email_notification(subject: str, body: str) -> str | None:
-    """Send email notification via Gmail SMTP. Returns error string or None."""
-    gmail_address = os.environ.get("GMAIL_ADDRESS", "")
-    gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
-
-    if not gmail_address or not gmail_app_password:
-        return "GMAIL_ADDRESS o GMAIL_APP_PASSWORD no configurados"
-
-    msg = MIMEMultipart()
-    msg["From"] = gmail_address
-    msg["To"] = gmail_address
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_address, gmail_app_password)
-            server.send_message(msg)
-        logger.info(f"Email enviado: {subject}")
-        return None
-    except Exception as e:
-        logger.error(f"Error enviando email: {e}")
-        return str(e)
+# Re-exported for any legacy caller that still imports it from this module;
+# the implementation now lives in links_bio.notifications (reflex-free).
+from links_bio.notifications import _send_email_notification  # noqa: F401
 
 
 class FormState(rx.State):
@@ -93,7 +65,7 @@ class FormState(rx.State):
             return
 
         try:
-            with rx.session() as session:
+            with Session(engine) as session:
                 submission = Submission(
                     band_name=band_name,
                     contact_email=contact_email,
@@ -123,7 +95,7 @@ class FormState(rx.State):
             return
 
         try:
-            with rx.session() as session:
+            with Session(engine) as session:
                 existing = session.exec(
                     select(NewsletterSubscriber).where(
                         NewsletterSubscriber.email == email
@@ -184,7 +156,7 @@ class FormState(rx.State):
 
         # Save to DB
         try:
-            with rx.session() as session:
+            with Session(engine) as session:
                 contact = ContactMessage(
                     name=band_name,
                     email=email,
@@ -247,7 +219,7 @@ class FormState(rx.State):
             return
 
         try:
-            with rx.session() as session:
+            with Session(engine) as session:
                 contact = ContactMessage(
                     name=nombre,
                     email=email,

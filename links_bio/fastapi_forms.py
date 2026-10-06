@@ -8,7 +8,6 @@ Start with:
 Writes to the same reflex.db used by Reflex; reuses _send_email_notification
 from form_state.py.
 """
-import os
 import logging
 from datetime import datetime
 
@@ -16,18 +15,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlmodel import Session, create_engine, select
+from sqlmodel import Session, select
 
+from links_bio.db import engine
 from links_bio.models.submission import Submission
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.contact_message import ContactMessage
-from links_bio.states.form_state import _send_email_notification
-
-# ─── DB setup ────────────────────────────────────────────────────────────────
-# Mirrors rxconfig.py: db_url = "sqlite:///reflex.db"
-# The path is relative to cwd when uvicorn runs (project root).
-DB_URL = os.environ.get("REFLEX_DB_URL", "sqlite:///reflex.db")
-engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
+from links_bio.notifications import _send_email_notification
 
 logger = logging.getLogger("fastapi_forms")
 logging.basicConfig(level=logging.INFO)

@@ -33,9 +33,9 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")  # DEATHGRIND_EMAIL / _PASSWORD para crear_sesion
 
-import reflex as rx
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from links_bio.db import engine
 from links_bio.models.album import Album
 from sync_artwork_deathgrind import (
     DELAY_ENTRE_BUSQUEDAS,
@@ -80,7 +80,7 @@ def main():
     session = crear_sesion()
     print("   Sesion iniciada")
 
-    with rx.session() as db_session:
+    with Session(engine) as db_session:
         print("\n[2/3] Detectando álbumes afectados...")
         affected = find_affected(db_session)
         print(f"   {len(affected)} álbumes con portada compartida (título distinto)")

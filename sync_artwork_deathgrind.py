@@ -19,11 +19,11 @@ from pathlib import Path
 
 import requests
 
-# Add project root to path for rxconfig imports
+# Add project root to path for links_bio imports
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import reflex as rx
-from sqlmodel import select, col
+from sqlmodel import Session, select, col
+from links_bio.db import engine
 from links_bio.models.album import Album
 
 # DeathGrind.club config
@@ -228,7 +228,7 @@ def main():
     print("   Sesion iniciada")
 
     print("\n[2/3] Cargando albums de la DB...")
-    with rx.session() as db_session:
+    with Session(engine) as db_session:
         query = select(Album)
 
         if args.solo_vacios or not args.force:

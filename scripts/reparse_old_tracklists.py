@@ -14,10 +14,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import rxconfig  # noqa: F401
-import reflex as rx
-from sqlmodel import select, func, col
+from sqlmodel import Session, select, func, col
 
+from links_bio.db import engine
 from links_bio.models.album import Album
 from links_bio.models.track import Track
 from sync_youtube_to_db import parse_description_metadata
@@ -29,7 +28,7 @@ def main():
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
-    with rx.session() as session:
+    with Session(engine) as session:
         albums_with_tracks = session.exec(
             select(Track.album_id).distinct()
         ).all()

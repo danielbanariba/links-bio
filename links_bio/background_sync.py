@@ -52,16 +52,16 @@ def _run_sync_cycle():
 
     try:
         # Importar aqui para evitar imports circulares
-        import reflex as rx
         import sys
         from pathlib import Path
-        from sqlmodel import select, func
+        from sqlmodel import Session, select, func
+        from links_bio.db import engine
         from links_bio.models.album import Album
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         from sync_youtube_to_db import run_sync
 
         # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
-        with rx.session() as session:
+        with Session(engine) as session:
             album_count = session.exec(select(func.count(Album.id))).one()
 
         global _sync_count
@@ -170,13 +170,13 @@ def _run_astro_deploy():
 
 def _run_normalize():
     """Normaliza generos y paises en la DB."""
-    import reflex as rx
-    from sqlmodel import select
+    from sqlmodel import Session, select
+    from links_bio.db import engine
     from links_bio.models.album import Album
     from scripts.normalize_db import normalize_genre, normalize_country
 
     changes = 0
-    with rx.session() as session:
+    with Session(engine) as session:
         albums = session.exec(select(Album)).all()
         for album in albums:
             new_genre = normalize_genre(album.genre)
@@ -198,8 +198,8 @@ def _run_normalize():
 
 def _run_artwork_sync():
     """Busca portadas en DeathGrind.club para albums que aun tienen thumbnail de YouTube."""
-    import reflex as rx
-    from sqlmodel import select, col, func
+    from sqlmodel import Session, select, col, func
+    from links_bio.db import engine
     from links_bio.models.album import Album
     from sync_artwork_deathgrind import crear_sesion, buscar_artwork
 
@@ -216,7 +216,7 @@ def _run_artwork_sync():
     total_processed = 0
 
     while True:
-        with rx.session() as db_session:
+        with Session(engine) as db_session:
             albums = db_session.exec(
                 select(Album).where(
                     (Album.album_artwork_url.like("%ytimg.com%"))
@@ -260,10 +260,10 @@ def _run_artwork_sync():
 def _is_db_empty() -> bool:
     """Verifica si la DB tiene albums."""
     try:
-        import reflex as rx
-        from sqlmodel import select, func
+        from sqlmodel import Session, select, func
+        from links_bio.db import engine
         from links_bio.models.album import Album
-        with rx.session() as session:
+        with Session(engine) as session:
             count = session.exec(select(func.count(Album.id))).one()
             return count == 0
     except Exception:

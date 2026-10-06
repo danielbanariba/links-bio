@@ -20,10 +20,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import rxconfig  # noqa: F401
-import reflex as rx
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from links_bio.db import engine
 from links_bio.models.album import Album
 
 
@@ -400,7 +399,7 @@ def main():
             print(f"DB no encontrada en {db_path}, saltando backup")
             print()
 
-    with rx.session() as session:
+    with Session(engine) as session:
         albums = session.exec(select(Album)).all()
         print(f"Total albums en DB: {len(albums)}")
         print()

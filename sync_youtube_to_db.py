@@ -25,13 +25,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 CLICK_AUTO_EDITOR = Path.home() / "Desktop" / "click-auto-editor"
 PLAYLIST_CACHE_PATH = CLICK_AUTO_EDITOR / "data" / "playlist_links_cache.json"
 
-# Add project root (for rxconfig + links_bio) and subir_video (for authenticate)
+# Add project root (for links_bio) and subir_video (for authenticate)
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import rxconfig  # noqa: F401
-import reflex as rx
-from sqlmodel import select, col
+from sqlmodel import Session, select, col
 
+from links_bio.db import engine
 from links_bio.models.album import Album
 from links_bio.models.track import Track
 from links_bio.models.similar_band import SimilarBand
@@ -749,7 +748,7 @@ def run_sync(
     skipped = 0
     errors = 0
 
-    session = rx.session().__enter__()
+    session = Session(engine).__enter__()
 
     BATCH_SIZE = 50
 
@@ -902,7 +901,7 @@ def main():
         videos = fetch_all_videos(uploads_id)
         active_ids = {v["video_id"] for v in videos if v.get("video_id")}
         print(f"[*] {len(active_ids)} videos activos en el canal")
-        with rx.session() as session:
+        with Session(engine) as session:
             result = cleanup_orphan_albums(
                 session, active_ids, dry_run=True,
                 safety_threshold=args.cleanup_threshold,
@@ -928,7 +927,7 @@ def main():
         print("[*] Autenticando...")
         _yt["client"] = _authenticate(prefix="playlists")
         print("[*] Actualizando view counts...")
-        with rx.session() as session:
+        with Session(engine) as session:
             update_view_counts(session)
             if args.mark_featured:
                 mark_featured_albums(session, args.featured_count)

@@ -3,14 +3,12 @@
 import sys
 from pathlib import Path
 
-# Add project root to path so rxconfig and links_bio are importable
+# Add project root to path so links_bio is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import reflex as rx
-from sqlmodel import select
+from sqlmodel import Session, select
 
-import rxconfig  # noqa: F401
-
+from links_bio.db import engine
 from links_bio.models.album import Album
 from links_bio.models.track import Track
 from links_bio.models.similar_band import SimilarBand
@@ -101,7 +99,7 @@ SEED_ALBUMS = [
 
 
 def seed():
-    with rx.session() as session:
+    with Session(engine) as session:
         # Check if already seeded
         existing = session.exec(select(Album)).first()
         if existing:

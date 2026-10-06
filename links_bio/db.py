@@ -1,10 +1,10 @@
 """Single engine/session factory for the Metal Archive database.
 
-This is the Reflex-free replacement for `rx.Model.get_db_engine()` /
-`rx.session()`. Every live script and service (sync scripts, background_sync,
-fastapi_forms, alembic) should get its engine or session from here instead of
-building its own, so the connection settings and the DB URL resolution live in
-exactly one place.
+This is the Reflex-free replacement for the old `rx.Model`-based engine
+accessor and session helper. Every live script and service (sync scripts,
+background_sync, fastapi_forms, alembic) should get its engine or session
+from here instead of building its own, so the connection settings and the DB
+URL resolution live in exactly one place.
 
 DB URL resolution mirrors what `rx.Model` did via rxconfig.py's
 `db_url="sqlite:///reflex.db"`: relative to the process cwd, which in
