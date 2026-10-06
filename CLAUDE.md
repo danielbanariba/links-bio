@@ -50,6 +50,14 @@ source env/bin/activate                                  # Python 3.13 venv
 uvicorn links_bio.fastapi_forms:app --port 8001 --reload
 ```
 
+### Lint & verification
+There is **no automated test suite** (no pytest, no vitest). Verification is:
+```bash
+env/bin/ruff check links_bio/     # Python lint (same as the MCP lint_project tool)
+cd web && npm run build           # the real check: getStaticPaths() crashes the build on a bad slug/param
+```
+The project MCP tool `test_metal_archive_pages` smoke-tests the rendered archive pages.
+
 ### Database / migrations (Reflex's Alembic wrapper)
 ```bash
 source env/bin/activate
@@ -81,6 +89,7 @@ The same build+deploy also fires automatically from (a) the in-app sync (`links_
 - **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match.
 - **URL slugs go through `slugify()` in `db.ts`** — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
 - **DB values are Spanish, the UI is English — translate in `web/src/lib/labels.ts`.** `albums.country` holds Spanish names (`Estados Unidos`, `Alemania`) because that is what the YouTube sync writes, and `albums.genre` holds one Spanish placeholder (`Género desconocido`). `labels.ts` is the single source of truth mapping a raw DB value to its English label + flag: `countryLabel()`, `countryFlag()`, `genreLabel()`. **Slugs and query values must keep using the RAW database value** — that is why `/metal-archive/country/estados-unidos` still works and no inbound link broke. Never render `album.country` or a country facet value directly; never hardcode a flag map (it used to be copy-pasted into two pages).
+- **Bio identity links:** social URLs live in the `SOCIAL` map at the top of `index.astro`. The page also emits a JSON-LD `Person` whose `sameAs` (plus `rel="me"` on the icon links) tells search engines that this site and the engineering portfolio `danielbanariba.dev` are the same person. A new profile goes in `SOCIAL`, `sameAs` and the icon row together.
 - **Canonical origin is `https://danielbanariba.com`**, declared once as `site` in `astro.config.mjs`. Every page needs an absolute `<link rel="canonical">`. Archive pages previously pointed at `xeroxunderground.com`, a domain that does not resolve.
 - **`web/src/pages/sitemap.xml.ts`** generates the sitemap at build time from `db.ts` using the same `slugify()` as `getStaticPaths()`, so it can never list a path the build did not emit. `web/public/robots.txt` points at it. Add new page types to both the route and the sitemap.
 - **Styling:** one global stylesheet, `web/src/styles/global.css`. (The old per-component Reflex styles in `links_bio/styles/` are legacy — don't edit them for site changes.)
