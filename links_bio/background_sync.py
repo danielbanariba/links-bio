@@ -40,46 +40,62 @@ _started = False
 _sync_count = 0
 
 
+def run_youtube_sync() -> None:
+    """Authenticate with YouTube and run one sync pass (new videos -> DB,
+    mark featured).
+
+    Extracted out of `_run_sync_cycle` so `scripts/sync_and_deploy.py` can
+    reuse the exact same step instead of duplicating it, with a
+    raise-on-failure contract: callers that want the old "log and continue"
+    behavior (the daemon thread below) catch around this call themselves.
+
+    solo_nuevos is decided the same way the original inline code did: full
+    sync when the DB has fewer than 100 albums, or every 4th cycle (to fill
+    holes left by incremental syncs), incremental otherwise. Note this
+    "every 4th cycle" heuristic is tracked via the in-process `_sync_count`
+    global, so it only means something across calls within one long-lived
+    process (the daemon thread); each `sync_and_deploy.py` run is a fresh
+    process, so _sync_count resets to 1 every time and this effectively
+    always chooses incremental sync once the DB has >=100 albums.
+    """
+    from links_bio.youtube_auth import authenticate_auto
+    youtube_client = authenticate_auto()
+
+    # Importar aqui para evitar imports circulares
+    import sys
+    from pathlib import Path
+    from sqlmodel import Session, select, func
+    from links_bio.db import engine
+    from links_bio.models.album import Album
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from sync_youtube_to_db import run_sync
+
+    # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
+    with Session(engine) as session:
+        album_count = session.exec(select(func.count(Album.id))).one()
+
+    global _sync_count
+    _sync_count += 1
+
+    # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
+    solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
+    if not solo_nuevos:
+        _log(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
+    else:
+        _log(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
+
+    run_sync(
+        youtube_client=youtube_client,
+        solo_nuevos=solo_nuevos,
+        mark_featured=True,
+        featured_count=10,
+    )
+
+
 def _run_sync_cycle():
     """Ejecuta un ciclo de sync: YouTube -> DB, luego artwork desde DeathGrind."""
     try:
-        from links_bio.youtube_auth import authenticate_auto
-        youtube_client = authenticate_auto()
-    except Exception as e:
-        _log(f"Error de autenticacion: {e}")
-        traceback.print_exc()
-        return False
-
-    try:
-        # Importar aqui para evitar imports circulares
-        import sys
-        from pathlib import Path
-        from sqlmodel import Session, select, func
-        from links_bio.db import engine
-        from links_bio.models.album import Album
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from sync_youtube_to_db import run_sync
-
-        # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
-        with Session(engine) as session:
-            album_count = session.exec(select(func.count(Album.id))).one()
-
-        global _sync_count
-        _sync_count += 1
-
-        # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
-        solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
-        if not solo_nuevos:
-            _log(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
-        else:
-            _log(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
-
-        run_sync(
-            youtube_client=youtube_client,
-            solo_nuevos=solo_nuevos,
-            mark_featured=True,
-            featured_count=10,
-        )
+        run_youtube_sync()
     except Exception as e:
         _log(f"Error durante sync YouTube: {e}")
         traceback.print_exc()
@@ -87,21 +103,21 @@ def _run_sync_cycle():
 
     # Paso 2: normalizar generos y paises
     try:
-        _run_normalize()
+        run_normalize()
     except Exception as e:
         _log(f"Error durante normalizacion: {e}")
         traceback.print_exc()
 
     # Paso 3: reemplazar thumbnails de YouTube con portadas de DeathGrind
     try:
-        _run_artwork_sync()
+        run_artwork_sync()
     except Exception as e:
         _log(f"Error durante sync artwork: {e}")
         traceback.print_exc()
 
     # Paso 4: rebuild + deploy del sitio Astro estatico con la DB actualizada
     try:
-        _run_astro_deploy()
+        run_astro_build_and_deploy()
     except Exception as e:
         _log(f"Error durante deploy Astro: {e}")
         traceback.print_exc()
@@ -109,7 +125,7 @@ def _run_sync_cycle():
     return True
 
 
-def _find_node_bin():
+def find_node_bin():
     """Locate the nvm bin dir that holds npm/vercel (highest version first).
 
     The reflex process PATH is env/bin:/usr/local/bin:/usr/bin:/bin — it does NOT
@@ -131,44 +147,88 @@ def _find_node_bin():
     return None
 
 
-def _run_astro_deploy():
-    """Rebuild the Astro static site from the updated DB and deploy to Vercel.
+def _masked_cmd(cmd: list) -> str:
+    """Render a subprocess argv list for logging with any `--token` value
+    redacted. Never used to build the real argv passed to subprocess.run --
+    only for what gets printed/logged."""
+    parts = list(cmd)
+    for i, part in enumerate(parts):
+        if part == "--token" and i + 1 < len(parts):
+            parts[i + 1] = "****"
+    return " ".join(parts)
 
-    Tokenless: reuses the logged-in Vercel CLI session (it auto-refreshes via the
-    stored refresh token), exactly like .git/hooks/pre-push. An explicit
-    VERCEL_TOKEN is still honoured if present (e.g. CI). Never raises into the
-    sync cycle — failures are logged by the caller.
+
+def build_astro_site(env: dict) -> None:
+    """Run `npm run build` for the Astro site. `env` must already have PATH
+    pointing at the resolved node/npm bin dir (see find_node_bin()). Raises
+    on failure (subprocess.run(check=True))."""
+    import subprocess
+    from pathlib import Path
+
+    web_dir = Path(__file__).resolve().parent.parent / "web"
+    _log("Rebuild del sitio Astro...")
+    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True, env=env)
+
+
+def deploy_to_vercel(env: dict) -> None:
+    """Run `vercel deploy` for the already-built Astro site.
+
+    Uses VERCEL_TOKEN when set (decision D2: unattended deploy via a token
+    that lives in .env, instead of a logged-in CLI session that can expire
+    silently -- which is exactly what has been happening since mid-
+    September). Falls back to the logged-in Vercel CLI session otherwise,
+    exactly like .git/hooks/pre-push. --archive=tgz matches that working
+    pre-push hook (the previous divergence here was flagged separately from
+    the "Not authorized" failures, but it's still the right flag to match).
+
+    The token is passed as a real argv element to the real subprocess, but
+    is never written to this process's own logs: `_masked_cmd` redacts it
+    in the one log line that shows the command. Raises on failure.
     """
     import subprocess
     from pathlib import Path
 
     web_dir = Path(__file__).resolve().parent.parent / "web"
-    if not web_dir.exists():
-        _log(f"Directorio web/ no encontrado ({web_dir}). Deploy omitido.")
-        return
+    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes", "--archive=tgz"]
+    token = os.environ.get("VERCEL_TOKEN")
+    if token:
+        deploy_cmd += ["--token", token]
 
-    node_bin = _find_node_bin()
+    _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
+    subprocess.run(deploy_cmd, cwd=str(web_dir), check=True, env=env)
+    _log("Deploy Astro completado.")
+
+
+def run_astro_build_and_deploy(skip_deploy: bool = False) -> None:
+    """Rebuild the Astro static site from the updated DB and, unless
+    skip_deploy, deploy it to Vercel. Raises on any failure (missing web/,
+    missing npm/vercel, a failing build, or a failing deploy) -- callers
+    decide whether that's fatal (the daemon thread below logs and
+    continues; sync_and_deploy.py treats it as a failed step)."""
+    from pathlib import Path
+
+    web_dir = Path(__file__).resolve().parent.parent / "web"
+    if not web_dir.exists():
+        raise RuntimeError(f"web/ directory not found at {web_dir}")
+
+    node_bin = find_node_bin()
     if not node_bin:
-        _log("npm/vercel no encontrados en nvm (~/.local/share/nvm/v*/bin). Deploy omitido.")
-        return
+        raise RuntimeError("npm/vercel not found under ~/.local/share/nvm/v*/bin")
 
     # Prepend nvm's bin so npm, node, npx AND vercel all resolve in the subprocess.
     env = dict(os.environ)
     env["PATH"] = node_bin + os.pathsep + env.get("PATH", "")
 
-    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes"]
-    token = os.environ.get("VERCEL_TOKEN")
-    if token:
-        deploy_cmd += ["--token", token]
+    build_astro_site(env)
 
-    _log("Rebuild del sitio Astro...")
-    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True, env=env)
-    _log("Deploy a Vercel (prod)...")
-    subprocess.run(deploy_cmd, cwd=str(web_dir), check=True, env=env)
-    _log("Deploy Astro completado.")
+    if skip_deploy:
+        _log("skip_deploy: build completado, deploy omitido.")
+        return
+
+    deploy_to_vercel(env)
 
 
-def _run_normalize():
+def run_normalize():
     """Normaliza generos y paises en la DB."""
     from sqlmodel import Session, select
     from links_bio.db import engine
@@ -196,7 +256,7 @@ def _run_normalize():
     _log(f"Normalizacion: {changes} albums actualizados.")
 
 
-def _run_artwork_sync():
+def run_artwork_sync():
     """Busca portadas en DeathGrind.club para albums que aun tienen thumbnail de YouTube."""
     from sqlmodel import Session, select, col, func
     from links_bio.db import engine
