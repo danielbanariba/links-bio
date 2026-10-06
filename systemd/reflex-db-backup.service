@@ -1,11 +1,13 @@
+# USER unit: install into ~/.config/systemd/user/ and manage it with
+# `systemctl --user`. Needs `loginctl enable-linger banar` to run while
+# logged out. Failure alerts are wired in by the sync/deploy alerting task.
 [Unit]
 Description=Encrypted off-host backup of reflex.db (restic)
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot
 Nice=19
 IOSchedulingClass=idle
+Environment=REFLEX_BACKUP_ENV=%h/.config/reflex-backup/env
 ExecStart=/home/banar/Desktop/links-bio/scripts/backup_reflex_db.sh backup
 TimeoutStartSec=1800

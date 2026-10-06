@@ -24,9 +24,10 @@ PYTHON3="/usr/bin/python3"
 
 readonly BACKUP_TAG="reflex-db"
 readonly BACKUP_HOST="links-bio"
-# User-data tables that cannot be regenerated; a count mismatch here fails
-# restore-test. (albums/tracks/similar_bands are sync-rebuildable and are
-# shown for diagnostics only, not checked.)
+# User-data tables that cannot be regenerated: restore-test fails if one is
+# missing or empty in the restored copy while the live DB has rows.
+# (albums/tracks/similar_bands are sync-rebuildable and are shown for
+# diagnostics only, not checked.)
 readonly USER_DATA_TABLES=(submissions newsletter_subscribers contact_messages)
 readonly DIAGNOSTIC_TABLES=(albums tracks similar_bands)
 
@@ -53,6 +54,7 @@ load_config() {
     KEEP_DAILY="${KEEP_DAILY:-14}"
     KEEP_WEEKLY="${KEEP_WEEKLY:-8}"
     KEEP_MONTHLY="${KEEP_MONTHLY:-12}"
+    MAX_SNAPSHOT_AGE_HOURS="${MAX_SNAPSHOT_AGE_HOURS:-48}"
 }
 
 require_config() {
@@ -152,6 +154,21 @@ do_restore_test() {
     WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/reflex-db-restore-test.XXXXXX")"
     local restore_dir="$WORK_DIR/restore"
     mkdir -p "$restore_dir"
+
+    # A restorable but stale snapshot means the nightly job has been failing.
+    local age_hours
+    age_hours="$("$RESTIC" snapshots latest --tag "$BACKUP_TAG" --host "$BACKUP_HOST" --json | "$PYTHON3" -c '
+import datetime, json, re, sys
+snaps = json.load(sys.stdin)
+if not snaps:
+    sys.exit("no snapshot found")
+# restic emits nanosecond fractions that fromisoformat rejects; drop them.
+stamp = re.sub(r"\.\d+", "", snaps[-1]["time"]).replace("Z", "+00:00")
+taken = datetime.datetime.fromisoformat(stamp)
+print(int((datetime.datetime.now(datetime.timezone.utc) - taken).total_seconds() // 3600))
+')" || die "could not read the latest snapshot"
+    log "Latest snapshot is ${age_hours}h old (limit ${MAX_SNAPSHOT_AGE_HOURS}h)"
+    (( age_hours <= MAX_SNAPSHOT_AGE_HOURS )) || die "latest snapshot is older than ${MAX_SNAPSHOT_AGE_HOURS}h; the scheduled backup is not running"
 
     log "Restoring the latest $BACKUP_TAG snapshot for a diagnostic check"
     "$RESTIC" restore latest --tag "$BACKUP_TAG" --host "$BACKUP_HOST" --target "$restore_dir"
