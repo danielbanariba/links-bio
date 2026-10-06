@@ -1,12 +1,12 @@
-import reflex as rx
 import sqlmodel
 from datetime import datetime
 from typing import Optional
 
 
-class Album(rx.Model, table=True):
+class Album(sqlmodel.SQLModel, table=True):
     __tablename__ = "albums"
 
+    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     band_name: str = sqlmodel.Field(index=True)
     album_title: str = sqlmodel.Field(index=True)
     year: int = sqlmodel.Field(index=True)
