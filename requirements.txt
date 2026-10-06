@@ -1,4 +1,23 @@
+# Legacy: still the production runtime for the Reflex UI/host (see CLAUDE.md
+# "What is live vs. legacy"). Today it also pulls in fastapi, uvicorn,
+# sqlmodel, sqlalchemy, alembic, pydantic and starlette transitively via
+# reflex[db] -- those are now pinned explicitly below because the live code
+# (fastapi_forms.py, the sync scripts, background_sync.py, alembic/) depends
+# on them directly and that dependency must not break once reflex is removed
+# from requirements.txt.
 reflex[db]==0.8.28.post1
+
+# Live data layer + forms API (see links_bio/db.py, fastapi_forms.py, alembic/)
+fastapi==0.136.1
+uvicorn==0.44.0
+starlette==1.0.0
+pydantic==2.13.2
+sqlmodel==0.0.38
+sqlalchemy==2.0.49
+alembic==1.18.4
+python-dotenv==1.2.2
+
+# YouTube sync
 google-api-python-client==2.194.0
 google-auth-oauthlib==1.3.1
 google-auth==2.49.2
