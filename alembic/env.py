@@ -28,7 +28,15 @@ if config.config_file_name is not None:
 # Drive the DB URL from links_bio.db (REFLEX_DB_URL env var, defaulting to the
 # repo-root reflex.db) instead of the static alembic.ini placeholder, so
 # `alembic upgrade head` works standalone without `reflex db migrate`.
-config.set_main_option("sqlalchemy.url", DB_URL)
+#
+# config's underlying ConfigParser applies interpolation on every *read*
+# (get_main_option(), get_section(), ...), not on set_main_option() itself.
+# A literal '%' in DB_URL (e.g. a URL-encoded space, '%20', in a password or
+# SFTP-style path) is otherwise read back as a broken interpolation
+# placeholder and raises configparser.InterpolationSyntaxError the moment
+# anything reads it back. Escaping to '%%' here round-trips through
+# interpolation back to a single '%'.
+config.set_main_option("sqlalchemy.url", DB_URL.replace("%", "%%"))
 
 # Plain SQLModel metadata (populated by importing links_bio.models above) —
 # replaces reflex's ModelRegistry.get_metadata().
