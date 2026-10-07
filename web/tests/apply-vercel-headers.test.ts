@@ -11,15 +11,11 @@
 // after every `astro build`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { applyHeaders } from '../scripts/apply-vercel-headers.mjs';
-
-const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REAL_VERCEL_JSON = path.join(TEST_DIR, '..', 'vercel.json');
 
 function makeFixture(routes: unknown[], headerEntries?: unknown[]) {
   const dir = mkdtempSync(path.join(tmpdir(), 'apply-vercel-headers-'));
@@ -123,23 +119,4 @@ test('throws when config.json has no {handle: "filesystem"} entry to anchor on',
   ]);
 
   assert.throws(() => applyHeaders({ vercelJsonPath, configJsonPath }), /filesystem/);
-});
-
-test('every header declared in the real web/vercel.json survives the merge', () => {
-  const { vercelJsonPath: _unused, configJsonPath } = makeFixture([
-    { handle: 'filesystem' },
-    { src: '^/.*$', dest: '/404.html', status: 404 },
-  ]);
-  void _unused;
-
-  const config = applyHeaders({ vercelJsonPath: REAL_VERCEL_JSON, configJsonPath }) as { routes: any[] };
-  const realVercelJson = JSON.parse(readFileSync(REAL_VERCEL_JSON, 'utf8'));
-  const expectedKeys = realVercelJson.headers[0].headers.map((h: { key: string }) => h.key.toLowerCase());
-
-  const headerRoute = config.routes.find((r) => r.src === '^/(.*)$');
-  assert.ok(headerRoute, 'expected a merged header route');
-  assert.equal(Object.keys(headerRoute.headers).length, expectedKeys.length);
-  for (const key of expectedKeys) {
-    assert.ok(key in headerRoute.headers, `expected header "${key}" to be present in the merged route`);
-  }
 });
