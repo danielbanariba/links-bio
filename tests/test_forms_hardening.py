@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine, select
 
 from links_bio import fastapi_forms
+from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.submission import Submission
 
 
@@ -254,3 +255,50 @@ def test_honeypot_filled_drops_submission_silently(forms_client: TestClient) -> 
     assert res.json()["ok"] is True
     assert _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL) == []  # type: ignore[attr-defined]
     assert forms_client.sent_emails == []  # type: ignore[attr-defined]
+
+
+def test_concurrent_newsletter_signup_returns_409_not_500(
+    forms_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two near-simultaneous newsletter signups for the same email can both
+    pass the "does it already exist" check before either commits; the
+    second one's commit then hits NewsletterSubscriber.email's UNIQUE
+    constraint. Before this fix, that IntegrityError fell through to the
+    generic handler and surfaced as an unhelpful 500 instead of the same
+    409 a non-racy duplicate already gets (which the frontend already
+    handles).
+
+    The race is simulated deterministically: the handler's own
+    "does it exist" query is made to report "not found" while a second,
+    independent session inserts the same email underneath it -- exactly
+    the window a real race lands in.
+    """
+    email = "race@example.com"
+    real_exec = Session.exec
+    call_count = {"n": 0}
+
+    def racy_exec(self, statement, *a, **kw):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            # This is the handler's own existence check. Land a concurrent
+            # request's insert right now, in the window this check cannot
+            # see, then report "not found" as if the race had won.
+            with Session(fastapi_forms.engine) as other:
+                other.add(NewsletterSubscriber(email=email))
+                other.commit()
+
+            class _EmptyResult:
+                def first(self_inner):
+                    return None
+
+            return _EmptyResult()
+        return real_exec(self, statement, *a, **kw)
+
+    monkeypatch.setattr(Session, "exec", racy_exec)
+
+    res = forms_client.post(
+        "/api/metal-archive/newsletter", json={"email": email}
+    )
+
+    assert res.status_code == 409
+    assert res.json()["detail"] == "This email is already subscribed."

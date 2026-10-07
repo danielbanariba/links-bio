@@ -15,6 +15,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from links_bio.db import engine
@@ -388,7 +389,19 @@ async def newsletter_signup(req: NewsletterRequest, request: Request):
 
             subscriber = NewsletterSubscriber(email=req.email)
             session.add(subscriber)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                # Two near-simultaneous signups for the same email can both
+                # pass the "does it already exist" check above before
+                # either commits; the second one's commit then hits the
+                # UNIQUE constraint. Answer the same way a non-racy
+                # duplicate already does, not with a bare 500.
+                session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email is already subscribed."
+                )
             logger.info(f"Newsletter signup: {req.email}")
     except HTTPException:
         raise
