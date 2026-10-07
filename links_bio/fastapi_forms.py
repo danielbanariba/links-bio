@@ -27,7 +27,16 @@ logger = logging.getLogger("fastapi_forms")
 logging.basicConfig(level=logging.INFO)
 
 # ─── App + CORS ──────────────────────────────────────────────────────────────
-app = FastAPI(title="Metal Archive Forms API", version="1.0.0")
+# Interactive docs are disabled in code, not just left unrouted by the
+# cloudflared ingress rules: relying on routing alone means a future ingress
+# change (or reaching the service directly) would silently re-expose them.
+app = FastAPI(
+    title="Metal Archive Forms API",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 ALLOWED_ORIGINS = [
     "https://danielbanariba.com",
