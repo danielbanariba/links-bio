@@ -13,6 +13,8 @@ import subprocess
 from pathlib import Path
 
 import requests
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 from mcp.server.fastmcp import FastMCP
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -114,13 +116,32 @@ def check_db_schema() -> dict:
     }
 
 
+def _pending_revisions(current: str | None, head: str | None) -> list[str]:
+    """Return every revision id `alembic upgrade head` would still apply,
+    oldest-missing first, by walking alembic's own script graph.
+
+    Replaces an earlier version that assumed exactly one revision was ever
+    pending, which under-reported real drift whenever the DB was two or
+    more migrations behind head. ScriptDirectory only parses the versions/
+    directory -- it never opens a DB connection or runs env.py.
+    """
+    if not head:
+        return []
+    cfg = AlembicConfig(str(PROJECT_ROOT / "alembic.ini"))
+    script = ScriptDirectory.from_config(cfg)
+    revisions = script.walk_revisions(base=current, head=head)
+    pending = [rev.revision for rev in revisions if rev.revision != current]
+    return list(reversed(pending))
+
+
 @mcp.tool()
 def check_migrations_pending() -> dict:
-    """Report whether the DB is behind the latest alembic head."""
+    """Report whether the DB is behind the latest alembic head, and which
+    revisions are actually pending."""
     status = check_db_schema()
     if "error" in status:
         return status
-    pending = [] if status["ok"] else [status["head"]]
+    pending = [] if status["ok"] else _pending_revisions(status["current"], status["head"])
     return {"ok": status["ok"], "pending": pending, "head": status["head"], "current": status["current"]}
 
 
