@@ -5,15 +5,29 @@ import { ClientRouter } from 'astro:transitions';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
+
+const pageTitle = 'Newsletter | Metal Archive';
+const metaDesc = 'Subscribe for news about new albums, bands and underground metal events.';
+const canonical = 'https://danielbanariba.com/metal-archive/newsletter';
+const ogImage = 'https://danielbanariba.com/avatar.jpg';
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Newsletter | Metal Archive</title>
-  <meta name="description" content="Subscribe for news about new albums, bands and underground metal events." />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/newsletter" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  <meta name="twitter:image" content={ogImage} />
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body class="form-page">

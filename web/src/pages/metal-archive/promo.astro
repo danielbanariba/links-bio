@@ -78,15 +78,29 @@ const PACKAGES = [
 // select stay HIDDEN, so visitors never see "Price TBD". Flip to true once
 // PACKAGES holds real prices/tiers (OWNER CONTENT — see comments above).
 const PACKAGES_READY = false;
+
+const pageTitle = 'Promote your music | Metal Archive';
+const metaDesc = 'Promote your band, album or label to an extreme metal audience.';
+const canonical = 'https://danielbanariba.com/metal-archive/promo';
+const ogImage = 'https://danielbanariba.com/avatar.jpg';
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Promote your music | Metal Archive</title>
-  <meta name="description" content="Promote your band, album or label to an extreme metal audience." />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/promo" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  <meta name="twitter:image" content={ogImage} />
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body class="form-page">

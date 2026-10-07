@@ -54,6 +54,11 @@ const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(primaryGenr
 // Genres are already English except for one Spanish placeholder value; the slug
 // and the ?genre= link still carry the RAW (dominant) value so nothing breaks.
 const genreName = genreLabel(primaryGenre);
+
+const pageTitle = `${genreName} — Metal Archive`;
+const metaDesc = `${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`;
+const canonical = `https://danielbanariba.com/metal-archive/genre/${Astro.params.genre}`;
+const ogImage = repCover || undefined;
 ---
 
 <!doctype html>
@@ -61,9 +66,18 @@ const genreName = genreLabel(primaryGenre);
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{genreName} — Metal Archive</title>
-    <meta name="description" content={`${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`} />
-    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/genre/${Astro.params.genre}`} />
+    <title>{pageTitle}</title>
+    <meta name="description" content={metaDesc} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDesc} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDesc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
   <body>

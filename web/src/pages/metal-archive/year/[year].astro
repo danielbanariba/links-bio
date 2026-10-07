@@ -29,6 +29,11 @@ const count = albums.length;
 // Chain to Browse with this year pre-applied. Search restores from the exact
 // value (String(e.year) === year), so the URL carries the REAL year.
 const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year))}`;
+
+const pageTitle = `${year} — Metal Archive`;
+const metaDesc = `${count} ${count === 1 ? 'album' : 'albums'} from ${year} in the Metal Archive.`;
+const canonical = `https://danielbanariba.com/metal-archive/year/${year}`;
+const ogImage = albums[0]?.thumb || undefined;
 ---
 
 <!doctype html>
@@ -36,9 +41,18 @@ const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year)
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{year} — Metal Archive</title>
-    <meta name="description" content={`${count} ${count === 1 ? 'album' : 'albums'} from ${year} in the Metal Archive.`} />
-    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/year/${year}`} />
+    <title>{pageTitle}</title>
+    <meta name="description" content={metaDesc} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDesc} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDesc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
   <body>

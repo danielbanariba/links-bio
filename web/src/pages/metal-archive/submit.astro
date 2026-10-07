@@ -13,15 +13,29 @@ const GENRES = [
   "Folk Metal", "Symphonic Metal", "Sludge Metal", "Stoner Metal",
   "Speed Metal", "Brutal Death Metal",
 ];
+
+const pageTitle = 'Submit your band | Metal Archive';
+const metaDesc = 'Submit your band or album for review and free inclusion in the archive.';
+const canonical = 'https://danielbanariba.com/metal-archive/submit';
+const ogImage = 'https://danielbanariba.com/avatar.jpg';
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Submit your band | Metal Archive</title>
-  <meta name="description" content="Submit your band or album for review and free inclusion in the archive." />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/submit" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  <meta name="twitter:image" content={ogImage} />
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body class="form-page">

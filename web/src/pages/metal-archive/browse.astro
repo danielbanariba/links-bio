@@ -59,6 +59,11 @@ const countries = getAllCountries().map((f) => f.value);
 const years = getAllYears().map((f) => String(f.value));
 
 const totalCount = index.length;
+
+const pageTitle = 'Browse albums | Metal Archive';
+const metaDesc = `Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`;
+const canonical = 'https://danielbanariba.com/metal-archive/browse';
+const ogImage = initial[0]?.thumb || undefined;
 ---
 
 <!DOCTYPE html>
@@ -66,9 +71,18 @@ const totalCount = index.length;
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Browse albums | Metal Archive</title>
-  <meta name="description" content={`Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`} />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/browse" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  {ogImage && <meta property="og:image" content={ogImage} />}
+  <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  {ogImage && <meta name="twitter:image" content={ogImage} />}
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body>
