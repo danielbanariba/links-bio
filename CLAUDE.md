@@ -98,6 +98,17 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 ## The Astro frontend (`web/`) — the live site
 
 - **Astro 6, `output: 'static'`, Vercel adapter, Preact islands.** `better-sqlite3` is kept Vite-external (native module) — see `astro.config.mjs`. The adapter also injects **Vercel Web Analytics** (`webAnalytics: { enabled: true }`) into all 11 pages at build (still must be turned on in the Vercel dashboard to collect data).
+- **Security headers (`web/vercel.json`) reach the build output via a post-build script, not the adapter.**
+  The installed `@astrojs/vercel` has no general custom-headers passthrough — its `staticHeaders` option
+  only ever emits a Content-Security-Policy header, and only when Astro's own experimental
+  `security.csp` is enabled. `web/scripts/apply-vercel-headers.mjs`, wired into the `build` npm script
+  right after `astro build`, merges `web/vercel.json`'s `headers` into
+  `web/.vercel/output/config.json`'s `routes` as `{src, headers, continue: true}` entries placed before
+  `{handle: "filesystem"}`, idempotently (re-running it replaces its own prior entry instead of
+  stacking). It fails loudly instead of deploying a silently-wrong regex if a header `source` ever uses
+  a path-to-regexp named parameter (e.g. `:slug`) it can't faithfully translate to a Build Output API
+  `src` regex. `web/vercel.json` stays the single declared source of the headers — see "Deployment"
+  below for why the adapter/CLI can't just read it directly.
 - **`web/src/lib/db.ts` is the single DB gateway.** ALL database access goes through it — no inline DB opens in pages. It opens one read-only connection and exposes typed query functions (home feeds, album detail, facets, band pages, browse index). When a page needs data, add/return a function here.
 - **Routing:** `web/src/pages/index.astro` is the bio at `/`. The Metal Archive lives under `web/src/pages/metal-archive/` — the **folder provides the `/metal-archive` path prefix** (there is intentionally no `base` in the config), so public URLs are unchanged. Dynamic pages (`album/[id]`, `band/[band]`, `genre/[genre]`, `country/[country]`, `year/[year]`) enumerate paths via `getStaticPaths()` backed by `db.ts`.
 - **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (audio/YouTube player, synchronous-click autoplay) and `Search.tsx` (client-side search over `/browse-index.json`). `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search + Navbar.
@@ -176,11 +187,16 @@ anything for this site), then `sudo systemctl reload caddy`; confirm `curl -sI
 https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Caddy change.
 
 - **Production = Astro static build deployed to Vercel** with `vercel deploy --prod --prebuilt`, run **from the host** (the only machine with `reflex.db`). The Vercel project link lives in `web/.vercel/`,
-  and the **CLI is invoked from `web/`**, so it reads `web/vercel.json` — that is the live config (it
-  holds the security headers; see "The Astro frontend" above). The **root `vercel.json`** (`cleanUrls` +
-  `trailingSlash`) is dead config: the Astro adapter never copies it into `.vercel/output/config.json`,
-  and no deploy path `cd`s to the repo root before running `vercel`. It is left in place, not deleted,
-  in case a future deploy path starts running from the root.
+  and the **CLI is invoked from `web/`**. `--prebuilt` uploads only the already-built `web/.vercel/output`
+  directory — it does **not** re-read `web/vercel.json` at deploy time, so `web/vercel.json`'s declared
+  `headers` are NOT live on their own: `curl -sI https://danielbanariba.com/` used to show none of them.
+  `npm run build` (`web/package.json`) now also runs `web/scripts/apply-vercel-headers.mjs` right after
+  `astro build`, which merges `web/vercel.json`'s `headers` into `web/.vercel/output/config.json`'s
+  `routes` as `{src, headers, continue: true}` entries placed before `{handle: "filesystem"}` (see "The
+  Astro frontend" above); `web/vercel.json` stays the one declared source. The **root `vercel.json`**
+  (`cleanUrls` + `trailingSlash`) is dead config: the Astro adapter never copies it into
+  `.vercel/output/config.json`, and no deploy path `cd`s to the repo root before running `vercel`. It is
+  left in place, not deleted, in case a future deploy path starts running from the root.
 - **Two deploy paths, both preferring `VERCEL_TOKEN`** (decision D2): (1) the **`links-bio-sync.timer`**
   systemd unit, twice a day (see "Data layer & sync"); (2) the `.git/hooks/pre-push` hook, which
   **auto-deploys production when `main` is pushed** and aborts the push if build/deploy fails
