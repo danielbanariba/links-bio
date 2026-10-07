@@ -189,6 +189,10 @@ img {
   padding-bottom: 0.75rem;
   /* Hide scrollbar but keep scroll functionality */
   scrollbar-width: none;
+  /* #16: a right-edge fade signals there is more to scroll to -- these rows
+     hid 73-87% of their content with no affordance at all otherwise. */
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 .carousel-row::-webkit-scrollbar {
   display: none;
@@ -498,6 +502,15 @@ img {
   line-height: 1;
 }
 
+/* #15: at an extreme-zoom effective viewport (~195px wide at 200% zoom),
+   even the already-reduced mobile brand size (1.4rem, below) doesn't fit
+   on one line, and `white-space: nowrap` forced it past the viewport edge
+   instead of wrapping -- the other source of the sitewide horizontal
+   scroll at that zoom level. */
+@media (max-width: 220px) {
+  .navbar__brand { white-space: normal; overflow-wrap: break-word; line-height: 1.1; min-width: 0; }
+}
+
 /* {daniel_banariba}; logo colors — mirror LogoColor enum in colors.py */
 .logo-paren { color: #f1d700; }   /* LogoColor.PARENTESIS */
 .logo-word  { color: #c398f4; }   /* LogoColor.PALABRAS */
@@ -546,7 +559,7 @@ img {
   color: #fff;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 560px), (max-width: 900px) and (orientation: landscape) {
   .navbar__surprise-label { display: none; }
   .navbar__surprise { padding: 0.5em 0.55em; }
   .navbar__brand { font-size: 1.4rem; }
@@ -1576,6 +1589,12 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   #now-playing-bar .np-cover { width: 40px; height: 40px; }
   #now-playing-progress { max-width: 100%; }
 
+  /* #11: prev/play/next measured 38-40px here (below the 44px minimum the
+     bar already applies to .np-yt-link below), matching the treatment the
+     YouTube link gets a few lines down. */
+  .np-icon-btn { width: 44px; height: 44px; }
+  .np-toggle { width: 44px; height: 44px; }
+
   /* The right-side YouTube link stays visible on mobile (it used to be hidden,
      leaving no path out to the video). Collapse it to a compact icon-button
      with a ≥44px tap target so it is always reachable in the bar. */
@@ -1737,7 +1756,9 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 
 @media (max-width: 560px) {
   .home-search__btn { padding: 0.6rem 1rem; }
-  .home-search__input { font-size: 0.95rem; }
+  /* Stay at >=16px even here: WebKit auto-zooms on any focused input under
+     16px (#1) -- this override used to drop it to 0.95rem (15.2px). */
+  .home-search__input { font-size: 1rem; }
 }
 
 /* ─── Search island controls ─────────────────────────────────────────────────*/
@@ -1764,7 +1785,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border: 1px solid rgba(0, 115, 168, 0.3);
   border-radius: 0.6em;
   color: var(--text-header);
-  font-size: 0.95rem;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
@@ -1801,7 +1823,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border: 1px solid rgba(0, 115, 168, 0.3);
   border-radius: 0.5em;
   color: var(--text-body);
-  font-size: 0.85rem;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -1847,7 +1870,10 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   background: transparent;
   border: 1px solid var(--primary);
   color: var(--primary);
-  padding: 0.6rem 1.75rem;
+  /* #17: 0.6rem vertical padding measured ~37px tall -- below the 44px tap
+     target minimum applied elsewhere on mobile, and Load More is the sole
+     pagination control on Browse. */
+  padding: 0.85rem 1.75rem;
   border-radius: 2em;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1973,7 +1999,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border-radius: 0.5em;
   color: var(--text-body);
   font-family: var(--font-default);
-  font-size: 0.9em;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   padding: 0.6rem 0.85rem;
   transition: border-color 0.18s;
@@ -2555,7 +2582,12 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .tabbar { display: none; }   /* desktop: the top navbar handles navigation */
 
-@media (max-width: 767px) {
+/* #8: also cover landscape phones (768-900px wide) with the same swap -- a
+   portrait-only breakpoint let the nav tap targets fall back under the
+   44px minimum and hid the album grid above the fold whenever a phone was
+   rotated to landscape (e.g. to watch the embedded video), since neither
+   this media query nor the bio 44px tap-target fix below used to match. */
+@media (max-width: 767px), (max-width: 900px) and (orientation: landscape) {
   /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
      over primary nav) and centre the brand. */
   .navbar--ma .navbar__links { display: none; }
@@ -2588,7 +2620,11 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     gap: 3px;
     padding: 0 2px;
     color: var(--text-footer);
-    font-size: 0.6rem;
+    /* #15: fixed 0.6rem + a fixed 20px icon didn't shrink enough for the 5
+       items to fit under an extreme-zoom effective viewport (195px wide at
+       200% zoom measured scrollWidth 200 vs clientWidth 195) -- scale both
+       down with the available width via clamp(). */
+    font-size: clamp(0.45rem, 2.2vw, 0.6rem);
     font-weight: 500;
     text-decoration: none;
     transition: color 0.15s ease;
@@ -2599,7 +2635,7 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .tabbar__item svg { width: 20px; height: 20px; }
+  .tabbar__item svg { width: clamp(14px, 5vw, 20px); height: clamp(14px, 5vw, 20px); }
   .tabbar__item.is-active,
   .tabbar__item:active { color: var(--accent-bright); }
 
@@ -2622,6 +2658,9 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   padding-bottom: 0.5rem;
+  /* #16: same right-edge scroll affordance as .carousel-row above. */
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 .bands-row::-webkit-scrollbar { display: none; }
 
