@@ -237,3 +237,20 @@ def test_spoofed_cf_connecting_ip_from_non_loopback_peer_is_ignored(
     )
 
     assert limited.status_code == 429
+
+
+def test_honeypot_filled_drops_submission_silently(forms_client: TestClient) -> None:
+    """A filled honeypot field means a bot, not a human, filled the form (it
+    is invisible and unreachable for a real visitor). The response must
+    still look like a normal success -- so an adapting bot gets no signal
+    that it was caught -- but nothing may reach the DB or the admin's inbox.
+    """
+    res = forms_client.post(
+        "/api/metal-archive/submit",
+        json=_valid_submit_payload(website="http://spam.example"),
+    )
+
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    assert _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL) == []  # type: ignore[attr-defined]
+    assert forms_client.sent_emails == []  # type: ignore[attr-defined]

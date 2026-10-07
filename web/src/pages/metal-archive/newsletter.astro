@@ -56,6 +56,15 @@ import '../../styles/global.css';
           />
         </div>
 
+        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+             that fills every field fills this one too, so the server can
+             drop the submission silently. Never display:none -- some bots
+             skip fields hidden that way. -->
+        <input
+          type="text" id="website" name="website" class="sr-only"
+          tabindex="-1" autocomplete="off" aria-hidden="true"
+        />
+
         <!-- Toast -->
         <div class="form-toast" id="form-toast" role="alert"></div>
 
@@ -94,6 +103,10 @@ import '../../styles/global.css';
       toast!.style.display = 'none';
 
       const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+      // Honeypot: real visitors never see or fill this field; a bot that
+      // fills every field fills this one too, and the server drops the
+      // submission silently while still answering with success.
+      const website = (document.getElementById('website') as HTMLInputElement | null)?.value ?? '';
 
       if (!email || !email.includes('@')) {
         showToast('Please enter a valid email address.', true);
@@ -107,7 +120,7 @@ import '../../styles/global.css';
         const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, website }),
         });
 
         const json = await res.json().catch(() => ({}));

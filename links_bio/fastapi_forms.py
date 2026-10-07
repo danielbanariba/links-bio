@@ -104,6 +104,10 @@ NAME_MAX_LENGTH = 200
 EMAIL_MAX_LENGTH = 254
 URL_MAX_LENGTH = 500
 FREE_TEXT_MAX_LENGTH = 5000
+# Honeypot field: invisible and unreachable for a real visitor (see the
+# Astro form pages), so a non-empty value means a bot filled every field
+# including this one. A small cap is plenty.
+HONEYPOT_MAX_LENGTH = 200
 
 
 def _reject_crlf(value: str) -> str:
@@ -128,6 +132,7 @@ class SubmitRequest(BaseModel):
     youtube_url: str = Field(default="", max_length=URL_MAX_LENGTH)
     bandcamp_url: str = Field(default="", max_length=URL_MAX_LENGTH)
     description: str = Field(default="", max_length=FREE_TEXT_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
     @field_validator("band_name", "contact_email", "genre", "country", mode="before")
     @classmethod
@@ -163,6 +168,7 @@ class PromoRequest(BaseModel):
     extra_link_2: str = Field(default="", max_length=URL_MAX_LENGTH)
     extra_link_3: str = Field(default="", max_length=URL_MAX_LENGTH)
     extra_link_4: str = Field(default="", max_length=URL_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
     @field_validator("band_name", "email", "album_title", mode="before")
     @classmethod
@@ -184,6 +190,7 @@ class PromoRequest(BaseModel):
 
 class NewsletterRequest(BaseModel):
     email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -203,6 +210,7 @@ class ContactRequest(BaseModel):
     email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
     asunto: str = Field(default="", max_length=NAME_MAX_LENGTH)
     mensaje: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
     @field_validator("nombre", "email", "mensaje", mode="before")
     @classmethod
@@ -235,6 +243,13 @@ def _http_error(detail: str, status: int = 400) -> HTTPException:
 async def submit_band(req: SubmitRequest, request: Request):
     """Save a band submission to reflex.db."""
     _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        # Honeypot filled: a real visitor never sees or can reach this
+        # field. Respond exactly like success (so an adapting bot gets no
+        # signal it was caught), but write nothing and send no email.
+        logger.warning("Honeypot field filled on /submit; dropping silently")
+        return {"ok": True, "message": "Band submitted. We will review your submission soon."}
 
     try:
         with _db_session() as session:
@@ -285,6 +300,10 @@ async def submit_band(req: SubmitRequest, request: Request):
 async def promo_band(req: PromoRequest, request: Request):
     """Save a promo request + send email notification."""
     _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /promo; dropping silently")
+        return {"ok": True, "message": "Request received. We will get back to you soon."}
 
     # Genre: custom wins over dropdown selection
     genre = req.custom_genre.strip() or req.genre.strip()
@@ -350,6 +369,10 @@ async def newsletter_signup(req: NewsletterRequest, request: Request):
     """Subscribe an email to the newsletter. Rejects duplicates."""
     _enforce_rate_limit(_newsletter_limiter, request)
 
+    if req.website:
+        logger.warning("Honeypot field filled on /newsletter; dropping silently")
+        return {"ok": True, "message": "Subscribed. Welcome to the archive."}
+
     try:
         with _db_session() as session:
             existing = session.exec(
@@ -380,6 +403,10 @@ async def newsletter_signup(req: NewsletterRequest, request: Request):
 async def contact(req: ContactRequest, request: Request):
     """Portfolio contact form: save + send email notification."""
     _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /contact; dropping silently")
+        return {"ok": True, "message": "Message sent! I'll get back to you soon."}
 
     try:
         with _db_session() as session:

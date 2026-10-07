@@ -143,6 +143,15 @@ const GENRES = [
           ></textarea>
         </div>
 
+        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+             that fills every field fills this one too, so the server can
+             drop the submission silently. Never display:none -- some bots
+             skip fields hidden that way. -->
+        <input
+          type="text" id="website" name="website" class="sr-only"
+          tabindex="-1" autocomplete="off" aria-hidden="true"
+        />
+
         <!-- Toast -->
         <div class="form-toast" id="form-toast" role="alert"></div>
 
