@@ -16,6 +16,7 @@ limiter entirely.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from collections import deque
 from threading import Lock
@@ -29,12 +30,30 @@ logger = logging.getLogger("rate_limit")
 # identities could grow the internal dict without bound.
 MAX_TRACKED_KEYS = 10_000
 
-# Only trust the CF-Connecting-IP header when the direct peer is one of
-# these -- i.e. the request actually came through the local cloudflared
-# tunnel rather than being spoofed by an arbitrary remote peer.
-LOOPBACK_ADDRESSES = {"127.0.0.1", "::1"}
-
 CF_CONNECTING_IP_HEADER = "CF-Connecting-IP"
+
+
+def _is_loopback_peer(host: str) -> bool:
+    """Return True when `host` is the local cloudflared tunnel's own
+    loopback address -- i.e. the request really did arrive through
+    cloudflared on this host, so `CF-Connecting-IP` is trustworthy.
+
+    An exact-string check against {"127.0.0.1", "::1"} missed other valid
+    loopback forms: the whole 127.0.0.0/8 block (e.g. "127.0.0.2") is
+    loopback too, and an IPv4-mapped IPv6 address (e.g.
+    "::ffff:127.0.0.1") is loopback whenever the mapped IPv4 address is.
+    Any value `ipaddress` cannot parse (e.g. TestClient's own "testclient"
+    pseudo-peer) is treated as non-loopback, never as trusted.
+    """
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if addr.is_loopback:
+        return True
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        return addr.ipv4_mapped.is_loopback
+    return False
 
 
 def resolve_client_key(request: Request) -> str:
@@ -46,7 +65,7 @@ def resolve_client_key(request: Request) -> str:
     so a non-loopback caller cannot spoof a fresh identity per request.
     """
     peer = request.client.host if request.client else ""
-    if peer in LOOPBACK_ADDRESSES:
+    if _is_loopback_peer(peer):
         forwarded = request.headers.get(CF_CONNECTING_IP_HEADER)
         if forwarded:
             return forwarded
@@ -77,7 +96,13 @@ class SlidingWindowLimiter:
         in the current window expires.
         """
         with self._lock:
-            hits = self._hits.setdefault(key, deque())
+            # Pop + reinsert so a touched key always lands at the end of
+            # the dict -- Python dicts preserve insertion order, so this
+            # makes iteration order double as least-recently-touched-first
+            # order for `_evict_oldest` below, at no extra bookkeeping cost.
+            hits = self._hits.pop(key, None)
+            if hits is None:
+                hits = deque()
 
             # Drop hits that fell out of the window.
             while hits and now - hits[0] >= self.window_seconds:
@@ -85,18 +110,31 @@ class SlidingWindowLimiter:
 
             if len(hits) >= self.limit:
                 retry_after = self.window_seconds - (now - hits[0])
+                self._hits[key] = hits
                 return False, max(retry_after, 0.0)
 
             hits.append(now)
+            self._hits[key] = hits
 
             if len(self._hits) > self.max_tracked_keys:
-                self._prune_expired(now)
+                self._evict_oldest(now)
 
             return True, 0.0
 
-    def _prune_expired(self, now: float) -> None:
-        """Drop keys whose entire window has already expired. Bounds memory
-        when many distinct keys are seen. Caller holds `self._lock`."""
+    def _evict_oldest(self, now: float) -> None:
+        """Keep the tracked-key count within `max_tracked_keys`.
+
+        Before this, a flood of distinct, still-active (never-expired)
+        keys could grow `self._hits` past `max_tracked_keys` forever --
+        the old sweep only ever dropped keys whose whole window had
+        already expired, which is never true for a client hammering the
+        limiter continuously. First drop any key that genuinely has
+        expired (free, no live client affected), then evict the
+        least-recently-touched survivors so the cap actually holds; those
+        clients simply start a fresh window on their next request, which
+        is the explicitly accepted cost of keeping memory bounded.
+        Caller holds `self._lock`.
+        """
         expired = [
             key
             for key, hits in self._hits.items()
@@ -104,6 +142,10 @@ class SlidingWindowLimiter:
         ]
         for key in expired:
             del self._hits[key]
+
+        while len(self._hits) > self.max_tracked_keys:
+            oldest_key = next(iter(self._hits))
+            del self._hits[oldest_key]
 
     def reset(self) -> None:
         """Clear all tracked state. Used by tests to keep cases independent

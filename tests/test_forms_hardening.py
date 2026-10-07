@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from links_bio import fastapi_forms
+from links_bio import fastapi_forms, rate_limit
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.submission import Submission
 
@@ -351,3 +351,69 @@ def test_slow_db_write_does_not_block_a_concurrent_fast_request(
     )
     assert slow_res.status_code == 200, slow_res.text
 
+
+# ─── R3-002: loopback detection must use ipaddress, not exact string match ─
+
+
+class _FakeClient:
+    def __init__(self, host: str) -> None:
+        self.host = host
+
+
+class _FakeRequest:
+    """Minimal stand-in for fastapi.Request: `resolve_client_key` only
+    reads `.client.host` and `.headers.get(...)`."""
+
+    def __init__(self, host: str, headers: dict[str, str] | None = None) -> None:
+        self.client = _FakeClient(host)
+        self.headers = headers or {}
+
+
+@pytest.mark.parametrize("loopback_host", ["127.0.0.2", "::ffff:127.0.0.1"])
+def test_loopback_detection_trusts_cf_header_for_every_loopback_form(
+    loopback_host: str,
+) -> None:
+    """R3-002: the old check matched only the exact strings "127.0.0.1"
+    and "::1". The whole 127.0.0.0/8 block is loopback too (cloudflared
+    could just as well connect from "127.0.0.2"), and an IPv4-mapped IPv6
+    address like "::ffff:127.0.0.1" is loopback whenever its mapped IPv4
+    address is -- both were wrongly treated as untrusted, so the real
+    CF-Connecting-IP header was silently ignored for them.
+    """
+    req = _FakeRequest(loopback_host, {"CF-Connecting-IP": "203.0.113.9"})
+
+    assert rate_limit.resolve_client_key(req) == "203.0.113.9"
+
+
+def test_loopback_detection_never_trusts_an_unparseable_peer() -> None:
+    """A peer address `ipaddress` cannot parse at all -- TestClient's own
+    "testclient" pseudo-peer, or anything else malformed -- must never be
+    treated as loopback; `ipaddress.ip_address` raises ValueError for it,
+    and that must fail closed (non-loopback), not raise out of the
+    limiter and 500 every request.
+    """
+    req = _FakeRequest("testclient", {"CF-Connecting-IP": "203.0.113.9"})
+
+    assert rate_limit.resolve_client_key(req) == "testclient"
+
+
+# ─── R3-004: MAX_TRACKED_KEYS must be a real ceiling ───────────────────────
+
+
+def test_tracked_keys_never_exceed_the_configured_cap() -> None:
+    """R3-004: the old sweep only ever dropped keys whose entire window
+    had already expired. A flood of distinct, continuously-active clients
+    (the realistic abuse case -- nothing about them ever "expires" while
+    they keep hitting the limiter) grew the tracked-key dict past
+    `max_tracked_keys` without bound, defeating the whole point of the
+    cap.
+    """
+    limiter = rate_limit.SlidingWindowLimiter(
+        limit=5, window_seconds=600, max_tracked_keys=10
+    )
+
+    for i in range(50):
+        allowed, _ = limiter.check(f"client-{i}", now=float(i))
+        assert allowed is True
+
+    assert len(limiter._hits) <= 10
