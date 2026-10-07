@@ -1458,6 +1458,9 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 }
 @keyframes mp-progress-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 #now-playing-progress.np-loading { animation: mp-progress-pulse 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  #now-playing-progress.np-loading { animation: none; }
+}
 
 .np-right {
   flex: 1 1 0;

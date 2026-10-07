@@ -96,9 +96,9 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
 <script>
   // Wrapped in astro:page-load so the form handler re-binds after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
-  function initNewsletterForm() {
-    const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE } from '../../lib/api.js';
 
+  function initNewsletterForm() {
     const form    = document.getElementById('newsletter-form') as HTMLFormElement | null;
     const btn     = document.getElementById('submit-btn') as HTMLButtonElement | null;
     const toast   = document.getElementById('form-toast') as HTMLElement | null;
@@ -135,6 +135,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, website }),
+          signal: AbortSignal.timeout(FORM_FETCH_TIMEOUT_MS),
         });
 
         const json = await res.json().catch(() => ({}));
@@ -147,8 +148,12 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
         } else {
           showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
         }
-      } catch {
-        showToast('Could not connect. Check your internet connection.', true);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'TimeoutError') {
+          showToast(FORM_TIMEOUT_MESSAGE, true);
+        } else {
+          showToast('Could not connect. Check your internet connection.', true);
+        }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Subscribe';

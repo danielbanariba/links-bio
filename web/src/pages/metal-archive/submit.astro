@@ -210,9 +210,9 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   // Wrapped in astro:page-load so the form handler re-binds after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
   // A per-form flag prevents double-binding.
-  function initSubmitForm() {
-    const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE } from '../../lib/api.js';
 
+  function initSubmitForm() {
     const form     = document.getElementById('submit-form') as HTMLFormElement | null;
     const btn      = document.getElementById('submit-btn') as HTMLButtonElement | null;
     const toast    = document.getElementById('form-toast') as HTMLElement | null;
@@ -272,6 +272,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
+          signal: AbortSignal.timeout(FORM_FETCH_TIMEOUT_MS),
         });
 
         const json = await res.json().catch(() => ({}));
@@ -282,8 +283,12 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
         } else {
           showToast(json.detail ?? 'Something went wrong. Please try again.', true);
         }
-      } catch {
-        showToast('Could not connect. Check your internet connection.', true);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'TimeoutError') {
+          showToast(FORM_TIMEOUT_MESSAGE, true);
+        } else {
+          showToast('Could not connect. Check your internet connection.', true);
+        }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Submit band';
