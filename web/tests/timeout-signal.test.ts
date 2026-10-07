@@ -56,6 +56,9 @@ test('timeoutSignal uses the native AbortSignal.timeout when it is available', (
 test('isTimeoutError treats both TimeoutError and AbortError as a timeout, nothing else', () => {
   assert.equal(isTimeoutError(new DOMException('timed out', 'TimeoutError')), true);
   assert.equal(isTimeoutError(new DOMException('aborted', 'AbortError')), true);
+  // A DOMException with any other name is a different failure, not a timeout:
+  // guards against the check collapsing to `err instanceof DOMException`.
+  assert.equal(isTimeoutError(new DOMException('bad header', 'SyntaxError')), false);
   assert.equal(isTimeoutError(new TypeError('Failed to fetch')), false);
   assert.equal(isTimeoutError(undefined), false);
 });
