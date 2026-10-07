@@ -18,6 +18,7 @@ and the journal), instead of silently swallowing it.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,18 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from links_bio.notifications import _send_email_notification  # noqa: E402
 
 JOURNAL_LINES = 60
+# Secrets loaded from .env that must never be forwarded by email, even if a
+# unit printed one to its journal.
+SECRET_ENV_VARS = ("VERCEL_TOKEN", "GMAIL_APP_PASSWORD", "YOUTUBE_API_KEY",
+                   "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")
+
+
+def _redact(text: str) -> str:
+    for name in SECRET_ENV_VARS:
+        value = os.environ.get(name, "")
+        if len(value) >= 8:
+            text = text.replace(value, "****")
+    return text
 
 
 def _journal_tail(unit: str, lines: int = JOURNAL_LINES) -> str:
@@ -60,7 +73,7 @@ def notify(unit: str) -> str | None:
         f"systemd unit {unit} reported failure (OnFailure=).\n\n"
         f"Last {JOURNAL_LINES} journal lines:\n"
         f"{'-' * 60}\n"
-        f"{_journal_tail(unit)}"
+        f"{_redact(_journal_tail(unit))}"
     )
     return _send_email_notification(subject, body)
 

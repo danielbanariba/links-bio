@@ -18,6 +18,27 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from scripts import notify_failure  # noqa: E402
 
 
+def test_notify_redacts_secrets_from_the_journal_tail(monkeypatch):
+    """Catches a secret that some unit printed to its journal (for example a
+    deploy token in a traceback) being forwarded verbatim in the alert email."""
+    monkeypatch.setenv("VERCEL_TOKEN", "super-secret-token-xyz")
+    monkeypatch.setattr(
+        notify_failure,
+        "_journal_tail",
+        lambda unit, lines=60: "vercel deploy --token super-secret-token-xyz failed",
+    )
+    bodies = []
+    monkeypatch.setattr(
+        notify_failure, "_send_email_notification", lambda subject, body: bodies.append(body)
+    )
+
+    notify_failure.notify("links-bio-sync.service")
+
+    assert len(bodies) == 1
+    assert "super-secret-token-xyz" not in bodies[0]
+    assert "vercel deploy --token" in bodies[0]
+
+
 def test_notify_builds_subject_and_body_and_sends_exactly_once(monkeypatch):
     calls = []
 

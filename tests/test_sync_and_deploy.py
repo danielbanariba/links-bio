@@ -72,6 +72,30 @@ def test_deploy_command_omits_token_flag_when_unset(monkeypatch, fake_vercel_bin
     assert "--token" not in recorded
 
 
+def test_failed_deploy_never_exposes_token(monkeypatch, fake_vercel_bin, caplog):
+    """Catches the failure-path leak: subprocess.run(check=True) raises
+    CalledProcessError whose message embeds the full argv, token included,
+    which then reaches the journal and the OnFailure alert email."""
+    import logging
+    import traceback
+
+    import pytest
+
+    (fake_vercel_bin / "vercel.exit").write_text("1")
+    monkeypatch.setenv("VERCEL_TOKEN", "super-secret-token-xyz")
+    env = dict(os.environ)
+    env["PATH"] = str(fake_vercel_bin) + os.pathsep + env.get("PATH", "")
+
+    caplog.set_level(logging.INFO)
+    with pytest.raises(Exception) as excinfo:
+        bg.deploy_to_vercel(env)
+
+    rendered = "".join(traceback.format_exception(excinfo.value))
+    assert "super-secret-token-xyz" not in rendered
+    for record in caplog.records:
+        assert "super-secret-token-xyz" not in record.getMessage()
+
+
 def test_main_exits_nonzero_when_deploy_fails(monkeypatch, fake_vercel_bin, clean_env):
     """Catches a regression of the exact bug this task fixes: a failing
     deploy silently swallowed instead of making the process (and therefore

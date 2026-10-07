@@ -182,8 +182,10 @@ def deploy_to_vercel(env: dict) -> None:
     the "Not authorized" failures, but it's still the right flag to match).
 
     The token is passed as a real argv element to the real subprocess, but
-    is never written to this process's own logs: `_masked_cmd` redacts it
-    in the one log line that shows the command. Raises on failure.
+    is never written to this process's own logs or exceptions: the command
+    is only ever rendered through `_masked_cmd`, and failure raises a
+    RuntimeError instead of CalledProcessError, whose message would embed
+    the raw argv (and end up in the journal and the OnFailure alert email).
     """
     import subprocess
     from pathlib import Path
@@ -195,7 +197,11 @@ def deploy_to_vercel(env: dict) -> None:
         deploy_cmd += ["--token", token]
 
     _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
-    subprocess.run(deploy_cmd, cwd=str(web_dir), check=True, env=env)
+    result = subprocess.run(deploy_cmd, cwd=str(web_dir), env=env)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"vercel deploy failed with exit code {result.returncode}: {_masked_cmd(deploy_cmd)}"
+        )
     _log("Deploy Astro completado.")
 
 
