@@ -249,23 +249,6 @@ def test_spoofed_cf_connecting_ip_from_non_loopback_peer_is_ignored(
     assert limited.status_code == 429
 
 
-def test_honeypot_filled_drops_submission_silently(forms_client: TestClient) -> None:
-    """A filled honeypot field means a bot, not a human, filled the form (it
-    is invisible and unreachable for a real visitor). The response must
-    still look like a normal success -- so an adapting bot gets no signal
-    that it was caught -- but nothing may reach the DB or the admin's inbox.
-    """
-    res = forms_client.post(
-        "/api/metal-archive/submit",
-        json=_valid_submit_payload(website="http://spam.example"),
-    )
-
-    assert res.status_code == 200
-    assert res.json()["ok"] is True
-    assert _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL) == []  # type: ignore[attr-defined]
-    assert forms_client.sent_emails == []  # type: ignore[attr-defined]
-
-
 def test_concurrent_newsletter_signup_returns_409_not_500(
     forms_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -479,9 +462,11 @@ _ENDPOINTS = [
 def test_honeypot_filled_drops_submission_silently_on_every_endpoint(
     forms_client: TestClient, path: str, payload_factory
 ) -> None:
-    """The original honeypot guard only exercised /submit. A filled
-    honeypot must drop the submission -- no DB row, no admin email -- on
-    every one of the 4 endpoints, not just that one.
+    """A filled honeypot field means a bot, not a human, filled the form (it
+    is invisible and unreachable for a real visitor). The response must
+    still look like a normal success -- so an adapting bot gets no signal
+    that it was caught -- but nothing may reach the DB or the admin's inbox,
+    on every one of the 4 endpoints.
     """
     email = f"t9-honeypot-coverage{path.replace('/', '-')}@example.com"
     email_field = "contact_email" if path.endswith("/submit") else "email"
