@@ -11,6 +11,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlmodel import create_engine
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEV_DB = REPO_ROOT / "reflex.db"
@@ -73,3 +75,51 @@ def fake_vercel_bin(tmp_path: Path) -> Path:
     )
     script.chmod(0o755)
     return bin_dir
+
+
+@pytest.fixture
+def forms_client_factory(scratch_db: Path, clean_env, monkeypatch):
+    """Factory for TestClients against the real FastAPI forms app, all
+    sharing one scratch DB, one stubbed email sink, and the process-wide
+    rate limiters -- the same way every caller shares one uvicorn process
+    in production. Pass a `client=(host, port)` tuple to simulate a
+    specific direct TCP peer (the default is TestClient's own "testclient"
+    pseudo-peer, which is never a loopback address). Shared by
+    tests/test_forms_hardening.py and tests/test_forms_contract.py so both
+    build clients the same way.
+    """
+    from links_bio import fastapi_forms
+
+    engine = create_engine(
+        f"sqlite:///{scratch_db}", connect_args={"check_same_thread": False}
+    )
+    monkeypatch.setattr(fastapi_forms, "engine", engine)
+
+    sent: list[tuple[str, str]] = []
+
+    def fake_send(subject: str, body: str) -> None:
+        sent.append((subject, body))
+        return None
+
+    monkeypatch.setattr(fastapi_forms, "_send_email_notification", fake_send)
+
+    fastapi_forms._email_limiter.reset()
+    fastapi_forms._newsletter_limiter.reset()
+
+    def make(client: tuple[str, int] = ("testclient", 50000)) -> TestClient:
+        tc = TestClient(fastapi_forms.app, client=client)
+        tc.sent_emails = sent  # type: ignore[attr-defined]
+        tc.db_engine = engine  # type: ignore[attr-defined]
+        return tc
+
+    yield make
+
+    fastapi_forms._email_limiter.reset()
+    fastapi_forms._newsletter_limiter.reset()
+
+
+@pytest.fixture
+def forms_client(forms_client_factory) -> TestClient:
+    """A single default-peer TestClient -- the common case for tests that
+    don't care about client identity."""
+    return forms_client_factory()

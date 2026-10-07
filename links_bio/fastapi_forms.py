@@ -139,7 +139,7 @@ class SubmitRequest(BaseModel):
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
+            raise ValueError("This field is required.")
         return v.strip()
 
     @field_validator(
@@ -175,7 +175,7 @@ class PromoRequest(BaseModel):
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
+            raise ValueError("This field is required.")
         return v.strip()
 
     @field_validator(
@@ -197,7 +197,7 @@ class NewsletterRequest(BaseModel):
     @classmethod
     def must_be_valid_email(cls, v: str) -> str:
         if not v or "@" not in v or "." not in v.split("@")[-1]:
-            raise ValueError("Email invalido")
+            raise ValueError("Invalid email address.")
         return v.strip().lower()
 
     @field_validator("email", mode="after")
@@ -207,22 +207,28 @@ class NewsletterRequest(BaseModel):
 
 
 class ContactRequest(BaseModel):
-    nombre: str = Field(..., max_length=NAME_MAX_LENGTH)
+    # Field names match what web/src/pages/index.astro's contact form
+    # actually sends (FormData over inputs named name/email/subject/message)
+    # -- the model used to require nombre/email/asunto/mensaje instead, so
+    # EVERY real contact submission returned 422 from 2026-05-21 onward.
+    # Nothing else posts to this endpoint, so no Spanish-named aliases are
+    # kept.
+    name: str = Field(..., max_length=NAME_MAX_LENGTH)
     email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
-    asunto: str = Field(default="", max_length=NAME_MAX_LENGTH)
-    mensaje: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
+    subject: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    message: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
     website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
-    @field_validator("nombre", "email", "mensaje", mode="before")
+    @field_validator("name", "email", "message", mode="before")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
+            raise ValueError("This field is required.")
         return v.strip()
 
-    # `mensaje` is genuinely multi-line free text (a visitor's message), so
+    # `message` is genuinely multi-line free text (a visitor's message), so
     # it is exempt from the single-line CR/LF check that applies to the rest.
-    @field_validator("nombre", "email", "asunto", mode="after")
+    @field_validator("name", "email", "subject", mode="after")
     @classmethod
     def _no_crlf(cls, v: str) -> str:
         return _reject_crlf(v)
@@ -424,15 +430,15 @@ async def contact(req: ContactRequest, request: Request):
     try:
         with _db_session() as session:
             msg = ContactMessage(
-                name=req.nombre,
+                name=req.name,
                 email=req.email,
-                company=req.asunto,
-                message=req.mensaje,
+                company=req.subject,
+                message=req.message,
                 package_interest="portfolio",
             )
             session.add(msg)
             session.commit()
-            logger.info(f"Contact message saved: {req.nombre} <{req.email}>")
+            logger.info(f"Contact message saved: {req.name} <{req.email}>")
     except Exception as exc:
         logger.error(f"DB error on contact: {exc}")
         raise HTTPException(status_code=500, detail="Could not send your message. Please try again.")
@@ -440,13 +446,13 @@ async def contact(req: ContactRequest, request: Request):
     email_body = (
         f"Nuevo mensaje de contacto desde el portfolio\n"
         f"{'=' * 50}\n\n"
-        f"Nombre: {req.nombre}\n"
+        f"Nombre: {req.name}\n"
         f"Email: {req.email}\n"
-        f"Asunto: {req.asunto or '(sin asunto)'}\n\n"
-        f"Mensaje:\n{req.mensaje}\n"
+        f"Asunto: {req.subject or '(sin asunto)'}\n\n"
+        f"Mensaje:\n{req.message}\n"
     )
     err = _send_email_notification(
-        subject=f"Portfolio: mensaje de {req.nombre}",
+        subject=f"Portfolio: mensaje de {req.name}",
         body=email_body,
     )
     if err:
