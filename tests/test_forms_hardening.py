@@ -11,8 +11,13 @@ sending is always stubbed so no test can ever reach real SMTP.
 """
 from __future__ import annotations
 
+import asyncio
+import sqlite3
+import threading
+import time
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -36,6 +41,12 @@ def _valid_submit_payload(**overrides: str) -> dict:
         "genre": "Death Metal",
         "country": "Honduras",
     }
+    payload.update(overrides)
+    return payload
+
+
+def _valid_newsletter_payload(**overrides: str) -> dict:
+    payload = {"email": "t9-hardening-newsletter@example.com"}
     payload.update(overrides)
     return payload
 
@@ -261,3 +272,82 @@ def test_concurrent_newsletter_signup_returns_409_not_500(
 
     assert res.status_code == 409
     assert res.json()["detail"] == "This email is already subscribed."
+
+
+# ─── R3-003: handlers must run off the event loop ──────────────────────────
+
+
+def _hold_write_lock(db_path: str, hold_seconds: float, started: threading.Event) -> None:
+    """Hold SQLite's write lock on `db_path` for `hold_seconds`, signalling
+    `started` once acquired, so a concurrent write through the app is
+    forced to actually wait -- mirroring tests/test_db_busy_timeout.py's
+    helper, duplicated locally since it is a small, self-contained seam
+    and this file's allowed edit surface does not include that one.
+    """
+    conn = sqlite3.connect(db_path)
+    conn.execute("BEGIN IMMEDIATE")
+    started.set()
+    time.sleep(hold_seconds)
+    conn.commit()
+    conn.close()
+
+
+def test_slow_db_write_does_not_block_a_concurrent_fast_request(
+    forms_client_factory, scratch_db: Path
+) -> None:
+    """R3-003: the route handlers were declared `async def` but ran plain
+    synchronous SQLAlchemy/SQLite work directly on the single asyncio
+    event loop that one uvicorn process uses for every connection. A
+    write queued behind another connection's held write lock (up to the
+    30s busy_timeout in production) therefore froze EVERY other in-flight
+    request on the process -- including ones that touch no database at
+    all. Handlers must run in a worker thread (plain `def`, which FastAPI
+    offloads via its threadpool) so a slow write never blocks an unrelated
+    fast request.
+
+    Driven directly over ASGI with httpx + asyncio (not TestClient):
+    starting the timer right when both requests are scheduled, rather
+    than when each one happens to start running, is what makes this
+    deterministic -- if the event loop is blocked, the fast request's
+    completion is delayed no matter when its coroutine was created.
+    """
+    forms_client_factory()  # resets the shared rate limiters via the fixture
+
+    hold_seconds = 3.0
+    started = threading.Event()
+    holder = threading.Thread(
+        target=_hold_write_lock, args=(str(scratch_db), hold_seconds, started)
+    )
+    holder.start()
+    assert started.wait(timeout=5), "holder thread never acquired the write lock"
+
+    async def run() -> tuple[httpx.Response, httpx.Response, float]:
+        transport = httpx.ASGITransport(app=fastapi_forms.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            start = time.perf_counter()
+            slow_task = asyncio.create_task(
+                client.post(
+                    "/api/metal-archive/newsletter",
+                    json=_valid_newsletter_payload(email="t9-concurrency@example.com"),
+                )
+            )
+            fast_task = asyncio.create_task(client.get("/this-route-does-not-exist"))
+            fast_res = await fast_task
+            elapsed = time.perf_counter() - start
+            slow_res = await slow_task
+            return slow_res, fast_res, elapsed
+
+    try:
+        slow_res, fast_res, elapsed = asyncio.run(run())
+    finally:
+        holder.join(timeout=hold_seconds + 10)
+
+    assert fast_res.status_code == 404
+    assert elapsed < 1.5, (
+        f"a fast, unrelated request took {elapsed:.2f}s while a slow DB "
+        "write was in flight -- the event loop was blocked"
+    )
+    assert slow_res.status_code == 200, slow_res.text
+

@@ -247,7 +247,7 @@ def _http_error(detail: str, status: int = 400) -> HTTPException:
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.post("/api/metal-archive/submit")
-async def submit_band(req: SubmitRequest, request: Request):
+def submit_band(req: SubmitRequest, request: Request):
     """Save a band submission to reflex.db."""
     _enforce_rate_limit(_email_limiter, request)
 
@@ -304,7 +304,7 @@ async def submit_band(req: SubmitRequest, request: Request):
 
 
 @app.post("/api/metal-archive/promo")
-async def promo_band(req: PromoRequest, request: Request):
+def promo_band(req: PromoRequest, request: Request):
     """Save a promo request + send email notification."""
     _enforce_rate_limit(_email_limiter, request)
 
@@ -372,7 +372,7 @@ async def promo_band(req: PromoRequest, request: Request):
 
 
 @app.post("/api/metal-archive/newsletter")
-async def newsletter_signup(req: NewsletterRequest, request: Request):
+def newsletter_signup(req: NewsletterRequest, request: Request):
     """Subscribe an email to the newsletter. Rejects duplicates."""
     _enforce_rate_limit(_newsletter_limiter, request)
 
@@ -419,7 +419,7 @@ async def newsletter_signup(req: NewsletterRequest, request: Request):
 
 
 @app.post("/api/metal-archive/contact")
-async def contact(req: ContactRequest, request: Request):
+def contact(req: ContactRequest, request: Request):
     """Portfolio contact form: save + send email notification."""
     _enforce_rate_limit(_email_limiter, request)
 
