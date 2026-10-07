@@ -81,7 +81,7 @@ production this same pipeline (plus the Astro build+deploy) runs automatically o
 "Data layer & sync" below.
 ```bash
 source env/bin/activate
-./sync_all.sh                                  # full pipeline: youtube → artwork → fallback → normalize
+./sync_all.sh                                  # full pipeline: youtube → fallback → normalize
 python sync_youtube_to_db.py --solo-nuevos --mark-featured   # individual steps also runnable
 ```
 
@@ -101,7 +101,7 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 - **`web/src/lib/db.ts` is the single DB gateway.** ALL database access goes through it — no inline DB opens in pages. It opens one read-only connection and exposes typed query functions (home feeds, album detail, facets, band pages, browse index). When a page needs data, add/return a function here.
 - **Routing:** `web/src/pages/index.astro` is the bio at `/`. The Metal Archive lives under `web/src/pages/metal-archive/` — the **folder provides the `/metal-archive` path prefix** (there is intentionally no `base` in the config), so public URLs are unchanged. Dynamic pages (`album/[id]`, `band/[band]`, `genre/[genre]`, `country/[country]`, `year/[year]`) enumerate paths via `getStaticPaths()` backed by `db.ts`.
 - **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (audio/YouTube player, synchronous-click autoplay) and `Search.tsx` (client-side search over `/browse-index.json`). `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search + Navbar.
-- **Per-album color theming:** `web/src/lib/vibrant.ts` extracts a dominant color per cover at build time (node-vibrant + `sharp` for webp decode), cached in `web/.vibrant-cache.json` so unchanged covers skip re-extraction. ~1300 covers behind a rate-limited CDN → it uses a concurrency gate + 429 backoff. Don't delete the cache file casually; a cold build re-fetches every cover.
+- **Per-album color theming:** `web/src/lib/vibrant.ts` extracts a dominant color per cover at build time (node-vibrant + `sharp` for webp decode), cached in `web/.vibrant-cache.json` so unchanged covers skip re-extraction. Covers are YouTube thumbnails (see "Data layer & sync"). The concurrency gate + 429 backoff in `vibrant.ts` date from when covers came from the rate-limited `cdn.deathgrind.club`, and stay as a safety net for a cold build of ~2700 covers. Don't delete the cache file casually; a cold build re-fetches every cover.
 - **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match.
 - **URL slugs go through `slugify()` in `db.ts`** — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
 - **DB values are Spanish, the UI is English — translate in `web/src/lib/labels.ts`.** `albums.country` holds Spanish names (`Estados Unidos`, `Alemania`) because that is what the YouTube sync writes, and `albums.genre` holds one Spanish placeholder (`Género desconocido`). `labels.ts` is the single source of truth mapping a raw DB value to its English label + flag: `countryLabel()`, `countryFlag()`, `genreLabel()`. **Slugs and query values must keep using the RAW database value** — that is why `/metal-archive/country/estados-unidos` still works and no inbound link broke. Never render `album.country` or a country facet value directly; never hardcode a flag map (it used to be copy-pasted into two pages).
@@ -131,15 +131,31 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 ## Data layer & sync (`links_bio/`, root scripts)
 
 - **`reflex.db` (SQLite) is the source of truth.** Schema = SQLModel models in `links_bio/models/`: `albums` (main catalog, many indexed columns), `tracks`, `similar_bands` (column is `similar_band_name`), `submissions`, `newsletter_subscribers`, `contact_messages`. Migrations live in `alembic/`. Models are discovered for migrations via `import links_bio.models` in `links_bio/links_bio.py`.
-- **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured), `sync_artwork_deathgrind.py` and `sync_artwork_fallback.py` (album covers), plus `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`, `scripts/seed_data.py`. `sync_all.sh` orchestrates the DB-only chain manually (no deploy).
+- **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured — also sets
+  `album_artwork_url` to the video's YouTube thumbnail, the cover source of truth, on every full sync)
+  and `sync_artwork_fallback.py` (fallback covers: Metal Archives / YouTube), plus
+  `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`,
+  `scripts/seed_data.py`. `sync_all.sh` orchestrates the DB-only chain manually (no deploy). There used
+  to be a `sync_artwork_deathgrind.py` step too; it was removed (see below) along with the one-off
+  `scripts/fix_artwork_mismatch.py` repair script that depended on it.
 - **One production sync+deploy trigger:** the user systemd timer **`links-bio-sync.timer`** (`06:00` &
   `18:00`, `~/.config/systemd/user/`) runs **`links-bio-sync.service`** once (`Type=oneshot`), which calls
   `scripts/sync_and_deploy.py`. That script imports `links_bio/background_sync.py`'s `run_*` step
-  functions directly (youtube sync → normalize → artwork → Astro build+deploy) and exits — there is no
-  long-lived process and no daemon thread. This replaced the old split between a DB-only `sync_web.timer`
-  and an in-app Reflex daemon thread, both retired once the Reflex app itself was removed (T5/T7). A
-  failure triggers `OnFailure=notify-failure@%n.service` (`scripts/notify_failure.py`), the single email
-  alert mechanism for every systemd unit in this project — see "Deployment" below.
+  functions directly (youtube sync → normalize → Astro build+deploy) and exits — there is no long-lived
+  process and no daemon thread. This replaced the old split between a DB-only `sync_web.timer` and an
+  in-app Reflex daemon thread, both retired once the Reflex app itself was removed (T5/T7). A failure
+  triggers `OnFailure=notify-failure@%n.service` (`scripts/notify_failure.py`), the single email alert
+  mechanism for every systemd unit in this project — see "Deployment" below.
+- **There is no artwork step; YouTube thumbnails are the only cover source.** `sync_youtube_to_db.py`
+  writes `album_artwork_url` from the video thumbnail on insert and on every full sync. The DeathGrind.club
+  step (`run_artwork_sync()`, `sync_artwork_deathgrind.py`, `--skip-artwork`) was removed in Oct 2026 for two reasons:
+  - `cdn.deathgrind.club` sends `Cross-Origin-Resource-Policy: same-site`, so browsers block those covers
+    on this site.
+  - Each full sync overwrote the covers the step had found, so a ~2700-album backlog kept coming back,
+    and that backlog blew the sync unit's timeout.
+
+  Any DeathGrind URL still in the DB is replaced by the next full sync. To force one, run
+  `scripts/sync_and_deploy.py --full-youtube-sync`.
 - **YouTube auth:** `links_bio/youtube_auth.py` supports API Key or OAuth refresh token. Token helpers: `get_refresh_token.py`, `scripts/regenerate_youtube_token.py`.
 
 ## Deployment

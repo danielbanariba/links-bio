@@ -3,10 +3,15 @@
 # sync_all.sh — Orquestador de sincronizacion completa
 #
 # Ejecuta en orden:
-#   1. sync_youtube_to_db.py  (videos -> DB + mark featured)
-#   2. sync_artwork_deathgrind.py (portadas desde deathgrind.club)
-#   3. sync_artwork_fallback.py (portadas fallback: Metal Archives / YouTube)
-#   4. normalize_db.py (normalizar generos y paises)
+#   1. sync_youtube_to_db.py  (videos -> DB + mark featured; tambien fija
+#      album_artwork_url al thumbnail de YouTube, la fuente de portadas)
+#   2. sync_artwork_fallback.py (portadas fallback: Metal Archives / YouTube)
+#   3. normalize_db.py (normalizar generos y paises)
+#
+# El paso de deathgrind.club (sync_artwork_deathgrind.py) fue eliminado:
+# cdn.deathgrind.club envia Cross-Origin-Resource-Policy: same-site, por lo
+# que el navegador bloquea esas portadas sin importar lo que haga este
+# pipeline.
 # ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -30,38 +35,29 @@ echo "$LOG_PREFIX ════════════════════�
 
 # ─── Paso 1: Sincronizar videos de YouTube a la DB ───────────────────
 echo ""
-echo "$LOG_PREFIX [1/4] Sincronizando videos de YouTube..."
+echo "$LOG_PREFIX [1/3] Sincronizando videos de YouTube..."
 if $PYTHON sync_youtube_to_db.py --solo-nuevos --mark-featured; then
-    echo "$LOG_PREFIX [1/4] OK"
+    echo "$LOG_PREFIX [1/3] OK"
 else
-    echo "$LOG_PREFIX [1/4] FALLO (exit code: $?). Continuando..."
+    echo "$LOG_PREFIX [1/3] FALLO (exit code: $?). Continuando..."
 fi
 
-# ─── Paso 2: Buscar portadas en deathgrind.club ─────────────────────
+# ─── Paso 2: Fallback de portadas (Metal Archives / YouTube) ────────
 echo ""
-echo "$LOG_PREFIX [2/4] Buscando portadas en deathgrind.club..."
-if $PYTHON sync_artwork_deathgrind.py --solo-vacios; then
-    echo "$LOG_PREFIX [2/4] OK"
-else
-    echo "$LOG_PREFIX [2/4] FALLO (exit code: $?). Continuando..."
-fi
-
-# ─── Paso 3: Fallback de portadas (Metal Archives / YouTube) ────────
-echo ""
-echo "$LOG_PREFIX [3/4] Buscando portadas fallback..."
+echo "$LOG_PREFIX [2/3] Buscando portadas fallback..."
 if $PYTHON sync_artwork_fallback.py; then
-    echo "$LOG_PREFIX [3/4] OK"
+    echo "$LOG_PREFIX [2/3] OK"
 else
-    echo "$LOG_PREFIX [3/4] FALLO (exit code: $?). Continuando..."
+    echo "$LOG_PREFIX [2/3] FALLO (exit code: $?). Continuando..."
 fi
 
-# ─── Paso 4: Normalizar generos y paises ─────────────────────────────
+# ─── Paso 3: Normalizar generos y paises ─────────────────────────────
 echo ""
-echo "$LOG_PREFIX [4/4] Normalizando datos..."
+echo "$LOG_PREFIX [3/3] Normalizando datos..."
 if $PYTHON scripts/normalize_db.py; then
-    echo "$LOG_PREFIX [4/4] OK"
+    echo "$LOG_PREFIX [3/3] OK"
 else
-    echo "$LOG_PREFIX [4/4] FALLO (exit code: $?)"
+    echo "$LOG_PREFIX [3/3] FALLO (exit code: $?)"
 fi
 
 echo ""
