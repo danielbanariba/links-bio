@@ -12,6 +12,7 @@ import { ClientRouter } from 'astro:transitions';
 import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording, slugify } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
+import { safeJsonLd } from '../../../lib/seo.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
@@ -59,6 +60,22 @@ const yearRange = years.length
 const pageTitle = `${realName} — Discography · Metal Archive`;
 const metaDesc  = `${totalCount} ${totalCount === 1 ? 'release' : 'releases'} by ${realName} in the Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
 const canonical = `https://danielbanariba.com/metal-archive/band/${slugify(realName)}`;
+
+// ─── Schema.org structured data (MusicGroup) ─────────────────────────────────
+const bandJsonLd = safeJsonLd({
+  '@context': 'https://schema.org',
+  '@type': 'MusicGroup',
+  '@id': `${canonical}#band`,
+  name: realName,
+  url: canonical,
+  ...(genres.length ? { genre: genres } : {}),
+  ...(cover ? { image: cover } : {}),
+  album: allAlbums.map((a) => ({
+    '@type': 'MusicAlbum',
+    name: a.album_title,
+    url: `https://danielbanariba.com/metal-archive/album/${a.id}`,
+  })),
+});
 ---
 
 <!doctype html>
@@ -74,6 +91,7 @@ const canonical = `https://danielbanariba.com/metal-archive/band/${slugify(realN
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary" />
     <link rel="canonical" href={canonical} />
+    <script type="application/ld+json" set:html={bandJsonLd} />
     <ClientRouter />
   </head>
   <body class="ma">
