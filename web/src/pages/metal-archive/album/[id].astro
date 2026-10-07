@@ -249,7 +249,7 @@ const albumJsonLd = safeJsonLd({
   <body class="ma album-detail album-detail-bg">
     <Navbar />
 
-    <div class="album-detail-main">
+    <main class="album-detail-main" id="main" tabindex="-1">
       <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
       <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
         <div class="stage__inner">
@@ -286,7 +286,13 @@ const albumJsonLd = safeJsonLd({
               <div class="stage__artist">
                 {bandSlug
                   ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
-                  : album.band_name
+                  // #4: bandSlug is only set when this EXACT casing has 2+
+                  // albums (getBandAlbumCount is a plain band_name = ?), so a
+                  // band entered with inconsistent casing across uploads
+                  // rendered as dead text with no way to find its other
+                  // releases. Fall back to the same Browse-search link the
+                  // "Similar bands" pills already use when a band has no page.
+                  : <a href={similarBandHref(album.band_name)} class="stage__artist-link">{album.band_name}</a>
                 }
               </div>
               <!-- Album name in the small line (stays put while the big title changes) -->
@@ -427,7 +433,7 @@ const albumJsonLd = safeJsonLd({
           </section>
         )}
       </div>
-    </div>
+    </main>
 
     <!-- ─── Player data island ─────────────────────────────────────────────── -->
     <!-- Read by the global persistent <Player> (rendered in the Navbar) on

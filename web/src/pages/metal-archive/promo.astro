@@ -106,7 +106,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
 <body class="form-page">
   <Navbar />
 
-  <main class="form-page__main">
+  <main class="form-page__main" id="main" tabindex="-1">
     <!-- Header -->
     <div class="form-page__header">
       <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -397,6 +397,8 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
     function clearFieldErrors() {
       form!.querySelectorAll('.form-input--error').forEach((el) => {
         el.classList.remove('form-input--error');
+        el.removeAttribute('aria-invalid');
+        el.removeAttribute('aria-describedby');
       });
       form!.querySelectorAll('.form-field__error').forEach((el) => el.remove());
     }
@@ -405,10 +407,17 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       const input = form!.querySelector(`[name="${name}"]`) as HTMLElement | null;
       if (!input) return;
       input.classList.add('form-input--error');
+      const msgId = `${name}-error`;
       const msg = document.createElement('span');
       msg.className = 'form-field__error';
+      msg.id = msgId;
       msg.textContent = message;
       input.insertAdjacentElement('afterend', msg);
+      // #13: the visual red border + adjacent message were invisible to
+      // screen readers -- nothing tied the input to its error text or
+      // flagged it as invalid.
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', msgId);
       input.scrollIntoView({ block: 'center', behavior: 'smooth' });
       (input as HTMLInputElement).focus({ preventScroll: true });
     }

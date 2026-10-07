@@ -134,12 +134,26 @@ export default function Player() {
         el.setAttribute('aria-valuenow', now);
       });
     };
-    const setPP = (state: 'playing' | 'paused' | 'buffering') => {
+    const setPP = (state: 'playing' | 'paused' | 'buffering' | 'error') => {
       document.querySelectorAll('.js-pp').forEach((el) => {
         el.setAttribute('data-state', state);
         // aria-pressed reflects whether playback is active so the SR announces
         // play/pause. "buffering" is transitional toward playing -> pressed.
-        el.setAttribute('aria-pressed', state === 'paused' ? 'false' : 'true');
+        // "error" means nothing is playing, same as "paused".
+        el.setAttribute('aria-pressed', state === 'playing' || state === 'buffering' ? 'true' : 'false');
+      });
+    };
+    // R3-004: the ONLY way a .js-pp control may show data-state="error" is
+    // through setPP('error') above, so it is always cleared the same way any
+    // other state is. clearPPError() resets JUST the controls that are
+    // currently showing a stale error back to "paused" -- used on retry, on
+    // loading a different video, and on every page load/navigation, without
+    // ever touching a control that is legitimately "playing"/"buffering"
+    // (e.g. the persistent now-playing bar mid-playback across a nav).
+    const clearPPError = () => {
+      document.querySelectorAll('.js-pp[data-state="error"]').forEach((el) => {
+        el.setAttribute('data-state', 'paused');
+        el.setAttribute('aria-pressed', 'false');
       });
     };
     const fmtTime = (s: number) => {
@@ -161,7 +175,7 @@ export default function Player() {
       // longer "mute" for screen readers. The node lives in the persistent
       // render below (#np-live) so it survives navigation.
       const live = document.getElementById('np-live');
-      if (live) live.textContent = `Reproduciendo: ${name}`;
+      if (live) live.textContent = `Now playing: ${name}`;
     };
 
     // ─── active-row highlight (visual .track-active + a11y aria-current) ─────
@@ -207,9 +221,24 @@ export default function Player() {
     const armApiTimeout = () => {
       clearApiTimeout();
       if (window.YT && window.YT.Player) return;
+      // #3: buildPlayer() only reveals #mini-player on its SUCCESS path, so a
+      // visitor whose network/firewall/extension blocks youtube.com never saw
+      // the loader, the 8s timeout overlay, or its Retry button -- the parent
+      // stayed display:none the whole time. Reveal it (with the loader, same
+      // as cueFromPage()'s normal path) as soon as we know the API isn't
+      // ready yet, so the overlays below are actually reachable.
+      if (miniPlayerRef.current) miniPlayerRef.current.style.display = '';
+      show(loaderRef.current);
       apiTimeoutRef.current = setTimeout(() => {
-        if (window.YT && window.YT.Player) return;
+        // R3-005: whichever branch this takes, the loader must not be left
+        // spinning. If the API became ready without clearApiTimeout() having
+        // run yet (e.g. onYouTubeIframeAPIReady is still mid-flight), there is
+        // nothing useful to show here -- cueFromPage()/onReady will take over
+        // and hide it properly. Hiding it unconditionally first, then only
+        // showing the timeout overlay when the API is genuinely still not
+        // ready, means a spinner-only mini-player is never left behind.
         hide(loaderRef.current);
+        if (window.YT && window.YT.Player) return;
         show(timeoutRef.current);
       }, 8000);
     };
@@ -296,7 +325,14 @@ export default function Player() {
             hide(timeoutRef.current);
             show(errorRef.current);
             npClearBuffering();
-            npSetGlyph('▶');
+            // #9: the corner overlay used to be the ONLY visible feedback --
+            // the clicked control (e.g. the hero play button) kept its normal
+            // idle glyph the whole time. npSetGlyph('▶') would call setPP()
+            // with "paused", so call setPP('error') directly instead -- every
+            // .js-pp control gets its own "error" state (R3-004: routed
+            // through setPP, same as every other state, instead of writing
+            // the attribute directly and bypassing it).
+            setPP('error');
           },
           onStateChange: (e: any) => {
             if (e.data === 1 || e.data === 3) {
@@ -335,6 +371,7 @@ export default function Player() {
     const retryPlayer = () => {
       hide(timeoutRef.current);
       hide(errorRef.current);
+      clearPPError();
       show(loaderRef.current);
       if (window.YT && window.YT.Player) { cueFromPage(); return; }
       const existing = document.querySelector('script[src*="youtube.com/iframe_api"]');
@@ -406,6 +443,10 @@ export default function Player() {
           p.loadVideoById({ videoId: data.videoId, startSeconds });
         } catch { /* ignore — player not ready */ }
       }
+      // R3-004: loading a different video makes any previous error moot --
+      // clear it the same way retryPlayer() does, instead of letting it
+      // linger on the controls until the new video happens to error too.
+      clearPPError();
       loadedVideoIdRef.current = data.videoId;
       playingTracksRef.current = data.tracks || [];
       currentIdxRef.current = idx;
@@ -431,7 +472,7 @@ export default function Player() {
         if (npNameRef.current) npNameRef.current.textContent = name;
         setNpTitle(name);
       } else if (npNameRef.current) {
-        npNameRef.current.textContent = data.albumTitle || 'Reproduciendo';
+        npNameRef.current.textContent = data.albumTitle || 'Now playing';
       }
     };
 
@@ -442,11 +483,39 @@ export default function Player() {
     const togglePlay = () => {
       const p = playerRef.current;
       if (!p) return;
-      try {
-        const s = p.getPlayerState();
-        if (s === 1) p.pauseVideo();
-        else p.playVideo();
-      } catch { /* ignore */ }
+      let state = -1;
+      try { state = p.getPlayerState(); } catch { /* ignore */ }
+      if (state === 1) {
+        try { p.pauseVideo(); } catch { /* ignore */ }
+        return;
+      }
+      try { p.playVideo(); } catch { /* ignore */ }
+      // #6: the track-row / hero-button paths already paint the bar and
+      // announce the track via paintNowPlaying()/setNpTitle() on first play.
+      // This toggle skipped both, so a keyboard/screen-reader user whose
+      // first action is this prominent, labeled button got no feedback at
+      // all -- not even once playback actually started -- and the bar kept
+      // showing "Pick a track". Fall back to that same cue-and-announce path
+      // when nothing has been cued yet.
+      //
+      // R3-002: readNpData() reads the CURRENT PAGE's album, which is not
+      // necessarily what's loaded in the player -- after a client-side nav,
+      // currentIdxRef can still be -1 while a DIFFERENT album is cued or
+      // playing from before. Only take this fallback when nothing is loaded
+      // at all, or when the loaded video IS this page's album; otherwise the
+      // bar would be repainted with the wrong album's name/cover while the
+      // other one keeps playing underneath it.
+      if (currentIdxRef.current < 0) {
+        const data = readNpData();
+        const nothingLoaded = !loadedVideoIdRef.current;
+        const pageMatchesLoaded = !!data && data.videoId === loadedVideoIdRef.current;
+        if (nothingLoaded || pageMatchesLoaded) {
+          if (data) paintNowPlaying(data);
+          const name = (data && data.albumTitle) || 'Now playing';
+          if (npNameRef.current) npNameRef.current.textContent = name;
+          setNpTitle(name);
+        }
+      }
     };
 
     // Tracks of the PLAYING album (survives navigation), falling back to the
@@ -661,6 +730,15 @@ export default function Player() {
     // NOT touch it — playback continues across navigation (the whole point).
     const onPageLoad = () => {
       cueFromPage();
+      // R3-004: the hero .js-pp button on the page we just swapped in is
+      // fresh markup (default "paused"), but the PERSISTENT now-playing-bar
+      // toggle is the same DOM node from before the swap and keeps whatever
+      // data-state it had. A stale "error" there would misrepresent this new
+      // page as broken even though nothing has been attempted on it yet.
+      // clearPPError() only touches controls actually showing "error" (never
+      // "playing"/"buffering"), so it never interrupts audio still playing
+      // across the navigation.
+      clearPPError();
       // If the page we just landed on IS the album currently playing, sync the
       // active-row highlight (its rows are fresh markup after the swap).
       const data = readNpData();

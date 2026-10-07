@@ -114,6 +114,40 @@ html {
   border: 0;
 }
 
+/* #7: "Skip to content" -- hidden the same way as .sr-only until it receives
+   keyboard focus, then it becomes a normal visible, positioned element so a
+   keyboard/screen-reader user doesn't have to tab through the whole navbar
+   (and on album pages, the player transport) on every single page. */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link:focus {
+  position: fixed;
+  top: 0.5em;
+  left: 0.5em;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  z-index: 1000;
+  padding: 0.6em 1.1em;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 0.4em;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 body {
   background: var(--bg);
   color: var(--text-body);
@@ -192,6 +226,18 @@ img {
 }
 .carousel-row::-webkit-scrollbar {
   display: none;
+}
+
+/* #16/R3-003: a right-edge fade signals there is more to scroll to -- these
+   rows hid 73-87% of their content with no affordance at all otherwise.
+   .has-scroll-fade is toggled by the home page's script (metal-archive/
+   index.astro) based on actual scroll position, so the fade is only present
+   while scrolling further right would reveal more content -- never at rest
+   with no overflow, and never once scrolled to the end, where a permanent
+   mask would otherwise keep the last card's focus ring dimmed. */
+.carousel-row.has-scroll-fade {
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 
 .carousel-row > * {
@@ -498,6 +544,15 @@ img {
   line-height: 1;
 }
 
+/* #15: at an extreme-zoom effective viewport (~195px wide at 200% zoom),
+   even the already-reduced mobile brand size (1.4rem, below) doesn't fit
+   on one line, and `white-space: nowrap` forced it past the viewport edge
+   instead of wrapping -- the other source of the sitewide horizontal
+   scroll at that zoom level. */
+@media (max-width: 220px) {
+  .navbar__brand { white-space: normal; overflow-wrap: break-word; line-height: 1.1; min-width: 0; }
+}
+
 /* {daniel_banariba}; logo colors — mirror LogoColor enum in colors.py */
 .logo-paren { color: #f1d700; }   /* LogoColor.PARENTESIS */
 .logo-word  { color: #c398f4; }   /* LogoColor.PALABRAS */
@@ -546,7 +601,13 @@ img {
   color: #fff;
 }
 
-@media (max-width: 560px) {
+/* R3-006: (max-width: 900px) and (orientation: landscape) also matched
+   desktop/laptop windows resized to 768-900px wide (nothing coarse-pointer
+   about those), and missed 915-932px-wide landscape phones (wider than
+   900px). (max-height: 500px) targets a phone's short landscape dimension
+   regardless of its width, and (pointer: coarse) excludes a mouse-driven
+   desktop window that happens to be short. */
+@media (max-width: 560px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .navbar__surprise-label { display: none; }
   .navbar__surprise { padding: 0.5em 0.55em; }
   .navbar__brand { font-size: 1.4rem; }
@@ -693,6 +754,22 @@ img {
 
 @media (min-width: 900px) {
   .country-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ─── Home: browse-by-genre grid (#20) — same breakpoints as country-grid,
+   genre labels run a similar short-to-medium length. ───────────────────────*/
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .genre-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .genre-grid { grid-template-columns: repeat(5, 1fr); }
 }
 
 /* ─── Home: browse-by-year grid ──────────────────────────────────────────────*/
@@ -922,6 +999,14 @@ body.album-detail { padding-bottom: 80px; }
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
+  /* #18: object-fit:contain below never crops a non-square cover (16:9
+     YouTube thumbs are common), which used to leave a big flat gap of
+     --content above/below it. A gradient seeded from the already-computed
+     per-album --accent token fills that gap -- it's the container's own
+     background, so it paints behind the <img> with no z-index/pseudo-element
+     stacking to get wrong, and it never reaches the text in the sibling
+     .stage__panel, so contrast there is unaffected. */
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 38%, var(--content)) 0%, var(--content) 75%);
 }
 .stage__cover {
   display: block;
@@ -1114,6 +1199,14 @@ body.album-detail { padding-bottom: 80px; }
 .js-pp[data-state="buffering"] .ic-play,
 .js-pp[data-state="buffering"] .ic-pause { display: none; }
 .js-pp[data-state="buffering"] .ic-spinner { display: block; }
+/* #9: onError used to only show the corner overlay -- the clicked control
+   itself (e.g. the big hero play button) kept its normal idle look. Reuse
+   the project's existing error red (.form-input--error, .form-toast--error)
+   so every .js-pp control visibly reflects the failure too. */
+.js-pp[data-state="error"] {
+  background: rgba(220, 38, 38, 0.15);
+  box-shadow: inset 0 0 0 2px #dc2626;
+}
 .js-pp .ic-spinner {
   width: 18px;
   height: 18px;
@@ -1576,6 +1669,12 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   #now-playing-bar .np-cover { width: 40px; height: 40px; }
   #now-playing-progress { max-width: 100%; }
 
+  /* #11: prev/play/next measured 38-40px here (below the 44px minimum the
+     bar already applies to .np-yt-link below), matching the treatment the
+     YouTube link gets a few lines down. */
+  .np-icon-btn { width: 44px; height: 44px; }
+  .np-toggle { width: 44px; height: 44px; }
+
   /* The right-side YouTube link stays visible on mobile (it used to be hidden,
      leaving no path out to the video). Collapse it to a compact icon-button
      with a ≥44px tap target so it is always reachable in the bar. */
@@ -1737,7 +1836,9 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 
 @media (max-width: 560px) {
   .home-search__btn { padding: 0.6rem 1rem; }
-  .home-search__input { font-size: 0.95rem; }
+  /* Stay at >=16px even here: WebKit auto-zooms on any focused input under
+     16px (#1) -- this override used to drop it to 0.95rem (15.2px). */
+  .home-search__input { font-size: 1rem; }
 }
 
 /* ─── Search island controls ─────────────────────────────────────────────────*/
@@ -1764,7 +1865,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border: 1px solid rgba(0, 115, 168, 0.3);
   border-radius: 0.6em;
   color: var(--text-header);
-  font-size: 0.95rem;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
@@ -1801,7 +1903,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border: 1px solid rgba(0, 115, 168, 0.3);
   border-radius: 0.5em;
   color: var(--text-body);
-  font-size: 0.85rem;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -1847,7 +1950,10 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   background: transparent;
   border: 1px solid var(--primary);
   color: var(--primary);
-  padding: 0.6rem 1.75rem;
+  /* #17: 0.6rem vertical padding measured ~37px tall -- below the 44px tap
+     target minimum applied elsewhere on mobile, and Load More is the sole
+     pagination control on Browse. */
+  padding: 0.85rem 1.75rem;
   border-radius: 2em;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1973,7 +2079,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   border-radius: 0.5em;
   color: var(--text-body);
   font-family: var(--font-default);
-  font-size: 0.9em;
+  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
+  font-size: 1rem;
   outline: none;
   padding: 0.6rem 0.85rem;
   transition: border-color 0.18s;
@@ -2555,7 +2662,17 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .tabbar { display: none; }   /* desktop: the top navbar handles navigation */
 
-@media (max-width: 767px) {
+/* #8: also cover landscape phones with the same swap -- a portrait-only
+   breakpoint let the nav tap targets fall back under the 44px minimum and
+   hid the album grid above the fold whenever a phone was rotated to
+   landscape (e.g. to watch the embedded video), since neither this media
+   query nor the bio 44px tap-target fix above used to match.
+   R3-006: (max-width: 900px) and (orientation: landscape) also matched a
+   768-900px-wide desktop/laptop window, and missed 915-932px-wide landscape
+   phones. (max-height: 500px) targets a phone's short landscape dimension
+   regardless of width, and (pointer: coarse) excludes a mouse-driven window
+   that happens to be short. */
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
      over primary nav) and centre the brand. */
   .navbar--ma .navbar__links { display: none; }
@@ -2588,7 +2705,11 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     gap: 3px;
     padding: 0 2px;
     color: var(--text-footer);
-    font-size: 0.6rem;
+    /* #15: fixed 0.6rem + a fixed 20px icon didn't shrink enough for the 5
+       items to fit under an extreme-zoom effective viewport (195px wide at
+       200% zoom measured scrollWidth 200 vs clientWidth 195) -- scale both
+       down with the available width via clamp(). */
+    font-size: clamp(0.45rem, 2.2vw, 0.6rem);
     font-weight: 500;
     text-decoration: none;
     transition: color 0.15s ease;
@@ -2599,7 +2720,7 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .tabbar__item svg { width: 20px; height: 20px; }
+  .tabbar__item svg { width: clamp(14px, 5vw, 20px); height: clamp(14px, 5vw, 20px); }
   .tabbar__item.is-active,
   .tabbar__item:active { color: var(--accent-bright); }
 
@@ -2624,6 +2745,13 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   padding-bottom: 0.5rem;
 }
 .bands-row::-webkit-scrollbar { display: none; }
+
+/* #16/R3-003: same scoped scroll affordance as .carousel-row above --
+   .has-scroll-fade toggled by the home page's script. */
+.bands-row.has-scroll-fade {
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+}
 
 .band-avatar {
   display: flex;

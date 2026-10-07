@@ -335,16 +335,25 @@ export function getAlbumsByGenre(genre: string): Card[] {
   return rows.map(toCard);
 }
 
+// #19: ordered "upload_date DESC" to match the genre facet convention above
+// (getAlbumsByGenre/getAlbumsByGenres) instead of alphabetically by
+// band_name -- the three facet kinds are the same kind of listing and used
+// to disagree on default order for no reason.
+//
+// R3-007: ", id DESC" is a deterministic secondary key for rows that share
+// the exact same upload_date (e.g. a batch backfill). Without it, ties fall
+// back to whatever scan order SQLite happens to use -- not guaranteed, and
+// not necessarily the same from one query plan to the next.
 export function getAlbumsByCountry(country: string): Card[] {
   const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY band_name`)
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY upload_date DESC, id DESC`)
     .all(country);
   return rows.map(toCard);
 }
 
 export function getAlbumsByYear(year: number): Card[] {
   const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE year = ? AND ${NOT_LIVE} ORDER BY band_name`)
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE year = ? AND ${NOT_LIVE} ORDER BY upload_date DESC, id DESC`)
     .all(year);
   return rows.map(toCard);
 }
