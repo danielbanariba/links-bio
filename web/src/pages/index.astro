@@ -139,7 +139,7 @@ const PROJECTS = [
   <body class="bio-page">
     <Navbar />
 
-    <main class="bio">
+    <main class="bio" id="main" tabindex="-1">
       <!-- ─── Header ──────────────────────────────────────────────────────── -->
       <header class="bio-header">
         <div class="bio-header__top">
@@ -300,16 +300,55 @@ const PROJECTS = [
         toast.style.display = 'block';
       }
 
+      // #12: ported from submit.astro/promo.astro so this form validates like
+      // its siblings instead of only showing one generic toast with no
+      // per-field marking. #13's aria-invalid/aria-describedby wiring is
+      // included here from the start (this is a new port, not a pre-existing
+      // gap to backfill).
+      function clearFieldErrors() {
+        form.querySelectorAll('.form-input--error').forEach((el) => {
+          el.classList.remove('form-input--error');
+          el.removeAttribute('aria-invalid');
+          el.removeAttribute('aria-describedby');
+        });
+        form.querySelectorAll('.form-field__error').forEach((el) => el.remove());
+      }
+
+      function markFieldError(name: string, message: string) {
+        const input = form.querySelector(`[name="${name}"]`) as HTMLElement | null;
+        if (!input) return;
+        input.classList.add('form-input--error');
+        const msgId = `${name}-error`;
+        const msg = document.createElement('span');
+        msg.className = 'form-field__error';
+        msg.id = msgId;
+        msg.textContent = message;
+        input.insertAdjacentElement('afterend', msg);
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', msgId);
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        (input as HTMLInputElement).focus({ preventScroll: true });
+      }
+
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         toast.style.display = 'none';
+        clearFieldErrors();
 
         const data = Object.fromEntries(new FormData(form));
+
+        // Required-field check — mark the FIRST empty required field, same
+        // pattern as submit.astro/promo.astro.
         for (const field of ['name', 'email', 'message']) {
           if (!String(data[field] ?? '').trim()) {
-            showToast('Please fill in all required fields.', true);
+            markFieldError(field, 'This field is required.');
             return;
           }
+        }
+        // Email-format check (matching newsletter.astro's !email.includes('@')).
+        if (!String(data.email ?? '').includes('@')) {
+          markFieldError('email', 'Please enter a valid email address.');
+          return;
         }
 
         btn.disabled = true;

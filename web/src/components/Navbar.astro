@@ -16,11 +16,12 @@ const path = Astro.url.pathname;
 const isMetalArchive = path.startsWith('/metal-archive');
 const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabbar__item');
 ---
+<a href="#main" class="skip-link">Skip to content</a>
 <header class={isMetalArchive ? 'navbar navbar--ma' : 'navbar'}>
   <a href="/" class="navbar__brand" aria-label="daniel_banariba">
     <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
   </a>
-  <nav class="navbar__links">
+  <nav class="navbar__links" aria-label="Site">
     <a href="/">Bio</a>
     <a href="/metal-archive">Archive</a>
     <a href="/metal-archive/browse">Browse</a>
@@ -49,7 +50,7 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
 </header>
 
 {isMetalArchive && (
-  <nav class="tabbar" aria-label="Main navigation">
+  <nav class="tabbar" aria-label="Section navigation">
     <a href="/metal-archive" class={tabClass(path === '/metal-archive' || path === '/metal-archive/')}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 9.5V21h14V9.5"/></svg>
       <span>Home</span>
@@ -123,6 +124,19 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   // overlap on the first metal-archive load a no-op.
   bindNavbarSurprise();
   document.addEventListener('astro:page-load', bindNavbarSurprise);
+
+  // F7 skip-link (#7): move focus to <main id="main"> after a CLIENT-SIDE
+  // navigation swap only -- never on the initial page load, which would
+  // steal focus from wherever the browser/user put it (e.g. a fragment
+  // link, or just the top of the page as usual). astro:page-load fires on
+  // BOTH the initial load and every navigation, so it can't be used here;
+  // astro:after-swap fires only when ClientRouter actually swaps the DOM
+  // for a same-session navigation, which is exactly the "page changed under
+  // you without a real reload" case a skip link exists for.
+  document.addEventListener('astro:after-swap', () => {
+    const main = document.getElementById('main');
+    main?.focus();
+  });
 
   // F10 (Oct 2026 UI audit): width:100vw full-bleed sections (.stage on the
   // album page) overflow the real viewport by exactly the vertical

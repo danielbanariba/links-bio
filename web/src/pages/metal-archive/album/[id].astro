@@ -249,7 +249,7 @@ const albumJsonLd = safeJsonLd({
   <body class="ma album-detail album-detail-bg">
     <Navbar />
 
-    <div class="album-detail-main">
+    <main class="album-detail-main" id="main" tabindex="-1">
       <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
       <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
         <div class="stage__inner">
@@ -427,7 +427,7 @@ const albumJsonLd = safeJsonLd({
           </section>
         )}
       </div>
-    </div>
+    </main>
 
     <!-- ─── Player data island ─────────────────────────────────────────────── -->
     <!-- Read by the global persistent <Player> (rendered in the Navbar) on

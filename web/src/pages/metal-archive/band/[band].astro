@@ -97,7 +97,7 @@ const bandJsonLd = safeJsonLd({
   <body class="ma">
     <Navbar />
 
-    <div class="band-page">
+    <main class="band-page" id="main" tabindex="-1">
       <!-- ─── Artist-style header (cover backdrop + avatar + real stats) ─────── -->
       <header class="artist-header">
         {cover && <div class="artist-header__backdrop" style={`background-image: url('${cover}')`} aria-hidden="true"></div>}
@@ -156,7 +156,7 @@ const bandJsonLd = safeJsonLd({
           </div>
         </section>
       )}
-    </div>
+    </main>
 
     <Footer />
   </body>
