@@ -143,12 +143,13 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 
 - **`reflex.db` (SQLite) is the source of truth.** Schema = SQLModel models in `links_bio/models/`: `albums` (main catalog, many indexed columns), `tracks`, `similar_bands` (column is `similar_band_name`), `submissions`, `newsletter_subscribers`, `contact_messages`. Migrations live in `alembic/`. Models are discovered for migrations via `import links_bio.models` in `links_bio/links_bio.py`.
 - **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured — also sets
-  `album_artwork_url` to the video's YouTube thumbnail, the cover source of truth, on every full sync)
-  and `sync_artwork_fallback.py` (fallback covers: Metal Archives / YouTube), plus
-  `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`,
-  `scripts/seed_data.py`. `sync_all.sh` orchestrates the DB-only chain manually (no deploy). There used
-  to be a `sync_artwork_deathgrind.py` step too; it was removed (see below) along with the one-off
-  `scripts/fix_artwork_mismatch.py` repair script that depended on it.
+  `album_artwork_url` to the video's best YouTube thumbnail, the cover source of truth, on every full
+  sync), plus `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`,
+  `scripts/seed_data.py`. `sync_all.sh` orchestrates the DB-only chain manually (no deploy). The external
+  cover steps were removed (see below):
+  - `sync_artwork_deathgrind.py`, together with the one-off `scripts/fix_artwork_mismatch.py`;
+  - `sync_artwork_fallback.py`. Its Metal Archives covers would be overwritten by the next full sync, and
+    its maxres upgrade duplicated what the sync already does.
 - **One production sync+deploy trigger:** the user systemd timer **`links-bio-sync.timer`** (`06:00` &
   `18:00`, `~/.config/systemd/user/`) runs **`links-bio-sync.service`** once (`Type=oneshot`), which calls
   `scripts/sync_and_deploy.py`. That script imports `links_bio/background_sync.py`'s `run_*` step
