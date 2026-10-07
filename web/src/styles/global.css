@@ -974,6 +974,15 @@ body.album-detail { padding-bottom: 80px; }
   overflow-wrap: anywhere;
 }
 
+/* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
+   .stage__album (see album/[id].astro). Reset the browser's default h1 box
+   (margin, font-size, font-weight) so the two children keep their own
+   explicit styling below and the visual result is unchanged. */
+.stage__heading {
+  margin: 0;
+  font: inherit;
+}
+
 .stage__artist {
   font-size: clamp(1rem, 3vw, 1.25rem);
   font-weight: 600;
