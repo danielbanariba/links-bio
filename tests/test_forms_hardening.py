@@ -586,6 +586,44 @@ def test_submit_promo_and_contact_share_one_email_rate_budget(
     assert exhausted.status_code == 429
 
 
+def test_spoofed_cf_connecting_ip_from_ipv4_mapped_non_loopback_peer_is_ignored(
+    forms_client_factory,
+) -> None:
+    """R3-003: an IPv4-mapped IPv6 peer such as "::ffff:8.8.8.8" is NOT
+    loopback -- only an IPv4-mapped *loopback* address (e.g.
+    "::ffff:127.0.0.1") is. `_is_loopback_peer`'s IPv4-mapped branch must
+    reject this case; a fail-open bug there (treating any IPv4-mapped
+    address as trusted, instead of checking whether the mapped address
+    itself is loopback) would let this peer spoof a fresh
+    CF-Connecting-IP on every request and dodge the limiter entirely --
+    the same hole
+    test_spoofed_cf_connecting_ip_from_non_loopback_peer_is_ignored above
+    guards for a plain (non-mapped) IPv4 peer.
+
+    This already passes on the current code (`_is_loopback_peer` checks
+    `addr.ipv4_mapped.is_loopback`, not merely "is IPv4-mapped"); it is a
+    regression guard against reintroducing the fail-open version, not a
+    RED/GREEN fix.
+    """
+    client = forms_client_factory(client=("::ffff:8.8.8.8", 44444))
+
+    for i in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = client.post(
+            "/api/metal-archive/submit",
+            json=_valid_submit_payload(),
+            headers={"CF-Connecting-IP": f"10.1.0.{i}"},
+        )
+        assert res.status_code == 200
+
+    limited = client.post(
+        "/api/metal-archive/submit",
+        json=_valid_submit_payload(),
+        headers={"CF-Connecting-IP": "10.1.0.250"},
+    )
+
+    assert limited.status_code == 429
+
+
 # ─── R3-007: a non-string value on a "before"-mode blank check must 422 ────
 #
 # must_not_be_blank (Submit/Promo/Contact) and must_be_valid_email
