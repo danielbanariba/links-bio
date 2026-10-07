@@ -161,7 +161,7 @@ export default function Player() {
       // longer "mute" for screen readers. The node lives in the persistent
       // render below (#np-live) so it survives navigation.
       const live = document.getElementById('np-live');
-      if (live) live.textContent = `Reproduciendo: ${name}`;
+      if (live) live.textContent = `Now playing: ${name}`;
     };
 
     // ─── active-row highlight (visual .track-active + a11y aria-current) ─────
@@ -207,6 +207,14 @@ export default function Player() {
     const armApiTimeout = () => {
       clearApiTimeout();
       if (window.YT && window.YT.Player) return;
+      // #3: buildPlayer() only reveals #mini-player on its SUCCESS path, so a
+      // visitor whose network/firewall/extension blocks youtube.com never saw
+      // the loader, the 8s timeout overlay, or its Retry button -- the parent
+      // stayed display:none the whole time. Reveal it (with the loader, same
+      // as cueFromPage()'s normal path) as soon as we know the API isn't
+      // ready yet, so the overlays below are actually reachable.
+      if (miniPlayerRef.current) miniPlayerRef.current.style.display = '';
+      show(loaderRef.current);
       apiTimeoutRef.current = setTimeout(() => {
         if (window.YT && window.YT.Player) return;
         hide(loaderRef.current);
@@ -297,6 +305,14 @@ export default function Player() {
             show(errorRef.current);
             npClearBuffering();
             npSetGlyph('▶');
+            // #9: the corner overlay used to be the ONLY visible feedback --
+            // the clicked control (e.g. the hero play button) kept its normal
+            // idle glyph the whole time. setPP() (called by npSetGlyph above)
+            // only ever sets "playing"/"paused"/"buffering", so give every
+            // .js-pp control its own "error" state too, overriding that.
+            document.querySelectorAll('.js-pp').forEach((el) => {
+              el.setAttribute('data-state', 'error');
+            });
           },
           onStateChange: (e: any) => {
             if (e.data === 1 || e.data === 3) {
@@ -431,7 +447,7 @@ export default function Player() {
         if (npNameRef.current) npNameRef.current.textContent = name;
         setNpTitle(name);
       } else if (npNameRef.current) {
-        npNameRef.current.textContent = data.albumTitle || 'Reproduciendo';
+        npNameRef.current.textContent = data.albumTitle || 'Now playing';
       }
     };
 
@@ -442,11 +458,27 @@ export default function Player() {
     const togglePlay = () => {
       const p = playerRef.current;
       if (!p) return;
-      try {
-        const s = p.getPlayerState();
-        if (s === 1) p.pauseVideo();
-        else p.playVideo();
-      } catch { /* ignore */ }
+      let state = -1;
+      try { state = p.getPlayerState(); } catch { /* ignore */ }
+      if (state === 1) {
+        try { p.pauseVideo(); } catch { /* ignore */ }
+        return;
+      }
+      try { p.playVideo(); } catch { /* ignore */ }
+      // #6: the track-row / hero-button paths already paint the bar and
+      // announce the track via paintNowPlaying()/setNpTitle() on first play.
+      // This toggle skipped both, so a keyboard/screen-reader user whose
+      // first action is this prominent, labeled button got no feedback at
+      // all -- not even once playback actually started -- and the bar kept
+      // showing "Pick a track". Fall back to that same cue-and-announce path
+      // when nothing has been cued yet.
+      if (currentIdxRef.current < 0) {
+        const data = readNpData();
+        if (data) paintNowPlaying(data);
+        const name = (data && data.albumTitle) || 'Now playing';
+        if (npNameRef.current) npNameRef.current.textContent = name;
+        setNpTitle(name);
+      }
     };
 
     // Tracks of the PLAYING album (survives navigation), falling back to the

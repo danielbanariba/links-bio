@@ -1127,6 +1127,14 @@ body.album-detail { padding-bottom: 80px; }
 .js-pp[data-state="buffering"] .ic-play,
 .js-pp[data-state="buffering"] .ic-pause { display: none; }
 .js-pp[data-state="buffering"] .ic-spinner { display: block; }
+/* #9: onError used to only show the corner overlay -- the clicked control
+   itself (e.g. the big hero play button) kept its normal idle look. Reuse
+   the project's existing error red (.form-input--error, .form-toast--error)
+   so every .js-pp control visibly reflects the failure too. */
+.js-pp[data-state="error"] {
+  background: rgba(220, 38, 38, 0.15);
+  box-shadow: inset 0 0 0 2px #dc2626;
+}
 .js-pp .ic-spinner {
   width: 18px;
   height: 18px;
