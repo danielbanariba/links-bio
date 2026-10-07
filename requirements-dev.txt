@@ -11,5 +11,5 @@ mcp>=1.28.1,<2
 ruff==0.15.11
 
 # Test suite: pytest plus httpx for starlette's TestClient.
-pytest
-httpx
+pytest>=9.1,<10
+httpx>=0.28.1,<0.29
