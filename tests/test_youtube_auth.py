@@ -112,3 +112,31 @@ def test_derives_channel_id_from_db_engine_without_reflex_installed(
     assert result == "UC_fake"
     assert fake_client.videos_list.received_kwargs is not None
     assert fake_client.videos_list.received_kwargs.get("id") == "VID123"
+
+
+def test_db_fallback_failure_is_logged_before_raising(
+    monkeypatch: pytest.MonkeyPatch,
+    api_key_only_env: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Catches the regression this task fixes: the DB-fallback branch's
+    `except Exception: pass` swallowed every failure with no trace at all
+    -- the exact mechanism that hid the T7 reflex-import regression (a
+    broken import inside this same try/except went completely unnoticed).
+    Forces the fallback query itself to fail (an engine with no `albums`
+    table at all, not just an empty one) and asserts the RuntimeError is
+    still raised, but now with the underlying cause logged.
+    """
+    import logging
+
+    broken_engine = _make_scratch_engine(Path(":memory:"))
+    monkeypatch.setattr("links_bio.db.engine", broken_engine)
+
+    caplog.set_level(logging.WARNING)
+    with pytest.raises(RuntimeError):
+        get_channel_id_from_env_or_derive(object())
+
+    assert any("OperationalError" in record.getMessage() for record in caplog.records), (
+        f"expected the swallowed exception's type/message in the log, got: "
+        f"{[r.getMessage() for r in caplog.records]}"
+    )

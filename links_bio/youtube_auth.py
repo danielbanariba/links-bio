@@ -12,10 +12,13 @@ Dos modos soportados (en orden de preferencia):
        YOUTUBE_REFRESH_TOKEN
 """
 
+import logging
 import os
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+
+logger = logging.getLogger("youtube_auth")
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
@@ -102,8 +105,14 @@ def get_channel_id_from_env_or_derive(youtube_client):
             items = resp.get("items", [])
             if items:
                 return items[0]["snippet"]["channelId"]
-    except Exception:
-        pass
+    except Exception as e:
+        # Non-fatal: the RuntimeError below still fires. But the exact
+        # mechanism that hid the T7 reflex-import regression was this
+        # branch swallowing every exception with no trace at all, so log
+        # the cause instead of staying silent.
+        logger.warning(
+            "channel id DB fallback failed: %s: %s", type(e).__name__, e
+        )
 
     raise RuntimeError(
         "No se pudo determinar Channel ID. "
