@@ -74,12 +74,17 @@ const ogImage = heroSource[0]?.thumb;
     <Navbar />
 
     <main>
+      <!-- A real, descriptive h1 for the document outline. The time-of-day
+           greeting below ("Hello" / "Good morning") describes nothing about
+           the page and used to be the page's ONLY h1 — visually hidden so the
+           greeting keeps its current look as the visible heading-shaped text. -->
+      <h1 class="sr-only">Metal Archive — Underground metal catalog</h1>
       <div class="wrap">
         <!-- ─── Greeting (time-of-day set client-side; SSG can't know the
              visitor's local hour) ──────────────────────────────────────────── -->
         <header class="home-greeting">
           <div>
-            <h1 class="home-greeting__hello" id="greeting">Hello</h1>
+            <p class="home-greeting__hello" id="greeting">Hello</p>
             <p class="home-greeting__sub">Underground metal catalog</p>
           </div>
           <div class="home-greeting__actions">
@@ -152,6 +157,12 @@ const ogImage = heroSource[0]?.thumb;
           </form>
         </section>
 
+        <!-- Visually-hidden section heading: everything from "Bands" through
+             the country rotation below is the curated discovery block. Keeps
+             the h3 section titles (Bands, Hidden Gems, per-genre, per-country)
+             properly nested under an h2 instead of jumping straight to h3. -->
+        <h2 class="sr-only">Discover</h2>
+
         <!-- Bands — circular avatars (representative cover as the avatar) ──────── -->
         {topBands.length > 0 && (
           <section class="carousel-deferred">
@@ -213,7 +224,7 @@ const ogImage = heroSource[0]?.thumb;
           <section class="section carousel-deferred live-section">
             <div class="section-header">
               <div class="live-section__heading">
-                <h3>Live Recordings</h3>
+                <h2>Live Recordings</h2>
                 <span class="live-section__badge">Live sets</span>
               </div>
             </div>
@@ -232,7 +243,7 @@ const ogImage = heroSource[0]?.thumb;
         {allCountries.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Browse by country</h3>
+              <h2>Browse by country</h2>
               <a href="/metal-archive/browse" class="section-header__link">See all →</a>
             </div>
             <div class="country-grid">
@@ -262,7 +273,7 @@ const ogImage = heroSource[0]?.thumb;
         {allYears.length > 0 && (
           <section class="carousel-deferred home-browse-by">
             <div class="section-header">
-              <h3>Browse by year</h3>
+              <h2>Browse by year</h2>
               <a href="/metal-archive/browse" class="section-header__link">See all →</a>
             </div>
             <div class="year-grid">
