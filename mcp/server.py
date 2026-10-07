@@ -13,8 +13,6 @@ import subprocess
 from pathlib import Path
 
 import requests
-from alembic.config import Config as AlembicConfig
-from alembic.script import ScriptDirectory
 from mcp.server.fastmcp import FastMCP
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -124,10 +122,24 @@ def _pending_revisions(current: str | None, head: str | None) -> list[str]:
     pending, which under-reported real drift whenever the DB was two or
     more migrations behind head. ScriptDirectory only parses the versions/
     directory -- it never opens a DB connection or runs env.py.
+
+    alembic is imported lazily here, not at module scope, so a missing or
+    broken alembic in the MCP server's interpreter only breaks this one
+    tool instead of killing every tool at import time. This can also raise
+    (CommandError on a broken script_location, or on an unknown/non-ancestor
+    revision) -- callers must catch it; see check_migrations_pending below.
     """
     if not head:
         return []
+    from alembic.config import Config as AlembicConfig
+    from alembic.script import ScriptDirectory
+
     cfg = AlembicConfig(str(PROJECT_ROOT / "alembic.ini"))
+    # Resolve script_location absolutely against the repo root (the same
+    # PROJECT_ROOT every other path in this file is built from) instead of
+    # relying on alembic.ini's `%(here)s` token resolving correctly
+    # regardless of this process's cwd.
+    cfg.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
     script = ScriptDirectory.from_config(cfg)
     revisions = script.walk_revisions(base=current, head=head)
     pending = [rev.revision for rev in revisions if rev.revision != current]
@@ -137,11 +149,34 @@ def _pending_revisions(current: str | None, head: str | None) -> list[str]:
 @mcp.tool()
 def check_migrations_pending() -> dict:
     """Report whether the DB is behind the latest alembic head, and which
-    revisions are actually pending."""
+    revisions are actually pending.
+
+    `current`/`head` come from the ALEMBIC_BIN subprocess (check_db_schema);
+    the pending walk below instead drives the in-process ScriptDirectory
+    over that same alembic.ini. If that walk itself fails (broken
+    script_location, or a current revision that isn't a known ancestor of
+    head), this degrades into an `error` field instead of raising, so one
+    broken migration chain can't take down every other tool in this
+    process.
+    """
     status = check_db_schema()
     if "error" in status:
         return status
-    pending = [] if status["ok"] else _pending_revisions(status["current"], status["head"])
+    if status["ok"]:
+        return {"ok": True, "pending": [], "head": status["head"], "current": status["current"]}
+    try:
+        pending = _pending_revisions(status["current"], status["head"])
+    except Exception as e:  # noqa: BLE001 -- intentionally broad: any alembic
+        # failure here (missing alembic, broken script_location, unknown or
+        # non-ancestor revision) must degrade into this dict's `error` field
+        # instead of crashing this tool, let alone the whole MCP process.
+        return {
+            "ok": False,
+            "pending": None,
+            "head": status["head"],
+            "current": status["current"],
+            "error": f"{type(e).__name__}: {e}",
+        }
     return {"ok": status["ok"], "pending": pending, "head": status["head"], "current": status["current"]}
 
 
