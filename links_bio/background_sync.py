@@ -12,6 +12,7 @@ boot) was removed once the Reflex UI itself was retired.
 import logging
 import os
 import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger("background_sync")
 logger.setLevel(logging.INFO)
@@ -24,10 +25,42 @@ def _log(msg: str):
     print(f"[SYNC] {msg}", flush=True)
 
 
-_sync_count = 0
+def _now() -> datetime:
+    """Thin wrapper around the wall clock so tests can monkeypatch a fixed
+    time instead of depending on when the suite happens to run -- the
+    cadence in should_run_full_sync() needs a controllable `now`.
+
+    Returns a tz-aware datetime in the system's local timezone (matching
+    the systemd timer's OnCalendar=06:00/18:00, which schedules in local
+    time), computed from an explicit UTC `now` rather than an implicit
+    naive local clock.
+    """
+    return datetime.now(timezone.utc).astimezone()
 
 
-def run_youtube_sync() -> None:
+def should_run_full_sync(album_count: int, now: datetime) -> bool:
+    """Decide whether this cycle should run a full (not solo_nuevos) YouTube
+    sync.
+
+    Pure and stateless by design: `scripts/sync_and_deploy.py` runs as a
+    fresh oneshot process twice a day (06:00 and 18:00, via the
+    links-bio-sync.timer systemd unit), so an in-process counter -- the
+    previous implementation -- always restarts at 1 and never reaches its
+    "every 4th cycle" branch once the DB has >=100 albums, meaning the
+    hole-filling full sync silently stopped running.
+
+    A full sync runs when the DB is still nearly empty (fewer than 100
+    albums), or on the morning run of every second day: two runs/day times
+    "every other day" reproduces the original "every 4th cycle" cadence
+    (roughly every 2 days) without needing to remember anything between
+    runs.
+    """
+    if album_count < 100:
+        return True
+    return now.hour < 12 and now.toordinal() % 2 == 0
+
+
+def run_youtube_sync(force_full: bool = False) -> None:
     """Authenticate with YouTube and run one sync pass (new videos -> DB,
     mark featured).
 
@@ -35,15 +68,11 @@ def run_youtube_sync() -> None:
     directly; it raises on failure, and that caller decides what a failure
     means (logs it and keeps running the remaining steps).
 
-    solo_nuevos is decided the same way the original inline code did: full
-    sync when the DB has fewer than 100 albums, or every 4th cycle (to fill
-    holes left by incremental syncs), incremental otherwise. Note this
-    "every 4th cycle" heuristic is tracked via the in-process `_sync_count`
-    global, so it only means something across calls within one long-lived
-    process; each `sync_and_deploy.py` run is a fresh process, so
-    _sync_count resets to 1 every time and this effectively always chooses
-    incremental sync once the DB has >=100 albums (known follow-up, not
-    fixed by this task).
+    solo_nuevos is decided by should_run_full_sync(): full sync when the DB
+    has fewer than 100 albums, or on the morning run of every second day (to
+    fill holes left by incremental syncs), incremental otherwise. Pass
+    force_full=True (wired to `scripts/sync_and_deploy.py --full-youtube-sync`)
+    to force a full sync for a manual backfill regardless of that cadence.
     """
     from links_bio.youtube_auth import authenticate_auto
     youtube_client = authenticate_auto()
@@ -61,15 +90,16 @@ def run_youtube_sync() -> None:
     with Session(engine) as session:
         album_count = session.exec(select(func.count(Album.id))).one()
 
-    global _sync_count
-    _sync_count += 1
+    now = _now()
+    full_sync = force_full or should_run_full_sync(album_count, now)
+    solo_nuevos = not full_sync
 
-    # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
-    solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
-    if not solo_nuevos:
-        _log(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
+    if force_full:
+        _log(f"DB tiene {album_count} albums. --full-youtube-sync: forzando sync completo.")
+    elif full_sync:
+        _log(f"DB tiene {album_count} albums. Ejecutando sync completo ({now:%Y-%m-%d %H:%M}).")
     else:
-        _log(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
+        _log(f"DB tiene {album_count} albums. Ejecutando sync incremental ({now:%Y-%m-%d %H:%M}).")
 
     run_sync(
         youtube_client=youtube_client,

@@ -14,7 +14,7 @@ on links-bio-sync.service is the one alert mechanism, so a failure is
 reported exactly once no matter which step inside the cycle failed.
 
 Usage:
-    scripts/sync_and_deploy.py [--skip-youtube] [--skip-artwork] [--skip-deploy]
+    scripts/sync_and_deploy.py [--skip-youtube] [--skip-artwork] [--skip-deploy] [--full-youtube-sync]
 """
 from __future__ import annotations
 
@@ -31,19 +31,26 @@ from links_bio import background_sync as bg  # noqa: E402
 logger = logging.getLogger("sync_and_deploy")
 
 
-def run_cycle(skip_youtube: bool, skip_artwork: bool, skip_deploy: bool) -> list[str]:
+def run_cycle(
+    skip_youtube: bool, skip_artwork: bool, skip_deploy: bool, full_youtube_sync: bool = False
+) -> list[str]:
     """Run each pipeline step once, in order. Returns the names of the
     steps that failed; a skipped step is never counted as failed. The
     normalize step has no skip flag -- it's the cheap, fast, local-only
     step and always runs so a dry run (--skip-youtube --skip-artwork
-    --skip-deploy) still proves the DB-to-build pipeline works."""
+    --skip-deploy) still proves the DB-to-build pipeline works.
+
+    full_youtube_sync forces a full (not incremental) YouTube sync for a
+    manual backfill, bypassing the usual cadence in
+    background_sync.should_run_full_sync(); it has no effect when
+    skip_youtube is set."""
     failed: list[str] = []
 
     if skip_youtube:
         logger.info("--skip-youtube: skipping the YouTube sync step.")
     else:
         try:
-            bg.run_youtube_sync()
+            bg.run_youtube_sync(force_full=full_youtube_sync)
         except Exception:
             logger.exception("youtube-sync step failed")
             failed.append("youtube-sync")
@@ -83,9 +90,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="build the Astro site but do not run `vercel deploy`",
     )
+    parser.add_argument(
+        "--full-youtube-sync",
+        action="store_true",
+        help="force a full (not incremental) YouTube sync, for a manual backfill",
+    )
     args = parser.parse_args(argv)
 
-    failed = run_cycle(args.skip_youtube, args.skip_artwork, args.skip_deploy)
+    failed = run_cycle(args.skip_youtube, args.skip_artwork, args.skip_deploy, args.full_youtube_sync)
 
     if failed:
         logger.error("sync_and_deploy: %d step(s) failed: %s", len(failed), ", ".join(failed))
