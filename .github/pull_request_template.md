@@ -18,7 +18,7 @@
 
 ## 🧪 Verification Checklist
 - [ ] **Python lint**: `ruff check links_bio/` passes with no new findings.
-- [ ] **Python tests**: the pytest suite passes (`uv run --with pytest --python env/bin/python -m pytest tests -q`).
+- [ ] **Python tests**: the pytest suite passes (`env -u GMAIL_ADDRESS -u GMAIL_APP_PASSWORD -u VERCEL_TOKEN uv run --quiet --with pytest --python env/bin/python -m pytest tests -q`).
 - [ ] **Frontend tests**: `cd web && npm test` passes.
 - [ ] **Frontend build**: `cd web && npm run build` succeeds.
 - [ ] **Migrations**: if `links_bio/models/` changed, an Alembic migration was added (`alembic revision --autogenerate`).
