@@ -15,9 +15,10 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, create_engine, select
 
 from links_bio import fastapi_forms
+from links_bio.models.submission import Submission
 
 
 @pytest.fixture
@@ -45,15 +46,29 @@ def forms_client(scratch_db: Path, clean_env, monkeypatch):
     yield client
 
 
+TEST_BAND_NAME = "T9 Hardening Test Band"
+TEST_CONTACT_EMAIL = "t9-hardening-test@example.com"
+
+
 def _valid_submit_payload(**overrides: str) -> dict:
     payload = {
-        "band_name": "Blasfemia",
-        "contact_email": "band@example.com",
+        "band_name": TEST_BAND_NAME,
+        "contact_email": TEST_CONTACT_EMAIL,
         "genre": "Death Metal",
         "country": "Honduras",
     }
     payload.update(overrides)
     return payload
+
+
+def _submissions_with_email(engine, email: str) -> list[Submission]:
+    """The scratch DB is a full copy of the shared dev reflex.db, so it can
+    carry pre-existing rows; filter by this test's own contact_email instead
+    of asserting on the whole table."""
+    with Session(engine) as session:
+        return session.exec(
+            select(Submission).where(Submission.contact_email == email)
+        ).all()
 
 
 def test_docs_and_openapi_are_disabled(forms_client: TestClient) -> None:
@@ -66,3 +81,53 @@ def test_docs_and_openapi_are_disabled(forms_client: TestClient) -> None:
     assert forms_client.get("/docs").status_code == 404
     assert forms_client.get("/redoc").status_code == 404
     assert forms_client.get("/openapi.json").status_code == 404
+
+
+def test_oversized_field_is_rejected_before_reaching_db_or_email(
+    forms_client: TestClient,
+) -> None:
+    """None of the request fields had a max_length: a huge band_name (or any
+    other field) was accepted, stored, and fed into the admin notification
+    email verbatim -- an unbounded memory/DB/SMTP-quota exhaustion vector.
+    An oversized field must 422 before any DB write or email attempt.
+    """
+    oversized = _valid_submit_payload(band_name="A" * 1000)
+
+    res = forms_client.post("/api/metal-archive/submit", json=oversized)
+
+    assert res.status_code == 422
+    assert _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL) == []  # type: ignore[attr-defined]
+    assert forms_client.sent_emails == []  # type: ignore[attr-defined]
+
+
+def test_embedded_crlf_in_single_line_field_is_rejected(
+    forms_client: TestClient,
+) -> None:
+    """A band_name like 'Band\\r\\nBcc: x@y.z' passed validation and was
+    dropped straight into the plain-text admin notification email, which
+    then silently failed to send while the submitter still saw a normal
+    success response. Single-line fields must reject embedded CR/LF.
+    """
+    injected = _valid_submit_payload(band_name="Band\r\nBcc: x@y.z")
+
+    res = forms_client.post("/api/metal-archive/submit", json=injected)
+
+    assert res.status_code == 422
+    assert _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL) == []  # type: ignore[attr-defined]
+    assert forms_client.sent_emails == []  # type: ignore[attr-defined]
+
+
+def test_valid_submission_is_still_accepted(forms_client: TestClient) -> None:
+    """Anchor test: the new length caps and CRLF checks must not reject a
+    normal, legitimate submission. If this regresses, the hardening in this
+    file is too aggressive, not just correctly strict.
+    """
+    res = forms_client.post(
+        "/api/metal-archive/submit", json=_valid_submit_payload()
+    )
+
+    assert res.status_code == 200
+    rows = _submissions_with_email(forms_client.db_engine, TEST_CONTACT_EMAIL)  # type: ignore[attr-defined]
+    assert len(rows) == 1
+    assert rows[0].band_name == TEST_BAND_NAME
+    assert len(forms_client.sent_emails) == 1  # type: ignore[attr-defined]

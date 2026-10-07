@@ -13,8 +13,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from links_bio.db import engine
@@ -56,17 +55,43 @@ app.add_middleware(
 )
 
 # ─── Pydantic request bodies ─────────────────────────────────────────────────
+#
+# Field length limits below exist so a single request cannot grow a column,
+# the DB, or an outgoing SMTP message without bound (none of these fields had
+# any max_length before). Separately, every single-line field (names, URLs,
+# emails, years -- anything that is not genuinely multi-line free text)
+# rejects embedded CR/LF: a value like "Band\r\nBcc: x@y.z" previously passed
+# validation and corrupted the plain-text admin notification email while the
+# submitter still saw a normal success response.
+
+NAME_MAX_LENGTH = 200
+EMAIL_MAX_LENGTH = 254
+URL_MAX_LENGTH = 500
+FREE_TEXT_MAX_LENGTH = 5000
+
+
+def _reject_crlf(value: str) -> str:
+    """Reject an embedded CR or LF in a field that must stay a single line.
+
+    Without this, a value like "Band\\r\\nBcc: x@y.z" silently corrupts the
+    plain-text admin notification email's structure while the submitter
+    still sees a normal success response.
+    """
+    if "\r" in value or "\n" in value:
+        raise ValueError("This field cannot contain line breaks.")
+    return value
+
 
 class SubmitRequest(BaseModel):
-    band_name: str
-    contact_email: str
-    genre: str
-    country: str
-    album_title: str = ""
-    year: str = ""
-    youtube_url: str = ""
-    bandcamp_url: str = ""
-    description: str = ""
+    band_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    contact_email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    genre: str = Field(..., max_length=NAME_MAX_LENGTH)
+    country: str = Field(..., max_length=NAME_MAX_LENGTH)
+    album_title: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    year: str = Field(default="", max_length=10)
+    youtube_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    bandcamp_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    description: str = Field(default="", max_length=FREE_TEXT_MAX_LENGTH)
 
     @field_validator("band_name", "contact_email", "genre", "country", mode="before")
     @classmethod
@@ -75,24 +100,33 @@ class SubmitRequest(BaseModel):
             raise ValueError("Este campo es obligatorio")
         return v.strip()
 
+    @field_validator(
+        "band_name", "contact_email", "genre", "country",
+        "album_title", "year", "youtube_url", "bandcamp_url",
+        mode="after",
+    )
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
 
 class PromoRequest(BaseModel):
-    band_name: str
-    email: str
-    album_title: str
-    genre: str = ""
-    custom_genre: str = ""
-    country: str = ""
-    year: str = ""
-    release_format: str = ""
-    youtube_url: str = ""
-    bandcamp_url: str = ""
+    band_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    album_title: str = Field(..., max_length=NAME_MAX_LENGTH)
+    genre: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    custom_genre: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    country: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    year: str = Field(default="", max_length=10)
+    release_format: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    youtube_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    bandcamp_url: str = Field(default="", max_length=URL_MAX_LENGTH)
     # Extra links: up to 5, sent as extra_link_0 … extra_link_4
-    extra_link_0: str = ""
-    extra_link_1: str = ""
-    extra_link_2: str = ""
-    extra_link_3: str = ""
-    extra_link_4: str = ""
+    extra_link_0: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_1: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_2: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_3: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_4: str = Field(default="", max_length=URL_MAX_LENGTH)
 
     @field_validator("band_name", "email", "album_title", mode="before")
     @classmethod
@@ -101,9 +135,19 @@ class PromoRequest(BaseModel):
             raise ValueError("Este campo es obligatorio")
         return v.strip()
 
+    @field_validator(
+        "band_name", "email", "album_title", "genre", "custom_genre",
+        "country", "year", "release_format", "youtube_url", "bandcamp_url",
+        "extra_link_0", "extra_link_1", "extra_link_2", "extra_link_3", "extra_link_4",
+        mode="after",
+    )
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
 
 class NewsletterRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -112,12 +156,17 @@ class NewsletterRequest(BaseModel):
             raise ValueError("Email invalido")
         return v.strip().lower()
 
+    @field_validator("email", mode="after")
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
 
 class ContactRequest(BaseModel):
-    nombre: str
-    email: str
-    asunto: str = ""
-    mensaje: str
+    nombre: str = Field(..., max_length=NAME_MAX_LENGTH)
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    asunto: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    mensaje: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
 
     @field_validator("nombre", "email", "mensaje", mode="before")
     @classmethod
@@ -125,6 +174,13 @@ class ContactRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("Este campo es obligatorio")
         return v.strip()
+
+    # `mensaje` is genuinely multi-line free text (a visitor's message), so
+    # it is exempt from the single-line CR/LF check that applies to the rest.
+    @field_validator("nombre", "email", "asunto", mode="after")
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
