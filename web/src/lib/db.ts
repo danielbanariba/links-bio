@@ -335,16 +335,20 @@ export function getAlbumsByGenre(genre: string): Card[] {
   return rows.map(toCard);
 }
 
+// #19: ordered "upload_date DESC" to match the genre facet convention above
+// (getAlbumsByGenre/getAlbumsByGenres) instead of alphabetically by
+// band_name -- the three facet kinds are the same kind of listing and used
+// to disagree on default order for no reason.
 export function getAlbumsByCountry(country: string): Card[] {
   const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY band_name`)
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY upload_date DESC`)
     .all(country);
   return rows.map(toCard);
 }
 
 export function getAlbumsByYear(year: number): Card[] {
   const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE year = ? AND ${NOT_LIVE} ORDER BY band_name`)
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE year = ? AND ${NOT_LIVE} ORDER BY upload_date DESC`)
     .all(year);
   return rows.map(toCard);
 }

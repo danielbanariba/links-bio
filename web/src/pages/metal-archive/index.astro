@@ -10,6 +10,7 @@ import {
   getLiveRecordings,
   getAllCountries,
   getAllYears,
+  getGenreFacetGroups,
   getAllAlbumIds,
   getTopBands,
   slugify,
@@ -31,6 +32,12 @@ const countryRotation = getCountryRotation(6);   // 6 random countries + a sampl
 const liveRecordings  = getLiveRecordings(12);   // Daniel's own live sets — own section
 const allCountries    = getAllCountries();        // all distinct countries + counts
 const allYears        = getAllYears();            // all distinct years + counts
+// #20: grouped (not getAllGenres()) so a raw-value slug collision (e.g.
+// "Black Death Metal" vs "Black/Death Metal") can't silently produce two
+// cards for the same /metal-archive/genre/<slug> page -- the same defect
+// class the sitemap/getStaticPaths() fix for country already covers via
+// groupFacetsBySlug(), just not yet applied to this section.
+const genreGroups     = getGenreFacetGroups();    // all genres, grouped by slug
 const allAlbumIds     = getAllAlbumIds();         // for Surprise Me random pick
 const topBands        = getTopBands(12);          // home "Bands" circular row
 
@@ -239,6 +246,29 @@ const ogImage = heroSource[0]?.thumb;
 
         <!-- Browse-by sections ─────────────────────────────────────────────── -->
         <hr class="home-divider" />
+
+        {genreGroups.length > 0 && (
+          <section class="carousel-deferred home-browse-by">
+            <div class="section-header">
+              <h2>Browse by genre</h2>
+              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
+            </div>
+            <div class="genre-grid">
+              {genreGroups.map((group) => (
+                <a
+                  class="facet-card"
+                  href={`/metal-archive/genre/${group.slug}`}
+                  title={`${group.count} ${group.count === 1 ? 'album' : 'albums'} in ${genreLabel(group.label)}`}
+                >
+                  <span class="facet-card__name">{genreLabel(group.label)}</span>
+                  <span class="facet-card__count">
+                    {group.count} {group.count === 1 ? 'album' : 'albums'}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {allCountries.length > 0 && (
           <section class="carousel-deferred home-browse-by">

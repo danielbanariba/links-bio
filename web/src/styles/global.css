@@ -742,6 +742,22 @@ img {
   .country-grid { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* ─── Home: browse-by-genre grid (#20) — same breakpoints as country-grid,
+   genre labels run a similar short-to-medium length. ───────────────────────*/
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .genre-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .genre-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
 /* ─── Home: browse-by-year grid ──────────────────────────────────────────────*/
 .year-grid {
   display: grid;
@@ -969,6 +985,14 @@ body.album-detail { padding-bottom: 80px; }
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
+  /* #18: object-fit:contain below never crops a non-square cover (16:9
+     YouTube thumbs are common), which used to leave a big flat gap of
+     --content above/below it. A gradient seeded from the already-computed
+     per-album --accent token fills that gap -- it's the container's own
+     background, so it paints behind the <img> with no z-index/pseudo-element
+     stacking to get wrong, and it never reaches the text in the sibling
+     .stage__panel, so contrast there is unaffected. */
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 38%, var(--content)) 0%, var(--content) 75%);
 }
 .stage__cover {
   display: block;
