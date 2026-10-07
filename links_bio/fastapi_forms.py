@@ -111,16 +111,18 @@ class NewsletterRequest(BaseModel):
 
 
 class ContactRequest(BaseModel):
-    nombre: str
+    # Field names match what web/src/pages/index.astro sends:
+    # Object.fromEntries(new FormData(form)) -> name, email, subject, message.
+    name: str
     email: str
-    asunto: str = ""
-    mensaje: str
+    subject: str = ""
+    message: str
 
-    @field_validator("nombre", "email", "mensaje", mode="before")
+    @field_validator("name", "email", "message", mode="before")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("This field is required.")
         return v.strip()
 
 
@@ -281,15 +283,15 @@ async def contact(req: ContactRequest):
     try:
         with _db_session() as session:
             msg = ContactMessage(
-                name=req.nombre,
+                name=req.name,
                 email=req.email,
-                company=req.asunto,
-                message=req.mensaje,
+                company=req.subject,
+                message=req.message,
                 package_interest="portfolio",
             )
             session.add(msg)
             session.commit()
-            logger.info(f"Contact message saved: {req.nombre} <{req.email}>")
+            logger.info(f"Contact message saved: {req.name} <{req.email}>")
     except Exception as exc:
         logger.error(f"DB error on contact: {exc}")
         raise HTTPException(status_code=500, detail="Could not send your message. Please try again.")
@@ -297,13 +299,13 @@ async def contact(req: ContactRequest):
     email_body = (
         f"Nuevo mensaje de contacto desde el portfolio\n"
         f"{'=' * 50}\n\n"
-        f"Nombre: {req.nombre}\n"
+        f"Nombre: {req.name}\n"
         f"Email: {req.email}\n"
-        f"Asunto: {req.asunto or '(sin asunto)'}\n\n"
-        f"Mensaje:\n{req.mensaje}\n"
+        f"Asunto: {req.subject or '(sin asunto)'}\n\n"
+        f"Mensaje:\n{req.message}\n"
     )
     err = _send_email_notification(
-        subject=f"Portfolio: mensaje de {req.nombre}",
+        subject=f"Portfolio: mensaje de {req.name}",
         body=email_body,
     )
     if err:
