@@ -9,6 +9,7 @@ Writes to the same reflex.db used by Reflex; reuses _send_email_notification
 from form_state.py.
 """
 import logging
+import time
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
@@ -21,9 +22,44 @@ from links_bio.models.submission import Submission
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.contact_message import ContactMessage
 from links_bio.notifications import _send_email_notification
+from links_bio.rate_limit import SlidingWindowLimiter, resolve_client_key
 
 logger = logging.getLogger("fastapi_forms")
 logging.basicConfig(level=logging.INFO)
+
+# ─── Rate limiting ───────────────────────────────────────────────────────────
+# One shared budget for /submit, /promo and /contact: all three send a real
+# Gmail SMTP email on every call, so sharing one budget stops a client from
+# dodging a per-endpoint limit by spreading requests across the three
+# endpoints (still 3x the SMTP quota otherwise). /newsletter has its own,
+# slightly larger budget: it never sends email, only writes a DB row.
+EMAIL_ENDPOINTS_RATE_LIMIT = 5
+EMAIL_ENDPOINTS_RATE_WINDOW_SECONDS = 600  # 10 minutes
+NEWSLETTER_RATE_LIMIT = 10
+NEWSLETTER_RATE_WINDOW_SECONDS = 600  # 10 minutes
+
+_email_limiter = SlidingWindowLimiter(
+    EMAIL_ENDPOINTS_RATE_LIMIT, EMAIL_ENDPOINTS_RATE_WINDOW_SECONDS
+)
+_newsletter_limiter = SlidingWindowLimiter(
+    NEWSLETTER_RATE_LIMIT, NEWSLETTER_RATE_WINDOW_SECONDS
+)
+
+
+def _enforce_rate_limit(limiter: SlidingWindowLimiter, request: Request) -> None:
+    """Raise 429 (with Retry-After) once `request`'s client exceeds `limiter`.
+
+    See `links_bio.rate_limit.resolve_client_key` for how the client
+    identity is derived safely behind the cloudflared tunnel.
+    """
+    key = resolve_client_key(request)
+    allowed, retry_after = limiter.check(key, time.monotonic())
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again later.",
+            headers={"Retry-After": str(max(1, int(retry_after) + 1))},
+        )
 
 # ─── App + CORS ──────────────────────────────────────────────────────────────
 # Interactive docs are disabled in code, not just left unrouted by the
@@ -196,8 +232,10 @@ def _http_error(detail: str, status: int = 400) -> HTTPException:
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.post("/api/metal-archive/submit")
-async def submit_band(req: SubmitRequest):
+async def submit_band(req: SubmitRequest, request: Request):
     """Save a band submission to reflex.db."""
+    _enforce_rate_limit(_email_limiter, request)
+
     try:
         with _db_session() as session:
             submission = Submission(
@@ -244,8 +282,10 @@ async def submit_band(req: SubmitRequest):
 
 
 @app.post("/api/metal-archive/promo")
-async def promo_band(req: PromoRequest):
+async def promo_band(req: PromoRequest, request: Request):
     """Save a promo request + send email notification."""
+    _enforce_rate_limit(_email_limiter, request)
+
     # Genre: custom wins over dropdown selection
     genre = req.custom_genre.strip() or req.genre.strip()
     if not genre:
@@ -306,8 +346,10 @@ async def promo_band(req: PromoRequest):
 
 
 @app.post("/api/metal-archive/newsletter")
-async def newsletter_signup(req: NewsletterRequest):
+async def newsletter_signup(req: NewsletterRequest, request: Request):
     """Subscribe an email to the newsletter. Rejects duplicates."""
+    _enforce_rate_limit(_newsletter_limiter, request)
+
     try:
         with _db_session() as session:
             existing = session.exec(
@@ -335,8 +377,10 @@ async def newsletter_signup(req: NewsletterRequest):
 
 
 @app.post("/api/metal-archive/contact")
-async def contact(req: ContactRequest):
+async def contact(req: ContactRequest, request: Request):
     """Portfolio contact form: save + send email notification."""
+    _enforce_rate_limit(_email_limiter, request)
+
     try:
         with _db_session() as session:
             msg = ContactMessage(

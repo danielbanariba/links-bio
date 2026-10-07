@@ -22,10 +22,13 @@ from links_bio.models.submission import Submission
 
 
 @pytest.fixture
-def forms_client(scratch_db: Path, clean_env, monkeypatch):
-    """A TestClient against the real app, wired to a private scratch DB and
-    with email sending stubbed. Also resets the rate limiters so each test
-    starts with a clean quota regardless of test order.
+def forms_client_factory(scratch_db: Path, clean_env, monkeypatch):
+    """Factory for TestClients against the real app, all sharing one scratch
+    DB, one stubbed email sink, and the process-wide rate limiters -- the
+    same way every caller shares one uvicorn process in production. Pass a
+    `client=(host, port)` tuple to simulate a specific direct TCP peer (the
+    default is TestClient's own "testclient" pseudo-peer, which is never a
+    loopback address).
     """
     engine = create_engine(
         f"sqlite:///{scratch_db}", connect_args={"check_same_thread": False}
@@ -40,10 +43,26 @@ def forms_client(scratch_db: Path, clean_env, monkeypatch):
 
     monkeypatch.setattr(fastapi_forms, "_send_email_notification", fake_send)
 
-    client = TestClient(fastapi_forms.app)
-    client.sent_emails = sent  # type: ignore[attr-defined]
-    client.db_engine = engine  # type: ignore[attr-defined]
-    yield client
+    fastapi_forms._email_limiter.reset()
+    fastapi_forms._newsletter_limiter.reset()
+
+    def make(client: tuple[str, int] = ("testclient", 50000)) -> TestClient:
+        tc = TestClient(fastapi_forms.app, client=client)
+        tc.sent_emails = sent  # type: ignore[attr-defined]
+        tc.db_engine = engine  # type: ignore[attr-defined]
+        return tc
+
+    yield make
+
+    fastapi_forms._email_limiter.reset()
+    fastapi_forms._newsletter_limiter.reset()
+
+
+@pytest.fixture
+def forms_client(forms_client_factory) -> TestClient:
+    """A single default-peer TestClient -- the common case for tests that
+    don't care about client identity."""
+    return forms_client_factory()
 
 
 TEST_BAND_NAME = "T9 Hardening Test Band"
@@ -131,3 +150,90 @@ def test_valid_submission_is_still_accepted(forms_client: TestClient) -> None:
     assert len(rows) == 1
     assert rows[0].band_name == TEST_BAND_NAME
     assert len(forms_client.sent_emails) == 1  # type: ignore[attr-defined]
+
+
+def test_rate_limit_returns_429_with_retry_after(forms_client: TestClient) -> None:
+    """None of the 4 endpoints had any abuse control: a client could call
+    /submit (a real Gmail SMTP send) as fast as it liked, an email-bombing
+    and DB-growth vector. The 6th request within the window from one client
+    must be rejected with 429 and a Retry-After header, not accepted.
+    """
+    for _ in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = forms_client.post(
+            "/api/metal-archive/submit", json=_valid_submit_payload()
+        )
+        assert res.status_code == 200
+
+    limited = forms_client.post(
+        "/api/metal-archive/submit", json=_valid_submit_payload()
+    )
+
+    assert limited.status_code == 429
+    assert limited.json()["detail"]
+    assert int(limited.headers["Retry-After"]) > 0
+
+
+def test_independent_limits_per_cf_connecting_ip_behind_loopback(
+    forms_client_factory,
+) -> None:
+    """Behind cloudflared every request's direct peer is 127.0.0.1, so the
+    limiter must key on CF-Connecting-IP there -- otherwise every real
+    visitor sharing the tunnel would share (and exhaust) one global quota
+    instead of each getting their own.
+    """
+    client_a = forms_client_factory(client=("127.0.0.1", 11111))
+    client_b = forms_client_factory(client=("127.0.0.1", 22222))
+
+    for _ in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = client_a.post(
+            "/api/metal-archive/submit",
+            json=_valid_submit_payload(),
+            headers={"CF-Connecting-IP": "203.0.113.1"},
+        )
+        assert res.status_code == 200
+
+    exhausted = client_a.post(
+        "/api/metal-archive/submit",
+        json=_valid_submit_payload(),
+        headers={"CF-Connecting-IP": "203.0.113.1"},
+    )
+    assert exhausted.status_code == 429
+
+    # A different CF-Connecting-IP, still behind the same loopback peer,
+    # must have its own untouched quota.
+    still_allowed = client_b.post(
+        "/api/metal-archive/submit",
+        json=_valid_submit_payload(),
+        headers={"CF-Connecting-IP": "203.0.113.2"},
+    )
+    assert still_allowed.status_code == 200
+
+
+def test_spoofed_cf_connecting_ip_from_non_loopback_peer_is_ignored(
+    forms_client_factory,
+) -> None:
+    """CF-Connecting-IP is only trustworthy when it actually came through
+    the local cloudflared tunnel (direct peer == loopback). From any other
+    peer it is attacker-controlled: trusting it would let one real client
+    spoof a fresh identity on every request and dodge the limiter entirely.
+    """
+    client = forms_client_factory(client=("203.0.113.99", 33333))
+
+    for i in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = client.post(
+            "/api/metal-archive/submit",
+            json=_valid_submit_payload(),
+            # A different spoofed header on every request -- if the server
+            # trusted it from this non-loopback peer, each request would
+            # look like a brand-new, never-limited client.
+            headers={"CF-Connecting-IP": f"10.0.0.{i}"},
+        )
+        assert res.status_code == 200
+
+    limited = client.post(
+        "/api/metal-archive/submit",
+        json=_valid_submit_payload(),
+        headers={"CF-Connecting-IP": "10.0.0.250"},
+    )
+
+    assert limited.status_code == 429
