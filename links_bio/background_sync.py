@@ -1,42 +1,29 @@
 """
-Background sync: sincroniza YouTube -> DB cada N horas dentro de la app Reflex.
+Sync pipeline steps: YouTube -> DB, normalize, artwork, Astro build+deploy.
 
-Solo se activa si YOUTUBE_REFRESH_TOKEN esta configurado (Reflex Cloud).
+Each `run_*` function below is one pipeline step. `scripts/sync_and_deploy.py`
+imports this module and calls them directly, once per cycle, run twice a day
+by the links-bio-sync.{service,timer} systemd user units. There is no daemon
+thread and no Reflex app here anymore: the in-app background-sync thread
+that used to own this module (started from links_bio.py on every Reflex
+boot) was removed once the Reflex UI itself was retired.
 """
 
 import logging
 import os
-import threading
 import time
-import traceback
-from datetime import datetime
 
 logger = logging.getLogger("background_sync")
 logger.setLevel(logging.INFO)
 
-# Estado de diagnostico accesible desde el state
-_diag_status: str = "No iniciado"
-
-
-def get_diag_status() -> str:
-    return _diag_status
-
 
 def _log(msg: str):
-    """Log + print para asegurar visibilidad en Reflex Cloud."""
-    global _diag_status
-    _diag_status = msg
+    """Log + print so the message reaches both pytest's caplog and the
+    systemd unit's journal."""
     logger.warning(msg)
     print(f"[SYNC] {msg}", flush=True)
 
-# Intervalo por defecto: 12 horas (en segundos)
-SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL_HOURS", "12")) * 3600
 
-# Delay inicial: esperar 60s despues del arranque para que la app este lista
-STARTUP_DELAY = int(os.environ.get("SYNC_STARTUP_DELAY", "60"))
-
-_sync_thread = None
-_started = False
 _sync_count = 0
 
 
@@ -44,19 +31,19 @@ def run_youtube_sync() -> None:
     """Authenticate with YouTube and run one sync pass (new videos -> DB,
     mark featured).
 
-    Extracted out of `_run_sync_cycle` so `scripts/sync_and_deploy.py` can
-    reuse the exact same step instead of duplicating it, with a
-    raise-on-failure contract: callers that want the old "log and continue"
-    behavior (the daemon thread below) catch around this call themselves.
+    This is one step of the pipeline `scripts/sync_and_deploy.py` runs
+    directly; it raises on failure, and that caller decides what a failure
+    means (logs it and keeps running the remaining steps).
 
     solo_nuevos is decided the same way the original inline code did: full
     sync when the DB has fewer than 100 albums, or every 4th cycle (to fill
     holes left by incremental syncs), incremental otherwise. Note this
     "every 4th cycle" heuristic is tracked via the in-process `_sync_count`
     global, so it only means something across calls within one long-lived
-    process (the daemon thread); each `sync_and_deploy.py` run is a fresh
-    process, so _sync_count resets to 1 every time and this effectively
-    always chooses incremental sync once the DB has >=100 albums.
+    process; each `sync_and_deploy.py` run is a fresh process, so
+    _sync_count resets to 1 every time and this effectively always chooses
+    incremental sync once the DB has >=100 albums (known follow-up, not
+    fixed by this task).
     """
     from links_bio.youtube_auth import authenticate_auto
     youtube_client = authenticate_auto()
@@ -90,39 +77,6 @@ def run_youtube_sync() -> None:
         mark_featured=True,
         featured_count=10,
     )
-
-
-def _run_sync_cycle():
-    """Ejecuta un ciclo de sync: YouTube -> DB, luego artwork desde DeathGrind."""
-    try:
-        run_youtube_sync()
-    except Exception as e:
-        _log(f"Error durante sync YouTube: {e}")
-        traceback.print_exc()
-        return False
-
-    # Paso 2: normalizar generos y paises
-    try:
-        run_normalize()
-    except Exception as e:
-        _log(f"Error durante normalizacion: {e}")
-        traceback.print_exc()
-
-    # Paso 3: reemplazar thumbnails de YouTube con portadas de DeathGrind
-    try:
-        run_artwork_sync()
-    except Exception as e:
-        _log(f"Error durante sync artwork: {e}")
-        traceback.print_exc()
-
-    # Paso 4: rebuild + deploy del sitio Astro estatico con la DB actualizada
-    try:
-        run_astro_build_and_deploy()
-    except Exception as e:
-        _log(f"Error durante deploy Astro: {e}")
-        traceback.print_exc()
-
-    return True
 
 
 def find_node_bin():
@@ -321,70 +275,3 @@ def run_artwork_sync():
             offset += BATCH_SIZE
 
     _log(f"Artwork sync completado: {total_found}/{total_processed} portadas encontradas.")
-
-
-def _is_db_empty() -> bool:
-    """Verifica si la DB tiene albums."""
-    try:
-        from sqlmodel import Session, select, func
-        from links_bio.db import engine
-        from links_bio.models.album import Album
-        with Session(engine) as session:
-            count = session.exec(select(func.count(Album.id))).one()
-            return count == 0
-    except Exception:
-        return True
-
-
-def _sync_loop():
-    """Loop principal del background sync."""
-    if _is_db_empty():
-        _log("DB vacia, iniciando sync inmediatamente...")
-    else:
-        _log(f"Esperando {STARTUP_DELAY}s antes del primer sync...")
-        time.sleep(STARTUP_DELAY)
-
-    while True:
-        try:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            _log(f"Iniciando sync: {now}")
-
-            success = _run_sync_cycle()
-
-            if success:
-                _log("Sync completado exitosamente.")
-            else:
-                _log("Sync fallo. Se reintentara en el proximo ciclo.")
-        except Exception as e:
-            _log(f"Error no esperado en sync loop: {e}")
-            traceback.print_exc()
-
-        hours = SYNC_INTERVAL // 3600
-        _log(f"Proximo sync en {hours} horas.")
-        time.sleep(SYNC_INTERVAL)
-
-
-def start_background_sync():
-    """Inicia el background sync como daemon thread. Solo se ejecuta una vez."""
-    global _sync_thread, _started
-
-    if _started:
-        return
-
-    # Verificar credenciales de YouTube (API Key o OAuth)
-    api_key = os.environ.get("YOUTUBE_API_KEY")
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
-    if not api_key and not refresh_token:
-        _log("YOUTUBE_API_KEY ni YOUTUBE_REFRESH_TOKEN configurados. Background sync desactivado.")
-        # Log all env var keys for debugging (no values for security)
-        env_keys = sorted([k for k in os.environ.keys() if "YOUTUBE" in k.upper() or "GMAIL" in k.upper()])
-        _log(f"Env vars relevantes encontradas: {env_keys if env_keys else 'ninguna'}")
-        return
-
-    auth_mode = "API Key" if api_key else "OAuth refresh token"
-    _log(f"Background sync se autenticara via {auth_mode}.")
-
-    _started = True
-    _sync_thread = threading.Thread(target=_sync_loop, daemon=True, name="youtube-sync")
-    _sync_thread.start()
-    _log("Hilo de sincronizacion iniciado.")
