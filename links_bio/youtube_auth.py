@@ -88,10 +88,10 @@ def get_channel_id_from_env_or_derive(youtube_client):
 
     # Fallback: derivar del primer video en la DB
     try:
-        import reflex as rx
-        from sqlmodel import select
+        from sqlmodel import Session, select
+        from links_bio.db import engine
         from links_bio.models.album import Album
-        with rx.session() as session:
+        with Session(engine) as session:
             album = session.exec(
                 select(Album).where(Album.youtube_video_id != "").limit(1)
             ).first()
