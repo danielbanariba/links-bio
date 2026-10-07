@@ -135,7 +135,10 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   // you without a real reload" case a skip link exists for.
   document.addEventListener('astro:after-swap', () => {
     const main = document.getElementById('main');
-    main?.focus();
+    // R3-001: preventScroll so focusing #main never moves the viewport --
+    // ClientRouter's own scroll handling (including back/forward restoring a
+    // prior scroll position) stays in control; focus must not fight it.
+    main?.focus({ preventScroll: true });
   });
 
   // F10 (Oct 2026 UI audit): width:100vw full-bleed sections (.stage on the

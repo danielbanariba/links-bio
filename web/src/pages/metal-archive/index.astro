@@ -37,7 +37,22 @@ const allYears        = getAllYears();            // all distinct years + counts
 // cards for the same /metal-archive/genre/<slug> page -- the same defect
 // class the sitemap/getStaticPaths() fix for country already covers via
 // groupFacetsBySlug(), just not yet applied to this section.
-const genreGroups     = getGenreFacetGroups();    // all genres, grouped by slug
+//
+// R3-009: getGenreFacetGroups() returns every group (sitemap.xml.ts and
+// genre/[genre].astro's getStaticPaths() both need the FULL list to build
+// every page, so the cap below is this page's own display concern, applied
+// after the full list, never inside getGenreFacetGroups() itself). The home
+// section used to render all ~292 groups; cap it to the top N by album
+// count, the same "top N by count" pattern already used for this page's
+// other home sections (getGenreShowcases(5), getTopBands(12)) -- 24 keeps
+// it the same order of magnitude as the ~78 real countries the "Browse by
+// country" grid below renders, and divides evenly into the grid's
+// 5-column desktop breakpoint.
+const GENRE_HOME_CAP  = 24;
+const genreGroups     = getGenreFacetGroups()     // all genres, grouped by slug
+  .slice()
+  .sort((a, b) => b.count - a.count)
+  .slice(0, GENRE_HOME_CAP);
 const allAlbumIds     = getAllAlbumIds();         // for Surprise Me random pick
 const topBands        = getTopBands(12);          // home "Bands" circular row
 
@@ -418,6 +433,29 @@ const ogImage = heroSource[0]?.thumb;
           }
         }
         document.addEventListener('astro:page-load', initHome);
+
+        // R3-003: the right-edge fade on .carousel-row/.bands-row used to be
+        // permanent CSS, so it stayed visible even once a row had no more
+        // content to scroll to (and dimmed the last card's focus ring the
+        // whole time). .has-scroll-fade is only added while scrolling
+        // further right would actually reveal more content.
+        function updateRowFade(row: Element) {
+          var hasMore = row.scrollWidth - row.scrollLeft - row.clientWidth > 1;
+          row.classList.toggle('has-scroll-fade', hasMore);
+        }
+        function initScrollFade() {
+          var rows = document.querySelectorAll('.carousel-row, .bands-row');
+          rows.forEach(function (row) {
+            updateRowFade(row);
+            if ((row as any).__fadeBound) return;
+            (row as any).__fadeBound = true;
+            row.addEventListener('scroll', function () { updateRowFade(row); }, { passive: true });
+          });
+        }
+        window.addEventListener('resize', function () {
+          document.querySelectorAll('.carousel-row, .bands-row').forEach(updateRowFade);
+        });
+        document.addEventListener('astro:page-load', initScrollFade);
       })();
     </script>
   </body>

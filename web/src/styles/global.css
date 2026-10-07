@@ -223,13 +223,21 @@ img {
   padding-bottom: 0.75rem;
   /* Hide scrollbar but keep scroll functionality */
   scrollbar-width: none;
-  /* #16: a right-edge fade signals there is more to scroll to -- these rows
-     hid 73-87% of their content with no affordance at all otherwise. */
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 .carousel-row::-webkit-scrollbar {
   display: none;
+}
+
+/* #16/R3-003: a right-edge fade signals there is more to scroll to -- these
+   rows hid 73-87% of their content with no affordance at all otherwise.
+   .has-scroll-fade is toggled by the home page's script (metal-archive/
+   index.astro) based on actual scroll position, so the fade is only present
+   while scrolling further right would reveal more content -- never at rest
+   with no overflow, and never once scrolled to the end, where a permanent
+   mask would otherwise keep the last card's focus ring dimmed. */
+.carousel-row.has-scroll-fade {
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
 
 .carousel-row > * {
@@ -593,7 +601,13 @@ img {
   color: #fff;
 }
 
-@media (max-width: 560px), (max-width: 900px) and (orientation: landscape) {
+/* R3-006: (max-width: 900px) and (orientation: landscape) also matched
+   desktop/laptop windows resized to 768-900px wide (nothing coarse-pointer
+   about those), and missed 915-932px-wide landscape phones (wider than
+   900px). (max-height: 500px) targets a phone's short landscape dimension
+   regardless of its width, and (pointer: coarse) excludes a mouse-driven
+   desktop window that happens to be short. */
+@media (max-width: 560px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .navbar__surprise-label { display: none; }
   .navbar__surprise { padding: 0.5em 0.55em; }
   .navbar__brand { font-size: 1.4rem; }
@@ -2648,12 +2662,17 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .tabbar { display: none; }   /* desktop: the top navbar handles navigation */
 
-/* #8: also cover landscape phones (768-900px wide) with the same swap -- a
-   portrait-only breakpoint let the nav tap targets fall back under the
-   44px minimum and hid the album grid above the fold whenever a phone was
-   rotated to landscape (e.g. to watch the embedded video), since neither
-   this media query nor the bio 44px tap-target fix below used to match. */
-@media (max-width: 767px), (max-width: 900px) and (orientation: landscape) {
+/* #8: also cover landscape phones with the same swap -- a portrait-only
+   breakpoint let the nav tap targets fall back under the 44px minimum and
+   hid the album grid above the fold whenever a phone was rotated to
+   landscape (e.g. to watch the embedded video), since neither this media
+   query nor the bio 44px tap-target fix above used to match.
+   R3-006: (max-width: 900px) and (orientation: landscape) also matched a
+   768-900px-wide desktop/laptop window, and missed 915-932px-wide landscape
+   phones. (max-height: 500px) targets a phone's short landscape dimension
+   regardless of width, and (pointer: coarse) excludes a mouse-driven window
+   that happens to be short. */
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
      over primary nav) and centre the brand. */
   .navbar--ma .navbar__links { display: none; }
@@ -2724,11 +2743,15 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   padding-bottom: 0.5rem;
-  /* #16: same right-edge scroll affordance as .carousel-row above. */
+}
+.bands-row::-webkit-scrollbar { display: none; }
+
+/* #16/R3-003: same scoped scroll affordance as .carousel-row above --
+   .has-scroll-fade toggled by the home page's script. */
+.bands-row.has-scroll-fade {
   mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
 }
-.bands-row::-webkit-scrollbar { display: none; }
 
 .band-avatar {
   display: flex;
