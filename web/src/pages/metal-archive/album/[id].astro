@@ -295,6 +295,7 @@ const albumJsonLd = safeJsonLd({
             <div class="stage__metarow">
               {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{genreName}</a>}
               {album.genre && !genreSlug && <span>{genreName}</span>}
+              {/* year 0 means "unknown". The !! is required, since a bare `0 && ...` renders a literal "0" (see lib/cardMeta.ts) */}
               {!!album.genre && !!album.year && <span class="sep"> · </span>}
               {!!album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
               {(!!album.genre || !!album.year) && countryName && <span class="sep"> · </span>}
