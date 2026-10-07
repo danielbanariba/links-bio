@@ -369,6 +369,73 @@ export function getAllCountries(): Facet[] {
     .all() as Facet[];
 }
 
+// ─── Facet slug grouping — fixes slugify() collisions dropping pages ──────────
+// Distinct raw strings can slugify to the SAME value (e.g. "Black Death Metal"
+// and "Black/Death Metal" both -> "black-death-metal"). Before this, every
+// getStaticPaths() emitted one path per RAW facet row, so Astro's static
+// builder silently overwrote the earlier-built page with the later one — a
+// 31-album genre page replaced by a 1-album one, with no error. The sitemap had
+// the same bug: one <loc> per raw row, so a collision produced duplicate URLs.
+//
+// The fix: group raw rows by slug first, so exactly one page is built per
+// slug and it lists the union of every raw variant that collides into it.
+// `label` is the raw value with the highest count — used for the page title /
+// genreLabel()/countryLabel() lookup and the "Refine in Browse" link, so the
+// page reads as the dominant variant while still listing every album.
+// Does NOT touch the database: colliding raw strings remain separate rows
+// (scripts/normalize_db.py is the real data-layer fix, out of scope here).
+export interface FacetGroup {
+  slug: string;
+  label: string;
+  values: string[];
+  count: number;
+}
+
+function groupFacetsBySlug(rows: Facet[]): FacetGroup[] {
+  const bySlug = new Map<string, Facet[]>();
+  for (const row of rows) {
+    const slug = slugify(row.value);
+    const list = bySlug.get(slug);
+    if (list) list.push(row);
+    else bySlug.set(slug, [row]);
+  }
+  return [...bySlug.entries()].map(([slug, group]) => {
+    const [primary] = [...group].sort((a, b) => b.count - a.count);
+    return {
+      slug,
+      label: primary.value,
+      values: group.map((g) => g.value),
+      count: group.reduce((sum, g) => sum + g.count, 0),
+    };
+  });
+}
+
+export function getGenreFacetGroups(): FacetGroup[] {
+  return groupFacetsBySlug(getAllGenres());
+}
+
+export function getCountryFacetGroups(): FacetGroup[] {
+  return groupFacetsBySlug(getAllCountries());
+}
+
+export function getAlbumsByGenres(genres: string[]): Card[] {
+  if (genres.length === 0) return [];
+  const placeholders = genres.map(() => '?').join(',');
+  const rows: any[] = db
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE genre IN (${placeholders}) AND ${NOT_LIVE} ORDER BY upload_date DESC`)
+    .all(...genres);
+  return rows.map(toCard);
+}
+
+export function getAlbumsByCountries(countries: string[]): Card[] {
+  if (countries.length === 0) return [];
+  const placeholders = countries.map(() => '?').join(',');
+  const rows: any[] = db
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country IN (${placeholders}) AND ${NOT_LIVE} ORDER BY band_name`)
+    .all(...countries);
+  return rows.map(toCard);
+}
+
 export function getAllYears(): Facet[] {
   return db
     .prepare(
