@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from links_bio import fastapi_forms, rate_limit
+from links_bio.models.contact_message import ContactMessage
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.submission import Submission
 
@@ -45,8 +46,30 @@ def _valid_submit_payload(**overrides: str) -> dict:
     return payload
 
 
+def _valid_promo_payload(**overrides: str) -> dict:
+    payload = {
+        "band_name": "T9 Hardening Promo Band",
+        "email": "t9-hardening-promo@example.com",
+        "genre": "Death Metal",
+        "album_title": "Hardening Test Album",
+        "youtube_url": "https://youtu.be/t9-hardening",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def _valid_newsletter_payload(**overrides: str) -> dict:
     payload = {"email": "t9-hardening-newsletter@example.com"}
+    payload.update(overrides)
+    return payload
+
+
+def _valid_contact_payload(**overrides: str) -> dict:
+    payload = {
+        "name": "T9 Hardening Contact",
+        "email": "t9-hardening-contact@example.com",
+        "message": "Hardening regression check.",
+    }
     payload.update(overrides)
     return payload
 
@@ -59,6 +82,22 @@ def _submissions_with_email(engine, email: str) -> list[Submission]:
         return session.exec(
             select(Submission).where(Submission.contact_email == email)
         ).all()
+
+
+def _contact_messages_with_email(engine, email: str) -> list[ContactMessage]:
+    """Both /promo and /contact store into ContactMessage; scoped to this
+    test's own email for the same reason as `_submissions_with_email`."""
+    with Session(engine) as session:
+        return session.exec(
+            select(ContactMessage).where(ContactMessage.email == email)
+        ).all()
+
+
+def _newsletter_subscriber(engine, email: str) -> NewsletterSubscriber | None:
+    with Session(engine) as session:
+        return session.exec(
+            select(NewsletterSubscriber).where(NewsletterSubscriber.email == email)
+        ).first()
 
 
 def test_docs_and_openapi_are_disabled(forms_client: TestClient) -> None:
@@ -417,3 +456,152 @@ def test_tracked_keys_never_exceed_the_configured_cap() -> None:
         assert allowed is True
 
     assert len(limiter._hits) <= 10
+
+
+# ─── R3-005: coverage across endpoints ─────────────────────────────────────
+#
+# Every regression guard above this point only ever drove /submit. The same
+# honeypot check, the same single-line CRLF validator, and the same shared
+# rate limiter are wired into /promo, /newsletter and /contact too, but
+# nothing proved any of that -- a handler-specific bug (wrong field read,
+# forgotten check, an accidentally separate limiter instance) on any of the
+# other 3 endpoints would have gone uncaught.
+
+_ENDPOINTS = [
+    ("/api/metal-archive/submit", _valid_submit_payload),
+    ("/api/metal-archive/promo", _valid_promo_payload),
+    ("/api/metal-archive/newsletter", _valid_newsletter_payload),
+    ("/api/metal-archive/contact", _valid_contact_payload),
+]
+
+
+@pytest.mark.parametrize("path,payload_factory", _ENDPOINTS)
+def test_honeypot_filled_drops_submission_silently_on_every_endpoint(
+    forms_client: TestClient, path: str, payload_factory
+) -> None:
+    """The original honeypot guard only exercised /submit. A filled
+    honeypot must drop the submission -- no DB row, no admin email -- on
+    every one of the 4 endpoints, not just that one.
+    """
+    email = f"t9-honeypot-coverage{path.replace('/', '-')}@example.com"
+    email_field = "contact_email" if path.endswith("/submit") else "email"
+    payload = payload_factory(**{email_field: email, "website": "http://spam.example"})
+
+    res = forms_client.post(path, json=payload)
+
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    assert forms_client.sent_emails == []  # type: ignore[attr-defined]
+    if path.endswith("/submit"):
+        assert _submissions_with_email(forms_client.db_engine, email) == []  # type: ignore[attr-defined]
+    elif path.endswith("/newsletter"):
+        assert _newsletter_subscriber(forms_client.db_engine, email) is None  # type: ignore[attr-defined]
+    else:
+        assert _contact_messages_with_email(forms_client.db_engine, email) == []  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "path,payload_factory,field",
+    [
+        ("/api/metal-archive/submit", _valid_submit_payload, "band_name"),
+        ("/api/metal-archive/promo", _valid_promo_payload, "band_name"),
+        ("/api/metal-archive/newsletter", _valid_newsletter_payload, "email"),
+        ("/api/metal-archive/contact", _valid_contact_payload, "name"),
+    ],
+)
+def test_embedded_crlf_is_rejected_on_every_endpoint(
+    forms_client: TestClient, path: str, payload_factory, field: str
+) -> None:
+    """The original CRLF guard only exercised /submit's band_name. The
+    same single-line validator is reused across all 4 request models,
+    but nothing proved it was actually wired up on every endpoint's
+    equivalent field.
+    """
+    payload = payload_factory(**{field: "X\r\nBcc: x@y.z"})
+
+    res = forms_client.post(path, json=payload)
+
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "path,payload_factory,field",
+    [
+        ("/api/metal-archive/submit", _valid_submit_payload, "description"),
+        ("/api/metal-archive/contact", _valid_contact_payload, "message"),
+    ],
+)
+def test_multiline_free_text_field_still_accepts_newlines(
+    forms_client: TestClient, path: str, payload_factory, field: str
+) -> None:
+    """The single-line CRLF guard is deliberately NOT applied to a
+    submission's description or a contact message -- genuinely multi-line
+    free text. A validator applied too broadly there would silently break
+    every multi-paragraph message instead of only blocking header
+    injection.
+    """
+    payload = payload_factory(**{field: "Line one.\nLine two.\nLine three."})
+
+    res = forms_client.post(path, json=payload)
+
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.parametrize(
+    "first_path,first_payload,second_path,second_payload",
+    [
+        (
+            "/api/metal-archive/submit", _valid_submit_payload,
+            "/api/metal-archive/promo", _valid_promo_payload,
+        ),
+        (
+            "/api/metal-archive/promo", _valid_promo_payload,
+            "/api/metal-archive/contact", _valid_contact_payload,
+        ),
+        (
+            "/api/metal-archive/contact", _valid_contact_payload,
+            "/api/metal-archive/submit", _valid_submit_payload,
+        ),
+    ],
+)
+def test_submit_promo_and_contact_share_one_email_rate_budget(
+    forms_client: TestClient,
+    first_path: str,
+    first_payload,
+    second_path: str,
+    second_payload,
+) -> None:
+    """/submit, /promo and /contact all send a real SMTP email on every
+    call and must share ONE budget -- otherwise a client could dodge a
+    per-endpoint limit by spreading requests across the three, still
+    getting 3x the SMTP quota. Exhausting the budget on one of the three
+    must lock out the others, not just the one that was hit.
+    """
+    for _ in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = forms_client.post(first_path, json=first_payload())
+        assert res.status_code == 200
+
+    exhausted = forms_client.post(second_path, json=second_payload())
+
+    assert exhausted.status_code == 429
+
+
+def test_newsletter_has_its_own_separate_rate_budget(forms_client: TestClient) -> None:
+    """Newsletter never sends email (unlike submit/promo/contact) and
+    intentionally has a separate, larger budget; exhausting the shared
+    email budget via /submit must not also lock out /newsletter.
+    """
+    for _ in range(fastapi_forms.EMAIL_ENDPOINTS_RATE_LIMIT):
+        res = forms_client.post(
+            "/api/metal-archive/submit", json=_valid_submit_payload()
+        )
+        assert res.status_code == 200
+    exhausted = forms_client.post(
+        "/api/metal-archive/submit", json=_valid_submit_payload()
+    )
+    assert exhausted.status_code == 429
+
+    still_ok = forms_client.post(
+        "/api/metal-archive/newsletter", json=_valid_newsletter_payload()
+    )
+    assert still_ok.status_code == 200
