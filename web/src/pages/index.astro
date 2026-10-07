@@ -17,11 +17,37 @@ const SOCIAL = {
   youtube:   'https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q',
   tiktok:    'https://www.tiktok.com/@danielbanariba',
   linkedin:  'https://www.linkedin.com/in/danielbanariba/',
-  // El portfolio de ingeniería. Sin este enlace los buscadores tratan
-  // danielbanariba.com y danielbanariba.dev como dos personas distintas.
+  // The software engineering portfolio. Without this link search engines treat
+  // danielbanariba.com and danielbanariba.dev as two different people.
   portfolio: 'https://www.danielbanariba.dev',
 };
 const EMAIL = 'danielbanariba@protonmail.com';
+
+// Per-platform display metadata, keyed the same as SOCIAL above. Both the
+// desktop and mobile icon rows are generated from THIS one list instead of
+// hand-duplicated markup — the exact reason the portfolio icon's aria-label
+// used to drift to Spanish in only one of the two rows.
+const SOCIAL_ICONS: Array<{
+  key: keyof typeof SOCIAL;
+  icon: string;
+  alt: string;
+  ariaLabel?: string;
+  rel: string;
+}> = [
+  { key: 'github',    icon: '/icons/github.svg',    alt: 'GitHub',    rel: 'me noopener noreferrer' },
+  { key: 'instagram', icon: '/icons/instagram.svg', alt: 'Instagram', rel: 'noopener noreferrer' },
+  { key: 'facebook',  icon: '/icons/facebook.svg',  alt: 'Facebook',  rel: 'noopener noreferrer' },
+  { key: 'youtube',   icon: '/icons/youtube.svg',   alt: 'YouTube',   rel: 'noopener noreferrer' },
+  { key: 'tiktok',    icon: '/icons/tiktok.svg',    alt: 'TikTok',    rel: 'noopener noreferrer' },
+  { key: 'linkedin',  icon: '/icons/linkedin.svg',  alt: 'LinkedIn',  rel: 'me noopener noreferrer' },
+  {
+    key: 'portfolio',
+    icon: '/icons/git.svg',
+    alt: 'Portfolio',
+    ariaLabel: 'Software engineering portfolio',
+    rel: 'me noopener noreferrer',
+  },
+];
 
 // ─── Audiovisual projects (ported from links_bio/views/links.py) ──────────────
 // logoScale = the original logo width % from the Reflex link_video() calls.
@@ -129,26 +155,22 @@ const PROJECTS = [
             <h1 class="bio-name">Daniel Banariba</h1>
             <p class="bio-handle">@danielbanariba</p>
             <nav class="bio-social bio-social--inline" aria-label="Social links">
-              <a href={SOCIAL.github}    target="_blank" rel="me noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.linkedin}  target="_blank" rel="me noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="22" height="22" loading="lazy" /></a>
-              <a href={SOCIAL.portfolio} target="_blank" rel="me noopener noreferrer" aria-label="Portfolio de ingeniería"><img src="/icons/git.svg" alt="Portfolio" width="22" height="22" loading="lazy" /></a>
+              {SOCIAL_ICONS.map((s) => (
+                <a href={SOCIAL[s.key]} target="_blank" rel={s.rel} aria-label={s.ariaLabel ?? s.alt}>
+                  <img src={s.icon} alt={s.alt} width="22" height="22" loading="lazy" />
+                </a>
+              ))}
             </nav>
           </div>
         </div>
 
         <!-- Social row for mobile (icons under the header, matching rx.mobile_only) -->
         <nav class="bio-social bio-social--mobile" aria-label="Social links">
-          <a href={SOCIAL.github}    target="_blank" rel="me noopener noreferrer" aria-label="GitHub"><img src="/icons/github.svg" alt="GitHub" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"><img src="/icons/instagram.svg" alt="Instagram" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.facebook}  target="_blank" rel="noopener noreferrer" aria-label="Facebook"><img src="/icons/facebook.svg" alt="Facebook" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.youtube}   target="_blank" rel="noopener noreferrer" aria-label="YouTube"><img src="/icons/youtube.svg" alt="YouTube" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.tiktok}    target="_blank" rel="noopener noreferrer" aria-label="TikTok"><img src="/icons/tiktok.svg" alt="TikTok" width="24" height="24" loading="lazy" /></a>
-          <a href={SOCIAL.linkedin}  target="_blank" rel="me noopener noreferrer" aria-label="LinkedIn"><img src="/icons/linkedin.svg" alt="LinkedIn" width="24" height="24" loading="lazy" /></a>
-              <a href={SOCIAL.portfolio} target="_blank" rel="me noopener noreferrer" aria-label="Portfolio de ingeniería"><img src="/icons/git.svg" alt="Portfolio" width="24" height="24" loading="lazy" /></a>
+          {SOCIAL_ICONS.map((s) => (
+            <a href={SOCIAL[s.key]} target="_blank" rel={s.rel} aria-label={s.ariaLabel ?? s.alt}>
+              <img src={s.icon} alt={s.alt} width="24" height="24" loading="lazy" />
+            </a>
+          ))}
         </nav>
 
         <!-- Stats row -->
