@@ -26,10 +26,28 @@ _DEFAULT_DB_URL = f"sqlite:///{REPO_ROOT / 'reflex.db'}"
 
 DB_URL = os.environ.get("REFLEX_DB_URL", _DEFAULT_DB_URL)
 
+# pysqlite's own default busy timeout is 5 seconds (the `timeout` parameter
+# `sqlite3.connect()` uses when the caller doesn't pass one). A write that
+# lands while another connection -- a sync script, a backup, a form request
+# -- holds the write lock for longer than that raises "database is locked"
+# outright instead of simply waiting a little longer. Raise it so a write
+# queues behind the lock instead of failing.
+#
+# Deliberately NOT switching to WAL here: WAL permanently converts the DB
+# file's journal mode on first connect, and the read-only consumers this
+# repo already depends on -- the restic backup's
+# `sqlite3 'file:...?mode=ro' .backup` and Astro's read-only better-sqlite3
+# build -- are not guaranteed to handle that correctly.
+SQLITE_BUSY_TIMEOUT_SECONDS = 30
+
 # SQLite connections are not thread-safe by default; reflex's get_engine()
 # set this same flag for every sqlite URL, since the Reflex/FastAPI/background
 # sync code paths all share one connection across threads.
-_connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
+_connect_args = (
+    {"check_same_thread": False, "timeout": SQLITE_BUSY_TIMEOUT_SECONDS}
+    if DB_URL.startswith("sqlite")
+    else {}
+)
 
 engine = create_engine(DB_URL, connect_args=_connect_args)
 
