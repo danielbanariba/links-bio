@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Metal Archive sync+deploy cycle twice a day
+
+[Timer]
+OnCalendar=*-*-* 06,18:00:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

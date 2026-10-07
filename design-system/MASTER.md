@@ -261,21 +261,31 @@ Underground motion. No cinematic. No bouncy. No "delightful".
 
 ---
 
-## 11. Reflex Implementation Notes
+## 11. Implementation Notes (historical: Reflex, now retired)
 
-This project uses **Reflex 0.8.28**, not raw React. All components are Python `rx.*` calls.
+**This section describes the pre-migration Reflex implementation. The code paths below
+(`links_bio/styles/`, `links_bio/views/`, `links_bio/links_bio.py`) were deleted when the site
+migrated to Astro (commit `14f149c`, May 2026) and again when the dead Reflex tree was removed for
+good (T7, Oct 2026 — see `CLAUDE.md`'s "What is live vs. legacy"). Kept here only as historical context
+for how these same design tokens used to be wired; do not try to follow these paths on the live site.**
 
-### Where this lives in code
+The live implementation of these tokens is plain CSS: one global stylesheet at
+`web/src/styles/global.css` (Astro). Define new tokens as CSS custom properties under `:root` there,
+following the Color Tokens / Spacing Scale / Motion Tokens sections above — there is no enum, no
+Python, and no per-component style module to extend.
 
-- `links_bio/styles/colors.py` — extend `Color`, `TextColor` enums with new tokens. Do NOT hardcode hex in components.
-- `links_bio/styles/fonts.py` — add `Font.ARCHIVO_BLACK`, `Font.INTER`, `Font.JETBRAINS_MONO`. Keep `Font.PULSE_VIRGIN` for existing brand moments.
-- `links_bio/styles/styles.py` — extend `Size` enum and style dicts (`button_title_style`, `album_card_style`, etc.) with the new scale.
-- Google Fonts → inject via `rx.script` or `rx.style` in `links_bio/links_bio.py` app root.
+<details>
+<summary>Pre-migration Reflex notes (Python <code>rx.*</code> components, retired)</summary>
 
-### Pattern for new tokens
+This project used **Reflex 0.8.28**, not raw React. All components were Python `rx.*` calls.
+
+- `links_bio/styles/colors.py` — extended `Color`, `TextColor` enums with new tokens.
+- `links_bio/styles/fonts.py` — `Font.ARCHIVO_BLACK`, `Font.INTER`, `Font.JETBRAINS_MONO`, `Font.PULSE_VIRGIN`.
+- `links_bio/styles/styles.py` — extended `Size` enum and style dicts (`button_title_style`, `album_card_style`, etc.).
+- Google Fonts were injected via `rx.script`/`rx.style` in `links_bio/links_bio.py`'s app root.
 
 ```python
-# styles/colors.py
+# styles/colors.py (deleted)
 class Color(Enum):
     BG = "#09090B"
     BG_ELEVATED = "#0F0F11"
@@ -288,7 +298,7 @@ class Color(Enum):
     BORDER_STRONG = "#3F3F46"
 ```
 
-### Pattern for instant-inversion hover (Reflex)
+Instant-inversion hover pattern (Reflex):
 
 ```python
 rx.link(
@@ -305,13 +315,24 @@ rx.link(
 )
 ```
 
-### Marquee component
+Reflex had no native marquee — it was built with `rx.box` + CSS keyframes via `rx.style` or a
+`style={"animation": "marquee 6s linear infinite"}` prop, with content duplicated inline to fake a
+seamless loop. The CSS keyframes themselves (not the Reflex wrapper) are what's still worth reusing in
+`global.css`.
 
-Reflex doesn't have a native marquee — build with `rx.box` + CSS keyframes via `rx.style` or a `style={"animation": "marquee 6s linear infinite"}` prop. Duplicate content inline to fake seamless loop.
+</details>
 
 ---
 
-## 12. Implementation Scope (for this refactor)
+## 12. Implementation Scope (historical — the original Reflex refactor)
+
+**This scope list describes the original Reflex-era refactor and references files
+(`links_bio/views/header.py`, `links_bio/views/links.py`, `links_bio/styles/*`) that no longer exist —
+see §11 above. Kept for historical context only; a current refactor should scope against `web/src/`
+instead (`web/src/pages/index.astro` for the bio header/links, `web/src/styles/global.css` for tokens).**
+
+<details>
+<summary>Original scope (Reflex, retired)</summary>
 
 **In scope:**
 - `links_bio/views/header.py` — apply display type, square portrait, stats pills, mono labels
@@ -323,6 +344,8 @@ Reflex doesn't have a native marquee — build with `rx.box` + CSS keyframes via
 - Metal Archive pages (already have their own `METAL_ARCHIVE_MAX_WIDTH` and styles — tackle in a dedicated page override under `design-system/pages/metal-archive.md`)
 - Navbar / footer — can reuse new tokens but not restructuring here
 - Form components (submit/newsletter/contact)
+
+</details>
 
 ---
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily encrypted off-host backup of reflex.db (restic)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

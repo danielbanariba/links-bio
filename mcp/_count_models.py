@@ -11,8 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import func
 from sqlmodel import Session, select
-import reflex as rx
 
+from links_bio.db import engine
 from links_bio.models import (
     Album,
     ContactMessage,
@@ -32,16 +32,7 @@ MODELS = {
 }
 
 
-def get_engine():
-    for attr in ("get_db_engine", "_get_engine", "get_engine"):
-        fn = getattr(rx.Model, attr, None)
-        if callable(fn):
-            return fn()
-    raise RuntimeError("Could not locate engine accessor on rx.Model")
-
-
 def main() -> None:
-    engine = get_engine()
     counts: dict[str, int] = {}
     with Session(engine) as session:
         for name, model in MODELS.items():

@@ -1,0 +1,20 @@
+# USER unit: install into ~/.config/systemd/user/ and manage it with
+# `systemctl --user`. Needs `loginctl enable-linger banar` to run while
+# logged out.
+#
+# A backup job that always exits 0 proves nothing by itself -- this is the
+# unit that actually restores the latest snapshot and checks it (integrity
+# + staleness + user-data row presence). On failure (including a stale
+# snapshot, meaning the nightly backup has silently stopped running),
+# notify-failure@%n.service sends the one alert email.
+[Unit]
+Description=Weekly restore-test of the reflex.db off-host backup (restic)
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+Environment=REFLEX_BACKUP_ENV=%h/.config/reflex-backup/env
+ExecStart=/home/banar/Desktop/links-bio/scripts/backup_reflex_db.sh restore-test
+TimeoutStartSec=1800

@@ -15,7 +15,7 @@
 import type { APIRoute } from 'astro';
 import {
   getAllAlbumIds,
-  getAllGenres,
+  getGenreFacetGroups,
   getAllCountries,
   getAllYears,
   getBandsWithMultipleAlbums,
@@ -61,8 +61,12 @@ export const GET: APIRoute = () => {
   for (const band of getBandsWithMultipleAlbums()) {
     entries.push({ path: `/metal-archive/band/${slugify(band.band_name)}`, priority: '0.6', changefreq: 'monthly' });
   }
-  for (const facet of getAllGenres()) {
-    entries.push({ path: `/metal-archive/genre/${slugify(facet.value)}`, priority: '0.6', changefreq: 'weekly' });
+  // Genre uses getGenreFacetGroups() (one entry per SLUG, not per raw value) —
+  // distinct raw genre strings can collide on the same slug (e.g. "Black Death
+  // Metal" and "Black/Death Metal"), which used to produce duplicate <loc>
+  // entries for the one page the build actually emits.
+  for (const group of getGenreFacetGroups()) {
+    entries.push({ path: `/metal-archive/genre/${group.slug}`, priority: '0.6', changefreq: 'weekly' });
   }
   for (const facet of getAllCountries()) {
     entries.push({ path: `/metal-archive/country/${slugify(facet.value)}`, priority: '0.6', changefreq: 'weekly' });

@@ -8,32 +8,71 @@ Start with:
 Writes to the same reflex.db used by Reflex; reuses _send_email_notification
 from form_state.py.
 """
-import os
 import logging
+import time
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, field_validator
-from sqlmodel import Session, create_engine, select
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
 
+from links_bio.db import engine
 from links_bio.models.submission import Submission
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.contact_message import ContactMessage
-from links_bio.states.form_state import _send_email_notification
-
-# ─── DB setup ────────────────────────────────────────────────────────────────
-# Mirrors rxconfig.py: db_url = "sqlite:///reflex.db"
-# The path is relative to cwd when uvicorn runs (project root).
-DB_URL = os.environ.get("REFLEX_DB_URL", "sqlite:///reflex.db")
-engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
+from links_bio.notifications import _send_email_notification
+from links_bio.rate_limit import SlidingWindowLimiter, resolve_client_key
 
 logger = logging.getLogger("fastapi_forms")
 logging.basicConfig(level=logging.INFO)
 
+# ─── Rate limiting ───────────────────────────────────────────────────────────
+# One shared budget for /submit, /promo and /contact: all three send a real
+# Gmail SMTP email on every call, so sharing one budget stops a client from
+# dodging a per-endpoint limit by spreading requests across the three
+# endpoints (still 3x the SMTP quota otherwise). /newsletter has its own,
+# slightly larger budget: it never sends email, only writes a DB row.
+EMAIL_ENDPOINTS_RATE_LIMIT = 5
+EMAIL_ENDPOINTS_RATE_WINDOW_SECONDS = 600  # 10 minutes
+NEWSLETTER_RATE_LIMIT = 10
+NEWSLETTER_RATE_WINDOW_SECONDS = 600  # 10 minutes
+
+_email_limiter = SlidingWindowLimiter(
+    EMAIL_ENDPOINTS_RATE_LIMIT, EMAIL_ENDPOINTS_RATE_WINDOW_SECONDS
+)
+_newsletter_limiter = SlidingWindowLimiter(
+    NEWSLETTER_RATE_LIMIT, NEWSLETTER_RATE_WINDOW_SECONDS
+)
+
+
+def _enforce_rate_limit(limiter: SlidingWindowLimiter, request: Request) -> None:
+    """Raise 429 (with Retry-After) once `request`'s client exceeds `limiter`.
+
+    See `links_bio.rate_limit.resolve_client_key` for how the client
+    identity is derived safely behind the cloudflared tunnel.
+    """
+    key = resolve_client_key(request)
+    allowed, retry_after = limiter.check(key, time.monotonic())
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again later.",
+            headers={"Retry-After": str(max(1, int(retry_after) + 1))},
+        )
+
 # ─── App + CORS ──────────────────────────────────────────────────────────────
-app = FastAPI(title="Metal Archive Forms API", version="1.0.0")
+# Interactive docs are disabled in code, not just left unrouted by the
+# cloudflared ingress rules: relying on routing alone means a future ingress
+# change (or reaching the service directly) would silently re-expose them.
+app = FastAPI(
+    title="Metal Archive Forms API",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 ALLOWED_ORIGINS = [
     "https://danielbanariba.com",
@@ -53,77 +92,151 @@ app.add_middleware(
 )
 
 # ─── Pydantic request bodies ─────────────────────────────────────────────────
+#
+# Field length limits below exist so a single request cannot grow a column,
+# the DB, or an outgoing SMTP message without bound (none of these fields had
+# any max_length before). Separately, every single-line field (names, URLs,
+# emails, years -- anything that is not genuinely multi-line free text)
+# rejects embedded CR/LF: a value like "Band\r\nBcc: x@y.z" previously passed
+# validation and corrupted the plain-text admin notification email while the
+# submitter still saw a normal success response.
+
+NAME_MAX_LENGTH = 200
+EMAIL_MAX_LENGTH = 254
+URL_MAX_LENGTH = 500
+FREE_TEXT_MAX_LENGTH = 5000
+# Honeypot field: invisible and unreachable for a real visitor (see the
+# Astro form pages), so a non-empty value means a bot filled every field
+# including this one. A small cap is plenty.
+HONEYPOT_MAX_LENGTH = 200
+
+
+def _reject_crlf(value: str) -> str:
+    """Reject an embedded CR or LF in a field that must stay a single line.
+
+    Without this, a value like "Band\\r\\nBcc: x@y.z" silently corrupts the
+    plain-text admin notification email's structure while the submitter
+    still sees a normal success response.
+    """
+    if "\r" in value or "\n" in value:
+        raise ValueError("This field cannot contain line breaks.")
+    return value
+
 
 class SubmitRequest(BaseModel):
-    band_name: str
-    contact_email: str
-    genre: str
-    country: str
-    album_title: str = ""
-    year: str = ""
-    youtube_url: str = ""
-    bandcamp_url: str = ""
-    description: str = ""
+    band_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    contact_email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    genre: str = Field(..., max_length=NAME_MAX_LENGTH)
+    country: str = Field(..., max_length=NAME_MAX_LENGTH)
+    album_title: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    year: str = Field(default="", max_length=10)
+    youtube_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    bandcamp_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    description: str = Field(default="", max_length=FREE_TEXT_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
 
     @field_validator("band_name", "contact_email", "genre", "country", mode="before")
     @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
-        return v.strip()
-
-
-class PromoRequest(BaseModel):
-    band_name: str
-    email: str
-    album_title: str
-    genre: str = ""
-    custom_genre: str = ""
-    country: str = ""
-    year: str = ""
-    release_format: str = ""
-    youtube_url: str = ""
-    bandcamp_url: str = ""
-    # Extra links: up to 5, sent as extra_link_0 … extra_link_4
-    extra_link_0: str = ""
-    extra_link_1: str = ""
-    extra_link_2: str = ""
-    extra_link_3: str = ""
-    extra_link_4: str = ""
-
-    @field_validator("band_name", "email", "album_title", mode="before")
-    @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Este campo es obligatorio")
-        return v.strip()
-
-
-class NewsletterRequest(BaseModel):
-    email: str
-
-    @field_validator("email", mode="before")
-    @classmethod
-    def must_be_valid_email(cls, v: str) -> str:
-        if not v or "@" not in v or "." not in v.split("@")[-1]:
-            raise ValueError("Email invalido")
-        return v.strip().lower()
-
-
-class ContactRequest(BaseModel):
-    # Field names match what web/src/pages/index.astro sends:
-    # Object.fromEntries(new FormData(form)) -> name, email, subject, message.
-    name: str
-    email: str
-    subject: str = ""
-    message: str
-
-    @field_validator("name", "email", "message", mode="before")
-    @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
+    def must_not_be_blank(cls, v: object) -> str:
         if not isinstance(v, str) or not v.strip():
             raise ValueError("This field is required.")
         return v.strip()
+
+    @field_validator(
+        "band_name", "contact_email", "genre", "country",
+        "album_title", "year", "youtube_url", "bandcamp_url",
+        mode="after",
+    )
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
+
+class PromoRequest(BaseModel):
+    band_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    album_title: str = Field(..., max_length=NAME_MAX_LENGTH)
+    genre: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    custom_genre: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    country: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    year: str = Field(default="", max_length=10)
+    release_format: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    youtube_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    bandcamp_url: str = Field(default="", max_length=URL_MAX_LENGTH)
+    # Extra links: up to 5, sent as extra_link_0 … extra_link_4
+    extra_link_0: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_1: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_2: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_3: str = Field(default="", max_length=URL_MAX_LENGTH)
+    extra_link_4: str = Field(default="", max_length=URL_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
+
+    @field_validator("band_name", "email", "album_title", mode="before")
+    @classmethod
+    def must_not_be_blank(cls, v: object) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("This field is required.")
+        return v.strip()
+
+    @field_validator(
+        "band_name", "email", "album_title", "genre", "custom_genre",
+        "country", "year", "release_format", "youtube_url", "bandcamp_url",
+        "extra_link_0", "extra_link_1", "extra_link_2", "extra_link_3", "extra_link_4",
+        mode="after",
+    )
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
+
+class NewsletterRequest(BaseModel):
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def must_be_valid_email(cls, v: object) -> str:
+        if (
+            not isinstance(v, str)
+            or not v
+            or "@" not in v
+            or "." not in v.split("@")[-1]
+        ):
+            raise ValueError("Invalid email address.")
+        return v.strip().lower()
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
+
+class ContactRequest(BaseModel):
+    # Field names match what web/src/pages/index.astro's contact form
+    # actually sends (FormData over inputs named name/email/subject/message)
+    # -- the model used to require nombre/email/asunto/mensaje instead, so
+    # EVERY real contact submission returned 422 from 2026-05-21 onward.
+    # Nothing else posts to this endpoint, so no Spanish-named aliases are
+    # kept.
+    name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    email: str = Field(..., max_length=EMAIL_MAX_LENGTH)
+    subject: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    message: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
+
+    @field_validator("name", "email", "message", mode="before")
+    @classmethod
+    def must_not_be_blank(cls, v: object) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("This field is required.")
+        return v.strip()
+
+    # `message` is genuinely multi-line free text (a visitor's message), so
+    # it is exempt from the single-line CR/LF check that applies to the rest.
+    @field_validator("name", "email", "subject", mode="after")
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -139,8 +252,17 @@ def _http_error(detail: str, status: int = 400) -> HTTPException:
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.post("/api/metal-archive/submit")
-async def submit_band(req: SubmitRequest):
+def submit_band(req: SubmitRequest, request: Request):
     """Save a band submission to reflex.db."""
+    _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        # Honeypot filled: a real visitor never sees or can reach this
+        # field. Respond exactly like success (so an adapting bot gets no
+        # signal it was caught), but write nothing and send no email.
+        logger.warning("Honeypot field filled on /submit; dropping silently")
+        return {"ok": True, "message": "Band submitted. We will review your submission soon."}
+
     try:
         with _db_session() as session:
             submission = Submission(
@@ -187,8 +309,14 @@ async def submit_band(req: SubmitRequest):
 
 
 @app.post("/api/metal-archive/promo")
-async def promo_band(req: PromoRequest):
+def promo_band(req: PromoRequest, request: Request):
     """Save a promo request + send email notification."""
+    _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /promo; dropping silently")
+        return {"ok": True, "message": "Request received. We will get back to you soon."}
+
     # Genre: custom wins over dropdown selection
     genre = req.custom_genre.strip() or req.genre.strip()
     if not genre:
@@ -249,8 +377,14 @@ async def promo_band(req: PromoRequest):
 
 
 @app.post("/api/metal-archive/newsletter")
-async def newsletter_signup(req: NewsletterRequest):
+def newsletter_signup(req: NewsletterRequest, request: Request):
     """Subscribe an email to the newsletter. Rejects duplicates."""
+    _enforce_rate_limit(_newsletter_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /newsletter; dropping silently")
+        return {"ok": True, "message": "Subscribed. Welcome to the archive."}
+
     try:
         with _db_session() as session:
             existing = session.exec(
@@ -266,7 +400,19 @@ async def newsletter_signup(req: NewsletterRequest):
 
             subscriber = NewsletterSubscriber(email=req.email)
             session.add(subscriber)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                # Two near-simultaneous signups for the same email can both
+                # pass the "does it already exist" check above before
+                # either commits; the second one's commit then hits the
+                # UNIQUE constraint. Answer the same way a non-racy
+                # duplicate already does, not with a bare 500.
+                session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email is already subscribed."
+                )
             logger.info(f"Newsletter signup: {req.email}")
     except HTTPException:
         raise
@@ -278,8 +424,14 @@ async def newsletter_signup(req: NewsletterRequest):
 
 
 @app.post("/api/metal-archive/contact")
-async def contact(req: ContactRequest):
+def contact(req: ContactRequest, request: Request):
     """Portfolio contact form: save + send email notification."""
+    _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /contact; dropping silently")
+        return {"ok": True, "message": "Message sent! I'll get back to you soon."}
+
     try:
         with _db_session() as session:
             msg = ContactMessage(

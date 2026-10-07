@@ -1,9 +1,20 @@
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+# Make links_bio importable regardless of the cwd alembic was invoked from
+# (prepend_sys_path = . in alembic.ini already covers the common case, but
+# this makes `alembic` runnable from any directory too).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import links_bio.models  # noqa: E402,F401 (populates SQLModel.metadata)
+from links_bio.db import DB_URL  # noqa: E402
+from sqlmodel import SQLModel  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -14,11 +25,22 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+# Drive the DB URL from links_bio.db (REFLEX_DB_URL env var, defaulting to the
+# repo-root reflex.db) instead of the static alembic.ini placeholder, so
+# `alembic upgrade head` works standalone without `reflex db migrate`.
+#
+# config's underlying ConfigParser applies interpolation on every *read*
+# (get_main_option(), get_section(), ...), not on set_main_option() itself.
+# A literal '%' in DB_URL (e.g. a URL-encoded space, '%20', in a password or
+# SFTP-style path) is otherwise read back as a broken interpolation
+# placeholder and raises configparser.InterpolationSyntaxError the moment
+# anything reads it back. Escaping to '%%' here round-trips through
+# interpolation back to a single '%'.
+config.set_main_option("sqlalchemy.url", DB_URL.replace("%", "%%"))
+
+# Plain SQLModel metadata (populated by importing links_bio.models above) —
+# replaces reflex's ModelRegistry.get_metadata().
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

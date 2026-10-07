@@ -1,0 +1,23 @@
+# USER unit: install into ~/.config/systemd/user/ and manage it with
+# `systemctl --user`. Needs `loginctl enable-linger banar` to run while
+# logged out.
+#
+# Replaces links-bio.service: that unit runs the entire legacy Reflex app
+# (bun/sirv/granian, ~490MB RAM) 24/7 solely to host background_sync.py's
+# daemon thread. This unit runs scripts/sync_and_deploy.py -- one cycle,
+# then exit -- so there is no long-lived Reflex process in production at
+# all. On failure, notify-failure@%n.service sends the one alert email;
+# this unit's own ExecStart never emails directly.
+[Unit]
+Description=One sync+deploy cycle for the Metal Archive (YouTube -> DB -> Astro -> Vercel)
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/banar/Desktop/links-bio
+EnvironmentFile=/home/banar/Desktop/links-bio/.env
+ExecStart=/home/banar/Desktop/links-bio/env/bin/python /home/banar/Desktop/links-bio/scripts/sync_and_deploy.py
+# Generous: YouTube sync + artwork lookups + a full Astro build (~1300
+# covers, vibrant color extraction) + a Vercel deploy can legitimately take
+# a while.
+TimeoutStartSec=3600

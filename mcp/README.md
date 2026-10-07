@@ -1,21 +1,20 @@
 # links-bio MCP Server
 
 A project-scoped MCP server that exposes health and validation tools for the
-Reflex app. Claude Code auto-discovers it via `.mcp.json` at the project root.
+live Astro static site, the FastAPI forms API, and the DB. Claude Code
+auto-discovers it via `.mcp.json` at the project root.
 
 ## Tools
 
 | Tool | What it does |
 |------|--------------|
-| `check_reflex_server` | HTTP GET to the local Reflex backend on `:8000`. |
-| `check_db_schema` | Runs `reflex db status`. Returns all migrations and whether all are applied. |
-| `check_migrations_pending` | Lists migrations present on disk but not yet applied to the DB. |
-| `validate_env_vars` | Verifies `YOUTUBE_*` and `GMAIL_*` keys are set in `.env`. |
+| `check_db_schema` | Runs plain `alembic current`/`heads`. Reports whether the DB is at the latest migration. |
+| `check_migrations_pending` | Reports whether the DB is behind the latest alembic head. |
+| `validate_env_vars` | Verifies `YOUTUBE_API_KEY` (or the OAuth triple) and `GMAIL_*` keys are set in `.env`. |
 | `count_models_in_db` | Row count per table (albums, tracks, submissions, etc.). |
 | `lint_project` | Runs `ruff check links_bio/`. |
-| `test_metal_archive_pages` | HTTP GET each Metal Archive route against a base URL. |
+| `test_metal_archive_pages` | HTTP GET each Metal Archive route against a base URL (defaults to the live site). |
 | `check_vercel_deploy` | Pings the Vercel static deploy (pass the URL). |
-| `check_reflex_cloud` | Pings `links-bio-silver-wood.reflex.run`. |
 
 ## How it runs
 

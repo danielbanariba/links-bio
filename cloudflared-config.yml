@@ -1,12 +1,33 @@
-# ~/.cloudflared/config.yml
-# Reemplazá TUNNEL_ID con el ID que devuelve: cloudflared tunnel create links-bio
+# Sanitized mirror of /etc/cloudflared/config.yml, kept in sync by hand after
+# any change on the host (cloudflared itself reads only the real file below,
+# never this copy).
+#
+# Topology after the D7 cutover (see odd/tasks/platform-hardening.md):
+#   - The apex, danielbanariba.com, is served DIRECTLY by Vercel. It is not in
+#     this file and never goes through this tunnel or through Caddy.
+#   - Only app.danielbanariba.com (the forms API, a FastAPI service running on
+#     this host as the system unit metal-archive-forms.service) is tunneled.
+#   - The old /webhook rule (-> :9000) and the :8000 catch-all (the legacy
+#     Reflex app) are gone: the webhook was retired (D4) and Reflex itself was
+#     deleted (T7). Routing anything else to a local service would needlessly
+#     expose it publicly.
+#
+# Host cutover steps (sudo required, run on the host, not from this repo):
+#   1. Edit /etc/cloudflared/config.yml to match this file (fill in the real
+#      tunnel ID and credentials-file path -- never put those real values
+#      here).
+#   2. sudo systemctl restart cloudflared
+#   3. Confirm the apex is unaffected: `curl -sI https://danielbanariba.com/`
+#      should still show `server: Vercel`.
+#   4. Confirm the forms API is still reachable:
+#      `curl -s -o /dev/null -w '%{http_code}' https://app.danielbanariba.com/api/metal-archive/newsletter`
+#      (expect a 4xx from FastAPI, e.g. 405/422 -- not a connection failure).
 
-tunnel: TUNNEL_ID
-credentials-file: /home/banar/.cloudflared/TUNNEL_ID.json
+tunnel: <TUNNEL_ID>
+credentials-file: <CREDENTIALS_FILE>
 
 ingress:
-  - hostname: danielbanariba.com
-    service: http://localhost:8080
-    originRequest:
-      httpHostHeader: danielbanariba.com
+  - hostname: app.danielbanariba.com
+    path: /api/metal-archive/.*
+    service: http://localhost:8001
   - service: http_status:404

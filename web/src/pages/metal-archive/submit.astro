@@ -13,15 +13,29 @@ const GENRES = [
   "Folk Metal", "Symphonic Metal", "Sludge Metal", "Stoner Metal",
   "Speed Metal", "Brutal Death Metal",
 ];
+
+const pageTitle = 'Submit your band | Metal Archive';
+const metaDesc = 'Submit your band or album for review and free inclusion in the archive.';
+const canonical = 'https://danielbanariba.com/metal-archive/submit';
+const ogImage = 'https://danielbanariba.com/avatar.jpg';
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Submit your band | Metal Archive</title>
-  <meta name="description" content="Submit your band or album for review and free inclusion in the archive." />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/submit" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  <meta name="twitter:image" content={ogImage} />
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -143,6 +157,15 @@ const GENRES = [
           ></textarea>
         </div>
 
+        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+             that fills every field fills this one too, so the server can
+             drop the submission silently. Never display:none -- some bots
+             skip fields hidden that way. -->
+        <input
+          type="text" id="website" name="website" class="sr-only"
+          tabindex="-1" autocomplete="off" aria-hidden="true"
+        />
+
         <!-- Toast -->
         <div class="form-toast" id="form-toast" role="alert"></div>
 
@@ -187,9 +210,9 @@ const GENRES = [
   // Wrapped in astro:page-load so the form handler re-binds after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
   // A per-form flag prevents double-binding.
-  function initSubmitForm() {
-    const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
 
+  function initSubmitForm() {
     const form     = document.getElementById('submit-form') as HTMLFormElement | null;
     const btn      = document.getElementById('submit-btn') as HTMLButtonElement | null;
     const toast    = document.getElementById('form-toast') as HTMLElement | null;
@@ -249,6 +272,7 @@ const GENRES = [
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
+          signal: timeoutSignal(FORM_FETCH_TIMEOUT_MS),
         });
 
         const json = await res.json().catch(() => ({}));
@@ -259,8 +283,12 @@ const GENRES = [
         } else {
           showToast(json.detail ?? 'Something went wrong. Please try again.', true);
         }
-      } catch {
-        showToast('Could not connect. Check your internet connection.', true);
+      } catch (err) {
+        if (isTimeoutError(err)) {
+          showToast(FORM_TIMEOUT_MESSAGE, true);
+        } else {
+          showToast('Could not connect. Check your internet connection.', true);
+        }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Submit band';

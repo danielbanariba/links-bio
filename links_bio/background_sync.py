@@ -1,115 +1,115 @@
 """
-Background sync: sincroniza YouTube -> DB cada N horas dentro de la app Reflex.
+Sync pipeline steps: YouTube -> DB, normalize, artwork, Astro build+deploy.
 
-Solo se activa si YOUTUBE_REFRESH_TOKEN esta configurado (Reflex Cloud).
+Each `run_*` function below is one pipeline step. `scripts/sync_and_deploy.py`
+imports this module and calls them directly, once per cycle, run twice a day
+by the links-bio-sync.{service,timer} systemd user units. There is no daemon
+thread and no Reflex app here anymore: the in-app background-sync thread
+that used to own this module (started from links_bio.py on every Reflex
+boot) was removed once the Reflex UI itself was retired.
 """
 
 import logging
 import os
-import threading
 import time
-import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger("background_sync")
 logger.setLevel(logging.INFO)
 
-# Estado de diagnostico accesible desde el state
-_diag_status: str = "No iniciado"
-
-
-def get_diag_status() -> str:
-    return _diag_status
-
 
 def _log(msg: str):
-    """Log + print para asegurar visibilidad en Reflex Cloud."""
-    global _diag_status
-    _diag_status = msg
+    """Log + print so the message reaches both pytest's caplog and the
+    systemd unit's journal."""
     logger.warning(msg)
     print(f"[SYNC] {msg}", flush=True)
 
-# Intervalo por defecto: 12 horas (en segundos)
-SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL_HOURS", "12")) * 3600
 
-# Delay inicial: esperar 60s despues del arranque para que la app este lista
-STARTUP_DELAY = int(os.environ.get("SYNC_STARTUP_DELAY", "60"))
+def _now() -> datetime:
+    """Thin wrapper around the wall clock so tests can monkeypatch a fixed
+    time instead of depending on when the suite happens to run -- the
+    cadence in should_run_full_sync() needs a controllable `now`.
 
-_sync_thread = None
-_started = False
-_sync_count = 0
-
-
-def _run_sync_cycle():
-    """Ejecuta un ciclo de sync: YouTube -> DB, luego artwork desde DeathGrind."""
-    try:
-        from links_bio.youtube_auth import authenticate_auto
-        youtube_client = authenticate_auto()
-    except Exception as e:
-        _log(f"Error de autenticacion: {e}")
-        traceback.print_exc()
-        return False
-
-    try:
-        # Importar aqui para evitar imports circulares
-        import reflex as rx
-        import sys
-        from pathlib import Path
-        from sqlmodel import select, func
-        from links_bio.models.album import Album
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from sync_youtube_to_db import run_sync
-
-        # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
-        with rx.session() as session:
-            album_count = session.exec(select(func.count(Album.id))).one()
-
-        global _sync_count
-        _sync_count += 1
-
-        # Sync completo si: DB casi vacia, o cada 4to ciclo (para llenar huecos)
-        solo_nuevos = album_count >= 100 and (_sync_count % 4 != 0)
-        if not solo_nuevos:
-            _log(f"DB tiene {album_count} albums. Ejecutando sync completo (ciclo #{_sync_count}).")
-        else:
-            _log(f"DB tiene {album_count} albums. Ejecutando sync incremental (ciclo #{_sync_count}).")
-
-        run_sync(
-            youtube_client=youtube_client,
-            solo_nuevos=solo_nuevos,
-            mark_featured=True,
-            featured_count=10,
-        )
-    except Exception as e:
-        _log(f"Error durante sync YouTube: {e}")
-        traceback.print_exc()
-        return False
-
-    # Paso 2: normalizar generos y paises
-    try:
-        _run_normalize()
-    except Exception as e:
-        _log(f"Error durante normalizacion: {e}")
-        traceback.print_exc()
-
-    # Paso 3: reemplazar thumbnails de YouTube con portadas de DeathGrind
-    try:
-        _run_artwork_sync()
-    except Exception as e:
-        _log(f"Error durante sync artwork: {e}")
-        traceback.print_exc()
-
-    # Paso 4: rebuild + deploy del sitio Astro estatico con la DB actualizada
-    try:
-        _run_astro_deploy()
-    except Exception as e:
-        _log(f"Error durante deploy Astro: {e}")
-        traceback.print_exc()
-
-    return True
+    Returns a tz-aware datetime in the system's local timezone (matching
+    the systemd timer's OnCalendar=06:00/18:00, which schedules in local
+    time), computed from an explicit UTC `now` rather than an implicit
+    naive local clock.
+    """
+    return datetime.now(timezone.utc).astimezone()
 
 
-def _find_node_bin():
+def should_run_full_sync(album_count: int, now: datetime) -> bool:
+    """Decide whether this cycle should run a full (not solo_nuevos) YouTube
+    sync.
+
+    Pure and stateless by design: `scripts/sync_and_deploy.py` runs as a
+    fresh oneshot process twice a day (06:00 and 18:00, via the
+    links-bio-sync.timer systemd unit), so an in-process counter -- the
+    previous implementation -- always restarts at 1 and never reaches its
+    "every 4th cycle" branch once the DB has >=100 albums, meaning the
+    hole-filling full sync silently stopped running.
+
+    A full sync runs when the DB is still nearly empty (fewer than 100
+    albums), or on the morning run of every second day: two runs/day times
+    "every other day" reproduces the original "every 4th cycle" cadence
+    (roughly every 2 days) without needing to remember anything between
+    runs.
+    """
+    if album_count < 100:
+        return True
+    return now.hour < 12 and now.toordinal() % 2 == 0
+
+
+def run_youtube_sync(force_full: bool = False) -> None:
+    """Authenticate with YouTube and run one sync pass (new videos -> DB,
+    mark featured).
+
+    This is one step of the pipeline `scripts/sync_and_deploy.py` runs
+    directly; it raises on failure, and that caller decides what a failure
+    means (logs it and keeps running the remaining steps).
+
+    solo_nuevos is decided by should_run_full_sync(): full sync when the DB
+    has fewer than 100 albums, or on the morning run of every second day (to
+    fill holes left by incremental syncs), incremental otherwise. Pass
+    force_full=True (wired to `scripts/sync_and_deploy.py --full-youtube-sync`)
+    to force a full sync for a manual backfill regardless of that cadence.
+    """
+    from links_bio.youtube_auth import authenticate_auto
+    youtube_client = authenticate_auto()
+
+    # Importar aqui para evitar imports circulares
+    import sys
+    from pathlib import Path
+    from sqlmodel import Session, select, func
+    from links_bio.db import engine
+    from links_bio.models.album import Album
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from sync_youtube_to_db import run_sync
+
+    # Si la DB tiene pocos albums, hacer sync completo para llenar huecos
+    with Session(engine) as session:
+        album_count = session.exec(select(func.count(Album.id))).one()
+
+    now = _now()
+    full_sync = force_full or should_run_full_sync(album_count, now)
+    solo_nuevos = not full_sync
+
+    if force_full:
+        _log(f"DB tiene {album_count} albums. --full-youtube-sync: forzando sync completo.")
+    elif full_sync:
+        _log(f"DB tiene {album_count} albums. Ejecutando sync completo ({now:%Y-%m-%d %H:%M}).")
+    else:
+        _log(f"DB tiene {album_count} albums. Ejecutando sync incremental ({now:%Y-%m-%d %H:%M}).")
+
+    run_sync(
+        youtube_client=youtube_client,
+        solo_nuevos=solo_nuevos,
+        mark_featured=True,
+        featured_count=10,
+    )
+
+
+def find_node_bin():
     """Locate the nvm bin dir that holds npm/vercel (highest version first).
 
     The reflex process PATH is env/bin:/usr/local/bin:/usr/bin:/bin — it does NOT
@@ -131,52 +131,102 @@ def _find_node_bin():
     return None
 
 
-def _run_astro_deploy():
-    """Rebuild the Astro static site from the updated DB and deploy to Vercel.
+def _masked_cmd(cmd: list) -> str:
+    """Render a subprocess argv list for logging with any `--token` value
+    redacted. Never used to build the real argv passed to subprocess.run --
+    only for what gets printed/logged."""
+    parts = list(cmd)
+    for i, part in enumerate(parts):
+        if part == "--token" and i + 1 < len(parts):
+            parts[i + 1] = "****"
+    return " ".join(parts)
 
-    Tokenless: reuses the logged-in Vercel CLI session (it auto-refreshes via the
-    stored refresh token), exactly like .git/hooks/pre-push. An explicit
-    VERCEL_TOKEN is still honoured if present (e.g. CI). Never raises into the
-    sync cycle — failures are logged by the caller.
+
+def build_astro_site(env: dict) -> None:
+    """Run `npm run build` for the Astro site. `env` must already have PATH
+    pointing at the resolved node/npm bin dir (see find_node_bin()). Raises
+    on failure (subprocess.run(check=True))."""
+    import subprocess
+    from pathlib import Path
+
+    web_dir = Path(__file__).resolve().parent.parent / "web"
+    _log("Rebuild del sitio Astro...")
+    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True, env=env)
+
+
+def deploy_to_vercel(env: dict) -> None:
+    """Run `vercel deploy` for the already-built Astro site.
+
+    Uses VERCEL_TOKEN when set (decision D2: unattended deploy via a token
+    that lives in .env, instead of a logged-in CLI session that can expire
+    silently -- which is exactly what has been happening since mid-
+    September). Falls back to the logged-in Vercel CLI session otherwise,
+    exactly like .git/hooks/pre-push. --archive=tgz matches that working
+    pre-push hook (the previous divergence here was flagged separately from
+    the "Not authorized" failures, but it's still the right flag to match).
+
+    The token is passed as a real argv element to the real subprocess, but
+    is never written to this process's own logs or exceptions: the command
+    is only ever rendered through `_masked_cmd`, and failure raises a
+    RuntimeError instead of CalledProcessError, whose message would embed
+    the raw argv (and end up in the journal and the OnFailure alert email).
     """
     import subprocess
     from pathlib import Path
 
     web_dir = Path(__file__).resolve().parent.parent / "web"
-    if not web_dir.exists():
-        _log(f"Directorio web/ no encontrado ({web_dir}). Deploy omitido.")
-        return
+    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes", "--archive=tgz"]
+    token = os.environ.get("VERCEL_TOKEN")
+    if token:
+        deploy_cmd += ["--token", token]
 
-    node_bin = _find_node_bin()
+    _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
+    result = subprocess.run(deploy_cmd, cwd=str(web_dir), env=env)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"vercel deploy failed with exit code {result.returncode}: {_masked_cmd(deploy_cmd)}"
+        )
+    _log("Deploy Astro completado.")
+
+
+def run_astro_build_and_deploy(skip_deploy: bool = False) -> None:
+    """Rebuild the Astro static site from the updated DB and, unless
+    skip_deploy, deploy it to Vercel. Raises on any failure (missing web/,
+    missing npm/vercel, a failing build, or a failing deploy) -- callers
+    decide whether that's fatal (the daemon thread below logs and
+    continues; sync_and_deploy.py treats it as a failed step)."""
+    from pathlib import Path
+
+    web_dir = Path(__file__).resolve().parent.parent / "web"
+    if not web_dir.exists():
+        raise RuntimeError(f"web/ directory not found at {web_dir}")
+
+    node_bin = find_node_bin()
     if not node_bin:
-        _log("npm/vercel no encontrados en nvm (~/.local/share/nvm/v*/bin). Deploy omitido.")
-        return
+        raise RuntimeError("npm/vercel not found under ~/.local/share/nvm/v*/bin")
 
     # Prepend nvm's bin so npm, node, npx AND vercel all resolve in the subprocess.
     env = dict(os.environ)
     env["PATH"] = node_bin + os.pathsep + env.get("PATH", "")
 
-    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes"]
-    token = os.environ.get("VERCEL_TOKEN")
-    if token:
-        deploy_cmd += ["--token", token]
+    build_astro_site(env)
 
-    _log("Rebuild del sitio Astro...")
-    subprocess.run(["npm", "run", "build"], cwd=str(web_dir), check=True, env=env)
-    _log("Deploy a Vercel (prod)...")
-    subprocess.run(deploy_cmd, cwd=str(web_dir), check=True, env=env)
-    _log("Deploy Astro completado.")
+    if skip_deploy:
+        _log("skip_deploy: build completado, deploy omitido.")
+        return
+
+    deploy_to_vercel(env)
 
 
-def _run_normalize():
+def run_normalize():
     """Normaliza generos y paises en la DB."""
-    import reflex as rx
-    from sqlmodel import select
+    from sqlmodel import Session, select
+    from links_bio.db import engine
     from links_bio.models.album import Album
     from scripts.normalize_db import normalize_genre, normalize_country
 
     changes = 0
-    with rx.session() as session:
+    with Session(engine) as session:
         albums = session.exec(select(Album)).all()
         for album in albums:
             new_genre = normalize_genre(album.genre)
@@ -196,10 +246,10 @@ def _run_normalize():
     _log(f"Normalizacion: {changes} albums actualizados.")
 
 
-def _run_artwork_sync():
+def run_artwork_sync():
     """Busca portadas en DeathGrind.club para albums que aun tienen thumbnail de YouTube."""
-    import reflex as rx
-    from sqlmodel import select, col, func
+    from sqlmodel import Session, select, col, func
+    from links_bio.db import engine
     from links_bio.models.album import Album
     from sync_artwork_deathgrind import crear_sesion, buscar_artwork
 
@@ -216,7 +266,7 @@ def _run_artwork_sync():
     total_processed = 0
 
     while True:
-        with rx.session() as db_session:
+        with Session(engine) as db_session:
             albums = db_session.exec(
                 select(Album).where(
                     (Album.album_artwork_url.like("%ytimg.com%"))
@@ -255,70 +305,3 @@ def _run_artwork_sync():
             offset += BATCH_SIZE
 
     _log(f"Artwork sync completado: {total_found}/{total_processed} portadas encontradas.")
-
-
-def _is_db_empty() -> bool:
-    """Verifica si la DB tiene albums."""
-    try:
-        import reflex as rx
-        from sqlmodel import select, func
-        from links_bio.models.album import Album
-        with rx.session() as session:
-            count = session.exec(select(func.count(Album.id))).one()
-            return count == 0
-    except Exception:
-        return True
-
-
-def _sync_loop():
-    """Loop principal del background sync."""
-    if _is_db_empty():
-        _log("DB vacia, iniciando sync inmediatamente...")
-    else:
-        _log(f"Esperando {STARTUP_DELAY}s antes del primer sync...")
-        time.sleep(STARTUP_DELAY)
-
-    while True:
-        try:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            _log(f"Iniciando sync: {now}")
-
-            success = _run_sync_cycle()
-
-            if success:
-                _log("Sync completado exitosamente.")
-            else:
-                _log("Sync fallo. Se reintentara en el proximo ciclo.")
-        except Exception as e:
-            _log(f"Error no esperado en sync loop: {e}")
-            traceback.print_exc()
-
-        hours = SYNC_INTERVAL // 3600
-        _log(f"Proximo sync en {hours} horas.")
-        time.sleep(SYNC_INTERVAL)
-
-
-def start_background_sync():
-    """Inicia el background sync como daemon thread. Solo se ejecuta una vez."""
-    global _sync_thread, _started
-
-    if _started:
-        return
-
-    # Verificar credenciales de YouTube (API Key o OAuth)
-    api_key = os.environ.get("YOUTUBE_API_KEY")
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
-    if not api_key and not refresh_token:
-        _log("YOUTUBE_API_KEY ni YOUTUBE_REFRESH_TOKEN configurados. Background sync desactivado.")
-        # Log all env var keys for debugging (no values for security)
-        env_keys = sorted([k for k in os.environ.keys() if "YOUTUBE" in k.upper() or "GMAIL" in k.upper()])
-        _log(f"Env vars relevantes encontradas: {env_keys if env_keys else 'ninguna'}")
-        return
-
-    auth_mode = "API Key" if api_key else "OAuth refresh token"
-    _log(f"Background sync se autenticara via {auth_mode}.")
-
-    _started = True
-    _sync_thread = threading.Thread(target=_sync_loop, daemon=True, name="youtube-sync")
-    _sync_thread.start()
-    _log("Hilo de sincronizacion iniciado.")

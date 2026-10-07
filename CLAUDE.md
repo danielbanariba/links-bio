@@ -50,15 +50,35 @@ source env/bin/activate                                  # Python 3.13 venv
 uvicorn links_bio.fastapi_forms:app --port 8001 --reload
 ```
 
-### Database / migrations (Reflex's Alembic wrapper)
+### Lint & verification
+There IS an automated test suite now: pytest for `links_bio/`, `node --test` (via `npm test`) for `web/`.
+```bash
+env/bin/ruff check links_bio/     # Python lint (same as the MCP lint_project tool)
+env -u GMAIL_ADDRESS -u GMAIL_APP_PASSWORD -u VERCEL_TOKEN \
+  uv run --quiet --with pytest --python env/bin/python -m pytest tests -q   # Python test suite
+cd web && npm test                # node:test over web/tests/**/*.test.ts
+cd web && npm run build           # the real check: getStaticPaths() crashes the build on a bad slug/param
+```
+The `env -u` flags keep real secrets out of the test process (tests use a scratch DB and a stubbed
+mailer). The project MCP tool `test_metal_archive_pages` smoke-tests the rendered archive pages.
+
+### Database / migrations (plain Alembic, no Reflex)
+Alembic is driven directly from `links_bio.db` (`REFLEX_DB_URL` env var, default `sqlite:///reflex.db`) —
+there is no `reflex db ...` wrapper anymore.
 ```bash
 source env/bin/activate
-reflex db makemigrations --message "description"   # after editing links_bio/models/
-reflex db migrate
-# build.sh automates first-time setup: pip install + reflex init + db init/migrate
+alembic revision --autogenerate -m "description"   # after editing links_bio/models/
+alembic upgrade head
+# build.sh automates first-time setup: pip install + alembic upgrade head
+# requirements.txt = runtime (forms API, sync). requirements-dev.txt adds the
+# host tooling that shares env/: mcp (project MCP server), ruff, pytest, httpx.
+# Rebuilding env/ from requirements.txt alone breaks .mcp.json and lint.
 ```
 
 ### Data sync (populate reflex.db)
+`sync_all.sh` runs the DB-only pipeline manually, with no deploy — useful for a one-off backfill. In
+production this same pipeline (plus the Astro build+deploy) runs automatically on a timer; see
+"Data layer & sync" below.
 ```bash
 source env/bin/activate
 ./sync_all.sh                                  # full pipeline: youtube → artwork → fallback → normalize
@@ -69,7 +89,11 @@ python sync_youtube_to_db.py --solo-nuevos --mark-featured   # individual steps 
 ```bash
 cd web && npm run build && vercel deploy --prod --prebuilt
 ```
-The same build+deploy also fires automatically from (a) the in-app sync (`links_bio/background_sync.py`) and (b) the **`.git/hooks/pre-push` hook whenever `main` is pushed**. Both reuse the logged-in Vercel CLI session, so `VERCEL_TOKEN` is optional (set it only for CI). ⚠️ **Pushing `main` deploys to production** — `git push --no-verify` bypasses the hook once.
+Production also deploys automatically (a) twice a day from the `links-bio-sync.timer` systemd unit
+(see "Data layer & sync"), and (b) from the **`.git/hooks/pre-push` hook whenever `main` is pushed**.
+Both prefer `VERCEL_TOKEN` when it is set in `.env` (decision D2: a logged-in CLI session can expire
+silently, which is exactly what caused 3+ weeks of silently-failing deploys in Sep 2026) and fall back
+to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to production** — `git push --no-verify` bypasses the hook once.
 
 ## The Astro frontend (`web/`) — the live site
 
@@ -81,57 +105,144 @@ The same build+deploy also fires automatically from (a) the in-app sync (`links_
 - **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match.
 - **URL slugs go through `slugify()` in `db.ts`** — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
 - **DB values are Spanish, the UI is English — translate in `web/src/lib/labels.ts`.** `albums.country` holds Spanish names (`Estados Unidos`, `Alemania`) because that is what the YouTube sync writes, and `albums.genre` holds one Spanish placeholder (`Género desconocido`). `labels.ts` is the single source of truth mapping a raw DB value to its English label + flag: `countryLabel()`, `countryFlag()`, `genreLabel()`. **Slugs and query values must keep using the RAW database value** — that is why `/metal-archive/country/estados-unidos` still works and no inbound link broke. Never render `album.country` or a country facet value directly; never hardcode a flag map (it used to be copy-pasted into two pages).
+- **Bio identity links:** social URLs live in the `SOCIAL` map at the top of `index.astro`. The page also emits a JSON-LD `Person` whose `sameAs` (plus `rel="me"` on the icon links) tells search engines that this site and the engineering portfolio `danielbanariba.dev` are the same person. A new profile goes in `SOCIAL`, `sameAs` and the icon row together.
 - **Canonical origin is `https://danielbanariba.com`**, declared once as `site` in `astro.config.mjs`. Every page needs an absolute `<link rel="canonical">`. Archive pages previously pointed at `xeroxunderground.com`, a domain that does not resolve.
 - **`web/src/pages/sitemap.xml.ts`** generates the sitemap at build time from `db.ts` using the same `slugify()` as `getStaticPaths()`, so it can never list a path the build did not emit. `web/public/robots.txt` points at it. Add new page types to both the route and the sitemap.
-- **Styling:** one global stylesheet, `web/src/styles/global.css`. (The old per-component Reflex styles in `links_bio/styles/` are legacy — don't edit them for site changes.)
+- **Styling:** one global stylesheet, `web/src/styles/global.css`. (The old per-component Reflex styles that used to live in `links_bio/styles/` were deleted with the rest of the Reflex UI tree — see "What is live vs. legacy".)
 
 ## Forms backend (`links_bio/fastapi_forms.py`)
 
-- Standalone FastAPI app, run with uvicorn on port 8001 (NOT mounted inside Reflex).
-- POST endpoints: `/api/metal-archive/submit`, `/promo`, `/newsletter`, `/contact`.
-- Writes to the same `reflex.db` using the SQLModel models, and reuses `_send_email_notification` from `links_bio/states/form_state.py` (Gmail SMTP) for email alerts.
+- Standalone FastAPI app, run with uvicorn on port 8001 as the system unit **`metal-archive-forms.service`**
+  (`User=banar`, `Restart=always` — not a Reflex-hosted route, and not a repo-tracked systemd file; it
+  lives directly in `/etc/systemd/system/`).
+- POST endpoints: `/api/metal-archive/submit`, `/promo`, `/newsletter`, `/contact`. Contact's fields are
+  `name`/`email`/`subject`/`message` (matching what `index.astro`'s form actually sends — see T27 in
+  `odd/tasks/platform-hardening.md` for the contract bug this fixed).
+- Hardened against abuse: a sliding-window rate limiter (5 requests/10 min shared across
+  submit/promo/contact, 10/10 min for newsletter, keyed on `CF-Connecting-IP` only when the peer is the
+  cloudflared loopback tunnel), a silently-dropped `website` honeypot field on all 4 forms, a `max_length`
+  on every field, and a CRLF rejection on single-line fields (blocks header/SMTP injection via a
+  `\r\n`-laced value). The interactive API docs are disabled in code (`docs_url=None`, `openapi_url=None`),
+  not just hidden by tunnel routing.
+- Writes to the same `reflex.db` using the SQLModel models, and reuses `_send_email_notification` from
+  `links_bio/states/form_state.py` (Gmail SMTP) for email alerts.
 - CORS is allow-listed (`ALLOWED_ORIGINS`): `danielbanariba.com`, `localhost:4321` (Astro dev), `:3000`. Add new dev origins there.
 
 ## Data layer & sync (`links_bio/`, root scripts)
 
 - **`reflex.db` (SQLite) is the source of truth.** Schema = SQLModel models in `links_bio/models/`: `albums` (main catalog, many indexed columns), `tracks`, `similar_bands` (column is `similar_band_name`), `submissions`, `newsletter_subscribers`, `contact_messages`. Migrations live in `alembic/`. Models are discovered for migrations via `import links_bio.models` in `links_bio/links_bio.py`.
-- **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured), `sync_artwork_deathgrind.py` and `sync_artwork_fallback.py` (album covers), plus `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`, `scripts/seed_data.py`. `sync_all.sh` orchestrates the full chain.
-- **Two sync triggers exist (don't be surprised by both):**
-  - **systemd** `sync_web.timer` (06:00 & 18:00) → `sync_web.service` → `sync_all.sh`. Updates the DB; does **not** deploy.
-  - **In-app** `links_bio/background_sync.py` — a daemon thread started by the Reflex app, every `SYNC_INTERVAL_HOURS` (12h). Runs sync → normalize → artwork → **then rebuilds & deploys the Astro site to Vercel** (`_run_astro_deploy`). Only activates when `YOUTUBE_API_KEY` or `YOUTUBE_REFRESH_TOKEN` is set. The deploy is **tokenless** — it reuses the logged-in Vercel CLI session and resolves npm/vercel from nvm's bin (`_find_node_bin`, since the reflex process PATH lacks it); `VERCEL_TOKEN` is honoured if present but not required.
+- **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured), `sync_artwork_deathgrind.py` and `sync_artwork_fallback.py` (album covers), plus `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`, `scripts/seed_data.py`. `sync_all.sh` orchestrates the DB-only chain manually (no deploy).
+- **One production sync+deploy trigger:** the user systemd timer **`links-bio-sync.timer`** (`06:00` &
+  `18:00`, `~/.config/systemd/user/`) runs **`links-bio-sync.service`** once (`Type=oneshot`), which calls
+  `scripts/sync_and_deploy.py`. That script imports `links_bio/background_sync.py`'s `run_*` step
+  functions directly (youtube sync → normalize → artwork → Astro build+deploy) and exits — there is no
+  long-lived process and no daemon thread. This replaced the old split between a DB-only `sync_web.timer`
+  and an in-app Reflex daemon thread, both retired once the Reflex app itself was removed (T5/T7). A
+  failure triggers `OnFailure=notify-failure@%n.service` (`scripts/notify_failure.py`), the single email
+  alert mechanism for every systemd unit in this project — see "Deployment" below.
 - **YouTube auth:** `links_bio/youtube_auth.py` supports API Key or OAuth refresh token. Token helpers: `get_refresh_token.py`, `scripts/regenerate_youtube_token.py`.
 
 ## Deployment
 
-- **Production = Astro static build deployed to Vercel** with `vercel deploy --prod --prebuilt`, run **from the host** (the only machine with `reflex.db`). Root `vercel.json` only sets `cleanUrls` + `trailingSlash`; the Vercel project link lives in `web/.vercel/`.
-- **Three deploy paths, all host-local and tokenless** (they reuse the logged-in Vercel CLI): (1) manual `npm run build && vercel deploy --prod --prebuilt`; (2) the `.git/hooks/pre-push` hook, which **auto-deploys production when `main` is pushed** and aborts the push if build/deploy fails (`git push --no-verify` to skip); (3) `background_sync.py` after an in-app sync. `VERCEL_TOKEN` is only needed for a non-interactive/CI context.
-- **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Deploy locally or let `background_sync.py` / the pre-push hook do it.
+**Two independent traffic paths (decision D7), not one Cloudflare → Caddy → Reflex chain:**
+- **The apex, `danielbanariba.com`** (the static site), is served **directly by Vercel**. Nothing on
+  this host proxies it — no cloudflared tunnel, no Caddy. This is the path described below.
+- **`app.danielbanariba.com`** (the forms API) is tunneled through `cloudflared` straight to
+  `metal-archive-forms.service` on `:8001` (`/api/metal-archive/.*`). There is no `/webhook` route and
+  no `:8000` Reflex catch-all anymore — both were removed with the webhook (D4) and Reflex itself (T7).
+  `cloudflared-config.yml` in this repo is a sanitized mirror of the real, host-only
+  `/etc/cloudflared/config.yml`.
+
+**Host cutover note** (sudo, run on the host — not from this repo): edit
+`/etc/cloudflared/config.yml` to match `cloudflared-config.yml`, then `sudo systemctl restart
+cloudflared`; drop the `:8080` block from `/etc/caddy/Caddyfile` (per D7, Caddy no longer proxies
+anything for this site), then `sudo systemctl reload caddy`; confirm `curl -sI
+https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Caddy change.
+
+- **Production = Astro static build deployed to Vercel** with `vercel deploy --prod --prebuilt`, run **from the host** (the only machine with `reflex.db`). The Vercel project link lives in `web/.vercel/`,
+  and the **CLI is invoked from `web/`**, so it reads `web/vercel.json` — that is the live config (it
+  holds the security headers; see "The Astro frontend" above). The **root `vercel.json`** (`cleanUrls` +
+  `trailingSlash`) is dead config: the Astro adapter never copies it into `.vercel/output/config.json`,
+  and no deploy path `cd`s to the repo root before running `vercel`. It is left in place, not deleted,
+  in case a future deploy path starts running from the root.
+- **Two deploy paths, both preferring `VERCEL_TOKEN`** (decision D2): (1) the **`links-bio-sync.timer`**
+  systemd unit, twice a day (see "Data layer & sync"); (2) the `.git/hooks/pre-push` hook, which
+  **auto-deploys production when `main` is pushed** and aborts the push if build/deploy fails
+  (`git push --no-verify` to skip). Both fall back to the logged-in Vercel CLI session when
+  `VERCEL_TOKEN` is unset — **do not rely on that fallback for the unattended timer**: a logged-in
+  session can expire silently, which is exactly what caused `vercel deploy` to fail on every cycle for
+  3+ weeks (Sep–Oct 2026) with nobody told, until the `notify-failure@.service` alert mechanism
+  described above existed to say so.
+- **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Deploy locally, or let the sync timer / the pre-push hook do it.
+
+## Backups
+
+`reflex.db` holds non-regenerable PII (contact messages, newsletter emails, band submissions) and has
+no copy anywhere but the host disk. Encrypted, off-host backups close that gap (decision D1):
+- `scripts/backup_reflex_db.sh` takes a consistent snapshot with `sqlite3 reflex.db ".backup <path>"`
+  (never a raw `cp` of a live file), verifies `PRAGMA integrity_check = ok`, then pushes it with
+  `restic` to whichever repository the host is configured for (Backblaze B2 or SFTP — destination-
+  agnostic). Run by the user systemd units `reflex-db-backup.{service,timer}`.
+- `reflex-db-restore-test.{service,timer}` periodically restores the latest snapshot into a scratch
+  directory and fails if it is stale (older than `MAX_SNAPSHOT_AGE_HOURS`) or fails integrity — a backup
+  that was never test-restored is not a backup.
+- Credentials live in a **separate** env file (`~/.config/reflex-backup/env`, `chmod 600`, not this
+  repo's `.env`); see `systemd/reflex-db-backup.env.example` for the variables it reads
+  (`RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, retention knobs).
+- Failures alert through the same `notify-failure@.service` mechanism as sync/deploy (see "Data layer & sync" above) — one email per failed unit, with secrets redacted from the journal tail it includes.
 
 ## What is live vs. legacy
 
-The repo still contains the **pre-migration Reflex stack**. It is NOT the live site — touching it does not change production. Know the difference before editing:
+The **pre-migration Reflex stack is gone, not just "legacy."** The old `links_bio/pages/`, `views/`,
+`components/`, `styles/` UI tree, `links_bio/links_bio.py`, `rxconfig.py`, `webhook.py`, the matching
+`links-bio*.service`/`links-bio-webhook.service` units, and the dead `astro-spike/`/root `public/`
+directories were all deleted once nothing in the live sync/forms/data path still imported `reflex`
+(commit range `ed79c15`..`3af4177`, Oct 2026 — see T6/T7 in `odd/tasks/platform-hardening.md`). There is
+no dead Reflex code left in this repo to accidentally edit; the table below is now short because of that.
 
-| Live (edit these) | Legacy / superseded (usually don't edit) |
+| Live (edit these) | Notes |
 |---|---|
-| `web/` (Astro site) | `links_bio/pages/`, `views/`, `components/`, `styles/` (old Reflex UI) |
-| `links_bio/fastapi_forms.py` (forms) | `links_bio/states/metal_archive_state.py` (old page state) |
-| `links_bio/models/` (DB schema) | `links_bio/links_bio.py`, `rxconfig.py` (Reflex app entry/config) |
-| `links_bio/background_sync.py` + sync scripts | `caddy-block.txt`, `cloudflared-config.yml`, `links-bio*.service`, `webhook.py` (old self-hosted Reflex serving via Cloudflare tunnel → Caddy → Reflex :8000/:3000) |
-| `reflex.db` (data) | `astro-spike/` (abandoned POC, gitignored), root `public/` (old Reflex export) |
+| `web/` (Astro site) | The whole frontend. |
+| `links_bio/fastapi_forms.py` (forms) | Runs as `metal-archive-forms.service` (a host system unit, not tracked here). |
+| `links_bio/models/` (DB schema) | Plain SQLModel; Alembic drives it directly (no `reflex db`). |
+| `links_bio/background_sync.py` + sync scripts + `scripts/sync_and_deploy.py` | Oneshot pipeline, triggered by `links-bio-sync.timer`. No daemon thread. |
+| `reflex.db` (data) | Lives only on the host (gitignored); backed up by `scripts/backup_reflex_db.sh`. |
 
-`links_bio/states/form_state.py` is partly live: its `_send_email_notification` helper is reused by FastAPI, even though the `FormState` Reflex class itself is legacy. Running `reflex run` still serves the OLD UI and starts `background_sync` — useful as the host process that drives sync/deploy, but it is not what users see.
+`cloudflared-config.yml` is a sanitized mirror of the real `/etc/cloudflared/config.yml` (see
+"Deployment" for the live ingress topology it describes). `caddy-block.txt`, which used to document a
+Caddy `:8080` block proxying to the Reflex app, was deleted (D7): the apex is served directly by Vercel
+now, and nothing on this host proxies it through Caddy.
+
+`links_bio/states/form_state.py` is live for one reason only: `fastapi_forms.py` imports its
+`_send_email_notification` helper (Gmail SMTP) for form notification emails. There is no Reflex
+`FormState` class left for it to otherwise belong to.
 
 ## Environment variables
 
-Stored in `.env` (gitignored). See `mcp/server.py` `REQUIRED_ENV_VARS`.
+Stored in `.env` (gitignored, read by both `links-bio-sync.{service,timer}` and `metal-archive-forms.service`
+via `EnvironmentFile=`). See `mcp/server.py` `REQUIRED_ENV_VARS`.
 - `YOUTUBE_API_KEY` **or** (`YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` + `YOUTUBE_REFRESH_TOKEN`) — enables sync.
-- `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` — SMTP for form notifications.
-- `VERCEL_TOKEN` — **optional**; deploys reuse the logged-in Vercel CLI session by default. Set only for non-interactive/CI deploys.
-- `SYNC_INTERVAL_HOURS` (default 12), `SYNC_STARTUP_DELAY` (default 60) — in-app sync timing.
+- `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` — SMTP for form notifications and failure alert emails.
+- `VERCEL_TOKEN` — the unattended deploy path (decision D2): set it so the sync timer and the pre-push
+  hook don't depend on a logged-in Vercel CLI session, which can expire silently. Falls back to that
+  session when unset.
 - `PUBLIC_API_BASE` (Astro build/dev) — base URL the forms POST to; defaults to `https://app.danielbanariba.com`.
-- `REFLEX_DB` / `REFLEX_DB_URL` — override DB path for Astro build / FastAPI respectively.
+- `REFLEX_DB` / `REFLEX_DB_URL` — override DB path for Astro build / FastAPI+Alembic respectively.
+
+Backup credentials are intentionally **not** here — they live in a separate `~/.config/reflex-backup/env`
+file so a leaked `.env` can't also leak the off-host backup repository (see "Backups").
 
 ## Project tooling
 
 - **Project MCP server** (`mcp/server.py`, wired in `.mcp.json`) exposes health/validation tools: `lint_project` (ruff on `links_bio/`), `check_db_schema` / `check_migrations_pending`, `validate_env_vars`, `count_models_in_db`, `test_metal_archive_pages`, `check_vercel_deploy`. Some tools (`check_reflex_server`, `check_reflex_cloud`) target the pre-migration Reflex deployment and are stale.
-- **Design reference:** `design-system/MASTER.md` documents the visual language (the "Xerox Underground" palette, primary cyan `#0073a8`, etc.).
+- **Design reference:** `design-system/MASTER.md` documents the visual language (the "Xerox Underground" palette, primary cyan `#0073a8`, etc.); its implementation-specific notes now point at the live Astro styling, not the deleted Reflex components (see that file's own history note).
+
+## Commits & PRs
+
+- Commit messages use **Gitmoji + Conventional Commits**: `<gitmoji> <type>(<scope>): <description>`,
+  gitmoji as a `:shortcode:` (`:bug:` fix, `:sparkles:` feat, `:memo:` docs, `:recycle:` refactor,
+  `:white_check_mark:` test, `:hammer:` chore/build). Template: `templates/commit-template.en.git.txt`.
+  Never add AI attribution (`Co-Authored-By` naming an AI, "Generated with", etc.) — a global
+  `commit-msg` hook rejects it.
+- PRs use `.github/pull_request_template.md`: a one-minute description (commit-format first line +
+  detailed context), a verification checklist for this stack, and optional attachments.

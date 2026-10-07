@@ -78,15 +78,29 @@ const PACKAGES = [
 // select stay HIDDEN, so visitors never see "Price TBD". Flip to true once
 // PACKAGES holds real prices/tiers (OWNER CONTENT — see comments above).
 const PACKAGES_READY = false;
+
+const pageTitle = 'Promote your music | Metal Archive';
+const metaDesc = 'Promote your band, album or label to an extreme metal audience.';
+const canonical = 'https://danielbanariba.com/metal-archive/promo';
+const ogImage = 'https://danielbanariba.com/avatar.jpg';
 ---
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Promote your music | Metal Archive</title>
-  <meta name="description" content="Promote your band, album or label to an extreme metal audience." />
-  <link rel="canonical" href="https://danielbanariba.com/metal-archive/promo" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={metaDesc} />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={metaDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={metaDesc} />
+  <meta name="twitter:image" content={ogImage} />
+  <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
 <body class="form-page">
@@ -279,6 +293,15 @@ const PACKAGES_READY = false;
           </button>
         </div>
 
+        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+             that fills every field fills this one too, so the server can
+             drop the submission silently. Never display:none -- some bots
+             skip fields hidden that way. -->
+        <input
+          type="text" id="website" name="website" class="sr-only"
+          tabindex="-1" autocomplete="off" aria-hidden="true"
+        />
+
         <!-- Toast -->
         <div class="form-toast" id="form-toast" role="alert"></div>
 
@@ -322,9 +345,9 @@ const PACKAGES_READY = false;
 <script>
   // Wrapped in astro:page-load so all handlers re-bind after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
-  function initPromoForm() {
-    const API_BASE = import.meta.env.PUBLIC_API_BASE ?? 'https://app.danielbanariba.com';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
 
+  function initPromoForm() {
     const form       = document.getElementById('promo-form') as HTMLFormElement | null;
     const btn        = document.getElementById('submit-btn') as HTMLButtonElement | null;
     const toast      = document.getElementById('form-toast') as HTMLElement | null;
@@ -424,6 +447,7 @@ const PACKAGES_READY = false;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
+          signal: timeoutSignal(FORM_FETCH_TIMEOUT_MS),
         });
 
         const json = await res.json().catch(() => ({}));
@@ -434,8 +458,12 @@ const PACKAGES_READY = false;
         } else {
           showToast(json.detail ?? 'Something went wrong. Please try again.', true);
         }
-      } catch {
-        showToast('Could not connect. Check your internet connection.', true);
+      } catch (err) {
+        if (isTimeoutError(err)) {
+          showToast(FORM_TIMEOUT_MESSAGE, true);
+        } else {
+          showToast('Could not connect. Check your internet connection.', true);
+        }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Send request';

@@ -21,8 +21,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import reflex as rx
-from sqlmodel import select, col
+from sqlmodel import Session, select, col
+from links_bio.db import engine
 from links_bio.models.album import Album
 
 MA_SEARCH_URL = "https://www.metal-archives.com/search/ajax-advanced/searching/albums"
@@ -147,7 +147,7 @@ def main():
         "Accept": "application/json",
     })
 
-    with rx.session() as db_session:
+    with Session(engine) as db_session:
         query = (
             select(Album)
             .where(Album.album_artwork_url.like("https://i.ytimg.com%"))

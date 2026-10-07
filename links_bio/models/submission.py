@@ -1,11 +1,12 @@
-import reflex as rx
 import sqlmodel
 from datetime import datetime
+from typing import Optional
 
 
-class Submission(rx.Model, table=True):
+class Submission(sqlmodel.SQLModel, table=True):
     __tablename__ = "submissions"
 
+    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     band_name: str = sqlmodel.Field(index=True)
     contact_email: str = sqlmodel.Field(default="")
     genre: str = sqlmodel.Field(default="")

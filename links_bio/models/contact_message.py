@@ -1,11 +1,12 @@
-import reflex as rx
 import sqlmodel
 from datetime import datetime
+from typing import Optional
 
 
-class ContactMessage(rx.Model, table=True):
+class ContactMessage(sqlmodel.SQLModel, table=True):
     __tablename__ = "contact_messages"
 
+    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(default="")
     email: str = sqlmodel.Field(default="")
     company: str = sqlmodel.Field(default="")

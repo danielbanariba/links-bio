@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "test": "node --import ./tests/support/register.mjs --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@astrojs/preact": "^5.1.3",
@@ -14,10 +15,16 @@
     "astro": "^6.3.7",
     "better-sqlite3": "^12.10.0",
     "node-vibrant": "^4.0.3",
-    "preact": "^10.25.4"
+    "preact": "^10.25.4",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "typescript": "^5.8.3"
+  },
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true,
+    "sharp": false
   }
 }

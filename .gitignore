@@ -1,6 +1,13 @@
 .states
 *.db
 *.db.bak*
+# DB snapshots that don't match the patterns above: reflex.db.backup
+# (scripts/normalize_db.py's --backup flag writes exactly this filename,
+# via shutil.copy2 — a raw file copy, not an online `sqlite3 .backup`,
+# which is why it must never be the one committed as a "real" backup)
+# and any restore-test working copy named *.db.pre-<label>.
+*.db.backup
+*.db.pre-*
 *.py[cod]
 .vscode
 .web
@@ -27,3 +34,15 @@ astro-spike/
 # Build artifacts inside web/public/ (the rest of that folder IS site source).
 # browse-index.json is regenerated from the DB by browse.astro on every build.
 web/public/browse-index.json
+
+# CodeGraph's per-checkout index. Was previously only excluded via this
+# worktree's local, uncommitted .git/info/exclude -- not present for a
+# fresh clone or another worktree, so it belongs in the tracked ignore
+# file too.
+.codegraph/
+
+# node_modules — intentionally no trailing slash. A trailing-slash
+# `node_modules/` pattern only matches a real directory; a dev worktree
+# symlinks web/node_modules to the main checkout's copy, and a bare
+# symlink entry would not match that trailing-slash form.
+node_modules

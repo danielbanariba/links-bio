@@ -2,13 +2,17 @@
 // Slug strategy: genres contain spaces and slashes (e.g. "Brutal Death Metal/Goregrind").
 // A raw "/" in a path param would create a nested route, so we slugify:
 //   "Brutal Death Metal/Goregrind" -> "brutal-death-metal-goregrind"
-// The real genre value travels as a prop so we can query without lossy decoding.
-// Pattern: getStaticPaths returns { params: { genre: slug }, props: { realGenre } }
-// slugify is imported from db.ts (the single source of truth, shared with the
-// pages that link here). Imports are available in the prerender chunk; the old
-// inline copy is gone so paths and links can never drift apart.
+//
+// COLLISION FIX: distinct raw genre strings can slugify to the SAME value
+// (e.g. "Black Death Metal" and "Black/Death Metal" both -> "black-death-metal",
+// 1 album vs 31). getStaticPaths used to emit one path per RAW value, so the
+// build silently overwrote the bigger page with the smaller one. It now groups
+// by slug via getGenreFacetGroups() (db.ts), so exactly one page is built per
+// slug and it lists every album from every raw variant that collides into it.
+// `label` is the raw value with the highest count — used for the display name
+// and the "Refine in Browse" link.
 import { ClientRouter } from 'astro:transitions';
-import { getAllGenres, getAlbumsByGenre, slugify } from '../../../lib/db.js';
+import { getGenreFacetGroups, getAlbumsByGenres } from '../../../lib/db.js';
 import { genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
@@ -17,21 +21,22 @@ import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
-  const genres = getAllGenres();
-  return genres.map((facet) => ({
-    params: { genre: slugify(facet.value) },
-    props: { realGenre: facet.value },
+  const groups = getGenreFacetGroups();
+  return groups.map((group) => ({
+    params: { genre: group.slug },
+    props: { genreValues: group.values, primaryGenre: group.label },
   }));
 }
 
 interface Props {
-  realGenre: string;
+  genreValues: string[];
+  primaryGenre: string;
 }
 
-const { realGenre } = Astro.props;
-// NOT_LIVE applied inside getAlbumsByGenre; derive the count from the same list
-// so the header number and the grid always agree (comparable to Browse).
-const albums = getAlbumsByGenre(realGenre);
+const { genreValues, primaryGenre } = Astro.props;
+// NOT_LIVE applied inside getAlbumsByGenres; derive the count from the same
+// list so the header number and the grid always agree (comparable to Browse).
+const albums = getAlbumsByGenres(genreValues);
 const count = albums.length;
 
 // P2 mini-hero color: inherit --album-color from the representative (newest)
@@ -43,12 +48,17 @@ const genreColor = repCover ? await getAlbumColor(repCover) : '#dda15e';
 
 // Chain to Browse with this genre pre-applied. The Search island restores its
 // dropdown from the exact value (e.genre === genre), so the URL must carry the
-// REAL genre, not the slug.
-const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(realGenre)}`;
+// dominant REAL genre, not the slug.
+const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(primaryGenre)}`;
 
 // Genres are already English except for one Spanish placeholder value; the slug
-// and the ?genre= link still carry the RAW value so nothing breaks.
-const genreName = genreLabel(realGenre);
+// and the ?genre= link still carry the RAW (dominant) value so nothing breaks.
+const genreName = genreLabel(primaryGenre);
+
+const pageTitle = `${genreName} — Metal Archive`;
+const metaDesc = `${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`;
+const canonical = `https://danielbanariba.com/metal-archive/genre/${Astro.params.genre}`;
+const ogImage = repCover || undefined;
 ---
 
 <!doctype html>
@@ -56,9 +66,18 @@ const genreName = genreLabel(realGenre);
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{genreName} — Metal Archive</title>
-    <meta name="description" content={`${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`} />
-    <link rel="canonical" href={`https://danielbanariba.com/metal-archive/genre/${slugify(realGenre)}`} />
+    <title>{pageTitle}</title>
+    <meta name="description" content={metaDesc} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDesc} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDesc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
   <body>
