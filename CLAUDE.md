@@ -70,6 +70,9 @@ source env/bin/activate
 alembic revision --autogenerate -m "description"   # after editing links_bio/models/
 alembic upgrade head
 # build.sh automates first-time setup: pip install + alembic upgrade head
+# requirements.txt = runtime (forms API, sync). requirements-dev.txt adds the
+# host tooling that shares env/: mcp (project MCP server), ruff, pytest, httpx.
+# Rebuilding env/ from requirements.txt alone breaks .mcp.json and lint.
 ```
 
 ### Data sync (populate reflex.db)

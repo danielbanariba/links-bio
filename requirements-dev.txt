@@ -1,0 +1,15 @@
+# Host-only tooling that shares the env/ venv with the runtime services.
+# Install with: env/bin/pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Project MCP server (.mcp.json runs mcp/server.py with env/bin/python).
+# >=1.28.1 clears the PYSEC-2026-3481/3482/3483 advisories (T12 audit);
+# <2 because mcp 2.x renamed FastMCP, which mcp/server.py imports.
+mcp>=1.28.1,<2
+
+# Lint (env/bin/ruff, also used by the MCP lint_project tool).
+ruff==0.15.11
+
+# Test suite: pytest plus httpx for starlette's TestClient.
+pytest
+httpx
