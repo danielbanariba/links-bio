@@ -146,17 +146,12 @@ a:hover {
    rgb(16,16,16) on a rgb(9,8,13) background, ~1.05:1). --text-header is the
    near-white brand bone color, which stays well above 3:1 against every
    background the site uses (the dark --bg, --content, and the per-album
-   --accent-tinted navbar). Plain element selectors keep this the LOWEST
-   specificity in the sheet, so every existing component-specific
-   :focus-visible rule below (.album-card, .facet-refine, a.band-pill,
-   .stage__* etc.) still wins and is unaffected by this default. */
-a:focus-visible,
-button:focus-visible,
-summary:focus-visible,
-[tabindex]:focus-visible {
+   --accent-tinted navbar). :where() gives this rule zero specificity, so any
+   component rule that sets outline (.album-card, .facet-refine,
+   a.band-pill, .stage__* etc.) wins outright. The rule declares nothing
+   but outline, so it cannot change a component's radius or offset. */
+:where(a, button, summary, [tabindex]):where(:focus-visible) {
   outline: 2px solid var(--text-header);
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 img {
