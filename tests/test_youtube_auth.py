@@ -140,3 +140,80 @@ def test_db_fallback_failure_is_logged_before_raising(
         f"expected the swallowed exception's type/message in the log, got: "
         f"{[r.getMessage() for r in caplog.records]}"
     )
+
+
+def test_http_error_with_leaked_api_key_in_uri_is_never_logged(
+    scratch_db: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """Catches T26 item 1 (security): googleapiclient's HttpError stringifies
+    the failed request's URI verbatim, and for an API-key client that URI
+    carries `key=<YOUTUBE_API_KEY>`. The prior fix (0442f8c) logged
+    `type(e).__name__, e` directly, so this exact HttpError would have
+    written the live API key into the systemd journal on a routine
+    403/quota failure. Builds a REAL googleapiclient HttpError (not a
+    stand-in) with a URI carrying the fake key, forces videos().list()
+    to raise it from inside the DB fallback, and asserts the key appears
+    nowhere in captured logs or stdout/stderr, while the failure is still
+    identifiable (its type name and status code are logged).
+    """
+    import json
+    import logging
+
+    from googleapiclient.errors import HttpError
+
+    fake_key = "AIzaFAKEKEY1234567890"
+    monkeypatch.delenv("YOUTUBE_CHANNEL_ID", raising=False)
+    monkeypatch.delenv("YOUTUBE_REFRESH_TOKEN", raising=False)
+    monkeypatch.setenv("YOUTUBE_API_KEY", fake_key)
+
+    engine = _make_scratch_engine(scratch_db)
+    _seed_single_album_with_video(engine, "VID123")
+    monkeypatch.setattr("links_bio.db.engine", engine)
+
+    class _FakeHttplib2Response:
+        """Stands in for httplib2.Response: HttpError only reads `.status`
+        and `.reason` off it."""
+
+        def __init__(self, status: int, reason: str) -> None:
+            self.status = status
+            self.reason = reason
+
+    content = json.dumps(
+        {"error": {"message": "The request is missing a valid API key.", "errors": []}}
+    ).encode()
+    uri = (
+        "https://youtube.googleapis.com/youtube/v3/videos"
+        f"?part=snippet&id=abc&key={fake_key}&alt=json"
+    )
+    http_error = HttpError(_FakeHttplib2Response(403, "Forbidden"), content, uri=uri)
+
+    class _RaisingVideosList:
+        def list(self, **kwargs):
+            return self
+
+        def execute(self):
+            raise http_error
+
+    class _RaisingYoutubeClient:
+        def videos(self):
+            return _RaisingVideosList()
+
+    caplog.set_level(logging.WARNING)
+    with pytest.raises(RuntimeError):
+        get_channel_id_from_env_or_derive(_RaisingYoutubeClient())
+
+    captured_logs = "\n".join(record.getMessage() for record in caplog.records)
+    assert fake_key not in captured_logs, (
+        f"the fake API key leaked into the log output: {captured_logs!r}"
+    )
+    captured_streams = capsys.readouterr()
+    assert fake_key not in captured_streams.out
+    assert fake_key not in captured_streams.err
+
+    assert "HttpError" in captured_logs and "403" in captured_logs, (
+        f"expected the failure (type name, status code) to still be "
+        f"identifiable in the log, got: {captured_logs!r}"
+    )

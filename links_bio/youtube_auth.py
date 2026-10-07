@@ -14,9 +14,11 @@ Dos modos soportados (en orden de preferencia):
 
 import logging
 import os
+import re
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 logger = logging.getLogger("youtube_auth")
 
@@ -24,6 +26,31 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
     "https://www.googleapis.com/auth/youtube",
 ]
+
+# Secrets that must never reach a log line verbatim. googleapiclient's
+# HttpError.__str__ embeds the full failed request URI, which for an
+# API-key client carries `key=<YOUTUBE_API_KEY>` -- a routine 403/quota
+# error would otherwise write the live credential into the systemd journal.
+_SECRET_QUERY_PARAM_RE = re.compile(r"(?i)\b(key|access_token)=[^&\s'\"]+")
+_SECRET_ENV_VARS = ("YOUTUBE_API_KEY", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")
+
+
+def _redact_secrets(message: str) -> str:
+    """Mask anything in `message` that could leak a YouTube credential.
+
+    Two independent passes: (1) mask any `key=`/`access_token=`
+    query-parameter value, which is how a stringified HttpError exposes an
+    API key embedded in the request URI; (2) replace the literal value of
+    any configured YOUTUBE_API_KEY/YOUTUBE_CLIENT_SECRET/YOUTUBE_REFRESH_TOKEN
+    (only when 8+ chars, so short/placeholder test values aren't mangled)
+    wherever it appears, even outside a `key=` query parameter.
+    """
+    redacted = _SECRET_QUERY_PARAM_RE.sub(r"\1=****", message)
+    for env_var in _SECRET_ENV_VARS:
+        value = os.environ.get(env_var)
+        if value and len(value) >= 8:
+            redacted = redacted.replace(value, "****")
+    return redacted
 
 
 def authenticate_from_api_key():
@@ -109,9 +136,19 @@ def get_channel_id_from_env_or_derive(youtube_client):
         # Non-fatal: the RuntimeError below still fires. But the exact
         # mechanism that hid the T7 reflex-import regression was this
         # branch swallowing every exception with no trace at all, so log
-        # the cause instead of staying silent.
+        # the cause instead of staying silent -- never the raw exception
+        # string, though: for an HttpError raised against an API-key
+        # client, str(e) embeds the full request URI with `key=<...>` in
+        # it, which would otherwise leak the YouTube API key into the
+        # systemd journal on every routine 403/quota failure (T26 item 1).
+        if isinstance(e, HttpError):
+            detail = f"HTTP {e.status_code} {e.reason}".strip()
+        else:
+            detail = str(e)
         logger.warning(
-            "channel id DB fallback failed: %s: %s", type(e).__name__, e
+            "channel id DB fallback failed: %s: %s",
+            type(e).__name__,
+            _redact_secrets(detail),
         )
 
     raise RuntimeError(
