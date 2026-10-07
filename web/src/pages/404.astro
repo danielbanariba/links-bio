@@ -1,0 +1,47 @@
+---
+// Custom 404 — reuses the site's own nav/branding instead of Vercel's bare
+// generic platform error. Astro's `output: 'static'` convention writes this
+// page to the literal "404.html" Vercel's static hosting looks for as the
+// catch-all not-found page, so ONE page here covers both the bio (/) and
+// every /metal-archive/* path (there is no per-folder 404 in static hosting).
+import Navbar from '../components/Navbar.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+const pageTitle = 'Page not found | Daniel Banariba';
+const canonical = 'https://danielbanariba.com/404';
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{pageTitle}</title>
+  <meta name="description" content="The page you're looking for doesn't exist, or it may have moved." />
+  <meta name="robots" content="noindex" />
+  <link rel="canonical" href={canonical} />
+</head>
+<body class="form-page">
+  <Navbar />
+
+  <main class="form-page__main">
+    <div class="form-page__header">
+      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+      </svg>
+      <h1 class="form-page__title">404 — Page not found</h1>
+      <p class="form-page__subtitle">
+        The page you're looking for doesn't exist, or it may have moved. It
+        might be an old album link, a renamed facet, or just a typo in the URL.
+      </p>
+    </div>
+
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center;">
+      <a href="/" class="facet-refine">&#8592; Back home</a>
+      <a href="/metal-archive/browse" class="facet-refine">Browse the archive &#8594;</a>
+    </div>
+  </main>
+
+  <Footer />
+</body>
+</html>
