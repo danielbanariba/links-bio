@@ -586,6 +586,49 @@ def test_submit_promo_and_contact_share_one_email_rate_budget(
     assert exhausted.status_code == 429
 
 
+# ─── R3-007: a non-string value on a "before"-mode blank check must 422 ────
+#
+# must_not_be_blank (Submit/Promo/Contact) and must_be_valid_email
+# (Newsletter) are declared mode="before", so they receive the raw JSON
+# value BEFORE pydantic's own type validation runs. must_not_be_blank calls
+# `v.strip()` directly; must_be_valid_email does `"@" not in v`. A non-string
+# JSON value (a number, a list, an object) makes both raise an unhandled
+# AttributeError/TypeError instead of a pydantic ValidationError, so FastAPI
+# answers 500 instead of 422.
+
+_BLANK_CHECK_FIELDS = [
+    ("/api/metal-archive/submit", _valid_submit_payload, "band_name"),
+    ("/api/metal-archive/submit", _valid_submit_payload, "contact_email"),
+    ("/api/metal-archive/submit", _valid_submit_payload, "genre"),
+    ("/api/metal-archive/submit", _valid_submit_payload, "country"),
+    ("/api/metal-archive/promo", _valid_promo_payload, "band_name"),
+    ("/api/metal-archive/promo", _valid_promo_payload, "email"),
+    ("/api/metal-archive/promo", _valid_promo_payload, "album_title"),
+    ("/api/metal-archive/newsletter", _valid_newsletter_payload, "email"),
+    ("/api/metal-archive/contact", _valid_contact_payload, "name"),
+    ("/api/metal-archive/contact", _valid_contact_payload, "email"),
+    ("/api/metal-archive/contact", _valid_contact_payload, "message"),
+]
+
+
+@pytest.mark.parametrize("path,payload_factory,field", _BLANK_CHECK_FIELDS)
+def test_non_string_value_on_a_blank_check_field_returns_422_not_500(
+    forms_client: TestClient, path: str, payload_factory, field: str
+) -> None:
+    """R3-007: before the fix, posting a plain JSON number for any of
+    these fields crashed the blank-check validator with an unhandled
+    AttributeError (must_not_be_blank's `.strip()`) or TypeError
+    (must_be_valid_email's `"@" not in v`), and FastAPI answered 500. A
+    wrong-typed field must be a validation error (422), never a server
+    error.
+    """
+    payload = payload_factory(**{field: 12345})
+
+    res = forms_client.post(path, json=payload)
+
+    assert res.status_code == 422, res.text
+
+
 def test_newsletter_has_its_own_separate_rate_budget(forms_client: TestClient) -> None:
     """Newsletter never sends email (unlike submit/promo/contact) and
     intentionally has a separate, larger budget; exhausting the shared

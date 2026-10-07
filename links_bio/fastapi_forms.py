@@ -137,8 +137,8 @@ class SubmitRequest(BaseModel):
 
     @field_validator("band_name", "contact_email", "genre", "country", mode="before")
     @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
+    def must_not_be_blank(cls, v: object) -> str:
+        if not isinstance(v, str) or not v.strip():
             raise ValueError("This field is required.")
         return v.strip()
 
@@ -173,8 +173,8 @@ class PromoRequest(BaseModel):
 
     @field_validator("band_name", "email", "album_title", mode="before")
     @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
+    def must_not_be_blank(cls, v: object) -> str:
+        if not isinstance(v, str) or not v.strip():
             raise ValueError("This field is required.")
         return v.strip()
 
@@ -195,8 +195,13 @@ class NewsletterRequest(BaseModel):
 
     @field_validator("email", mode="before")
     @classmethod
-    def must_be_valid_email(cls, v: str) -> str:
-        if not v or "@" not in v or "." not in v.split("@")[-1]:
+    def must_be_valid_email(cls, v: object) -> str:
+        if (
+            not isinstance(v, str)
+            or not v
+            or "@" not in v
+            or "." not in v.split("@")[-1]
+        ):
             raise ValueError("Invalid email address.")
         return v.strip().lower()
 
@@ -221,8 +226,8 @@ class ContactRequest(BaseModel):
 
     @field_validator("name", "email", "message", mode="before")
     @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v or not v.strip():
+    def must_not_be_blank(cls, v: object) -> str:
+        if not isinstance(v, str) or not v.strip():
             raise ValueError("This field is required.")
         return v.strip()
 
