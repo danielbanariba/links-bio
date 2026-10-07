@@ -30,8 +30,9 @@ export const FORM_TIMEOUT_MESSAGE = 'The request took too long. Please check you
 // reported a generic network error on EVERY submit, not just a slow one.
 //
 // This falls back to a plain AbortController + setTimeout, aborting with a
-// DOMException named 'TimeoutError' so the pages' existing
-// `err.name === 'TimeoutError'` branch still matches either way. If neither
+// DOMException named 'TimeoutError'. Browsers that predate abort(reason)
+// ignore that reason and reject with an AbortError, so the pages check
+// isTimeoutError() below rather than the error name directly. If neither
 // mechanism exists, it returns undefined and fetch() just runs without a
 // timeout instead of throwing.
 export function timeoutSignal(ms: number): AbortSignal | undefined {
@@ -44,4 +45,12 @@ export function timeoutSignal(ms: number): AbortSignal | undefined {
     controller.abort(new DOMException('The operation timed out.', 'TimeoutError'));
   }, ms);
   return controller.signal;
+}
+
+// True when a form fetch() rejected because timeoutSignal() fired. Native
+// AbortSignal.timeout and abort(reason)-aware browsers reject with a
+// TimeoutError; older browsers on the fallback path reject with an
+// AbortError. Nothing else aborts these requests, so both mean a timeout.
+export function isTimeoutError(err: unknown): boolean {
+  return err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError');
 }

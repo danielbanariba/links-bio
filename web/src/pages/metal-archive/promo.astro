@@ -345,7 +345,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
 <script>
   // Wrapped in astro:page-load so all handlers re-bind after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
-  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, timeoutSignal } from '../../lib/api.js';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
 
   function initPromoForm() {
     const form       = document.getElementById('promo-form') as HTMLFormElement | null;
@@ -459,7 +459,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           showToast(json.detail ?? 'Something went wrong. Please try again.', true);
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'TimeoutError') {
+        if (isTimeoutError(err)) {
           showToast(FORM_TIMEOUT_MESSAGE, true);
         } else {
           showToast('Could not connect. Check your internet connection.', true);

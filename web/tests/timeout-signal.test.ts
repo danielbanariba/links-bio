@@ -7,11 +7,11 @@
 //
 // timeoutSignal() (api.ts) fixes this with feature detection plus an
 // AbortController + setTimeout fallback that still aborts with a
-// DOMException named 'TimeoutError', so the pages' existing
-// `err.name === 'TimeoutError'` branch keeps matching either way.
+// DOMException named 'TimeoutError' (see isTimeoutError below for older
+// browsers that reject with an AbortError instead).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { timeoutSignal } from '../src/lib/api.ts';
+import { isTimeoutError, timeoutSignal } from '../src/lib/api.ts';
 
 test('timeoutSignal falls back to an AbortController when AbortSignal.timeout is unavailable', async () => {
   const original = AbortSignal.timeout;
@@ -45,4 +45,17 @@ test('timeoutSignal uses the native AbortSignal.timeout when it is available', (
   const signal = timeoutSignal(5000);
   assert.ok(signal instanceof AbortSignal);
   assert.equal(signal!.aborted, false);
+});
+
+// Regression test for R3-001 (lineage review-6b2db25e71aeb72d): browsers old
+// enough to need the fallback above may also predate abort(reason)
+// (Chrome < 98, Firefox < 97, Safari < 15.4). They ignore the TimeoutError
+// reason, so the timed-out fetch rejects with an AbortError instead, and a
+// strict `err.name === 'TimeoutError'` check showed the generic network
+// error. Nothing else aborts these fetches, so AbortError means timeout.
+test('isTimeoutError treats both TimeoutError and AbortError as a timeout, nothing else', () => {
+  assert.equal(isTimeoutError(new DOMException('timed out', 'TimeoutError')), true);
+  assert.equal(isTimeoutError(new DOMException('aborted', 'AbortError')), true);
+  assert.equal(isTimeoutError(new TypeError('Failed to fetch')), false);
+  assert.equal(isTimeoutError(undefined), false);
 });
