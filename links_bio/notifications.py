@@ -1,9 +1,10 @@
 """Email notifications for form submissions and sync alerts.
 
-Extracted from the legacy links_bio.states.form_state module so FastAPI (and,
-later, the sync/deploy timer) can send notification emails without importing
-reflex. links_bio.states.form_state re-imports `_send_email_notification`
-from here so its legacy FormState class keeps working unchanged.
+Originally extracted from the legacy links_bio.states.form_state module (now
+deleted, along with the rest of the Reflex UI) so notification emails could
+be sent without importing reflex. `_send_email_notification` is used by
+links_bio.fastapi_forms (form submission alerts) and scripts/notify_failure.py
+(sync/deploy failure alerts).
 """
 
 import logging
