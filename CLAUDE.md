@@ -109,6 +109,11 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
   a path-to-regexp named parameter (e.g. `:slug`) it can't faithfully translate to a Build Output API
   `src` regex. `web/vercel.json` stays the single declared source of the headers — see "Deployment"
   below for why the adapter/CLI can't just read it directly.
+- **`web/vercel.json` also declares the `/_astro/(.*)` immutable `cache-control` on purpose — don't
+  remove it as a duplicate.** The adapter emits its own `/_astro` cache route *after*
+  `{handle: "filesystem"}`, where it never applies to a file the filesystem serves, so hashed assets
+  went out with `max-age=0, must-revalidate` until Oct 2026. The copy in `vercel.json` is merged before
+  the filesystem handle, which is the only position that takes effect.
 - **`web/src/lib/db.ts` is the single DB gateway.** ALL database access goes through it — no inline DB opens in pages. It opens one read-only connection and exposes typed query functions (home feeds, album detail, facets, band pages, browse index). When a page needs data, add/return a function here.
 - **Routing:** `web/src/pages/index.astro` is the bio at `/`. The Metal Archive lives under `web/src/pages/metal-archive/` — the **folder provides the `/metal-archive` path prefix** (there is intentionally no `base` in the config), so public URLs are unchanged. Dynamic pages (`album/[id]`, `band/[band]`, `genre/[genre]`, `country/[country]`, `year/[year]`) enumerate paths via `getStaticPaths()` backed by `db.ts`.
 - **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (audio/YouTube player, synchronous-click autoplay) and `Search.tsx` (client-side search over `/browse-index.json`). `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search + Navbar.
