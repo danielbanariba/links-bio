@@ -96,7 +96,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
 <script>
   // Wrapped in astro:page-load so the form handler re-binds after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
-  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE } from '../../lib/api.js';
+  import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, timeoutSignal } from '../../lib/api.js';
 
   function initNewsletterForm() {
     const form    = document.getElementById('newsletter-form') as HTMLFormElement | null;
@@ -135,7 +135,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, website }),
-          signal: AbortSignal.timeout(FORM_FETCH_TIMEOUT_MS),
+          signal: timeoutSignal(FORM_FETCH_TIMEOUT_MS),
         });
 
         const json = await res.json().catch(() => ({}));

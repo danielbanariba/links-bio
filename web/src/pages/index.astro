@@ -287,7 +287,7 @@ const PROJECTS = [
       // Contact form: POST to the FastAPI forms service.
       // /api/metal-archive/contact IS implemented (links_bio/fastapi_forms.py);
       // an older comment here claimed it was missing.
-      import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE } from '../lib/api.js';
+      import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, timeoutSignal } from '../lib/api.js';
 
       const form    = document.getElementById('contact-form') as HTMLFormElement;
       const btn     = document.getElementById('contact-btn') as HTMLButtonElement;
@@ -320,7 +320,7 @@ const PROJECTS = [
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
-            signal: AbortSignal.timeout(FORM_FETCH_TIMEOUT_MS),
+            signal: timeoutSignal(FORM_FETCH_TIMEOUT_MS),
           });
           const json = await res.json().catch(() => ({}));
           if (res.ok) {

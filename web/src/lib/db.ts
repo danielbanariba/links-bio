@@ -391,7 +391,7 @@ export interface FacetGroup {
   count: number;
 }
 
-function groupFacetsBySlug(rows: Facet[]): FacetGroup[] {
+export function groupFacetsBySlug(rows: Facet[]): FacetGroup[] {
   const bySlug = new Map<string, Facet[]>();
   for (const row of rows) {
     const slug = slugify(row.value);
@@ -414,25 +414,12 @@ export function getGenreFacetGroups(): FacetGroup[] {
   return groupFacetsBySlug(getAllGenres());
 }
 
-export function getCountryFacetGroups(): FacetGroup[] {
-  return groupFacetsBySlug(getAllCountries());
-}
-
 export function getAlbumsByGenres(genres: string[]): Card[] {
   if (genres.length === 0) return [];
   const placeholders = genres.map(() => '?').join(',');
   const rows: any[] = db
     .prepare(`SELECT ${CARD_COLS} FROM albums WHERE genre IN (${placeholders}) AND ${NOT_LIVE} ORDER BY upload_date DESC`)
     .all(...genres);
-  return rows.map(toCard);
-}
-
-export function getAlbumsByCountries(countries: string[]): Card[] {
-  if (countries.length === 0) return [];
-  const placeholders = countries.map(() => '?').join(',');
-  const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country IN (${placeholders}) AND ${NOT_LIVE} ORDER BY band_name`)
-    .all(...countries);
   return rows.map(toCard);
 }
 
