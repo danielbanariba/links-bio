@@ -1,5 +1,5 @@
 """
-Sync pipeline steps: YouTube -> DB, normalize, artwork, Astro build+deploy.
+Sync pipeline steps: YouTube -> DB, normalize, Astro build+deploy.
 
 Each `run_*` function below is one pipeline step. `scripts/sync_and_deploy.py`
 imports this module and calls them directly, once per cycle, run twice a day
@@ -7,11 +7,18 @@ by the links-bio-sync.{service,timer} systemd user units. There is no daemon
 thread and no Reflex app here anymore: the in-app background-sync thread
 that used to own this module (started from links_bio.py on every Reflex
 boot) was removed once the Reflex UI itself was retired.
+
+There used to be a DeathGrind-artwork sync step here too (run_artwork_sync);
+it was removed because cdn.deathgrind.club sends
+`Cross-Origin-Resource-Policy: same-site`, so every browser blocks those
+cover images on this site regardless of what color/thumbnail processing
+happens at build time. YouTube thumbnails are the cover source of truth now
+(sync_youtube_to_db.py sets album_artwork_url from the video thumbnail on
+every full sync); see "Data layer & sync" in CLAUDE.md.
 """
 
 import logging
 import os
-import time
 from datetime import datetime, timezone
 
 logger = logging.getLogger("background_sync")
@@ -244,64 +251,3 @@ def run_normalize():
         if changes:
             session.commit()
     _log(f"Normalizacion: {changes} albums actualizados.")
-
-
-def run_artwork_sync():
-    """Busca portadas en DeathGrind.club para albums que aun tienen thumbnail de YouTube."""
-    from sqlmodel import Session, select, col, func
-    from links_bio.db import engine
-    from links_bio.models.album import Album
-    from sync_artwork_deathgrind import crear_sesion, buscar_artwork
-
-    BATCH_SIZE = 50
-
-    try:
-        http_session = crear_sesion()
-    except Exception as e:
-        _log(f"Artwork sync: error de login DeathGrind: {e}")
-        return
-
-    offset = 0
-    total_found = 0
-    total_processed = 0
-
-    while True:
-        with Session(engine) as db_session:
-            albums = db_session.exec(
-                select(Album).where(
-                    (Album.album_artwork_url.like("%ytimg.com%"))
-                    | (Album.album_artwork_url.like("%youtube.com%"))
-                    | (Album.album_artwork_url == "")
-                    | (Album.album_artwork_url == None)
-                ).order_by(col(Album.id))
-                .offset(offset)
-                .limit(BATCH_SIZE)
-            ).all()
-
-            if not albums:
-                break
-
-            found = 0
-            for i, album in enumerate(albums, 1):
-                try:
-                    artwork_url, _ = buscar_artwork(http_session, album.band_name, album.album_title)
-                    if artwork_url:
-                        album.album_artwork_url = artwork_url
-                        db_session.add(album)
-                        found += 1
-                except Exception as e:
-                    _log(f"Artwork sync error for {album.band_name}: {e}")
-
-                if i < len(albums):
-                    time.sleep(1.0)
-
-            db_session.commit()
-            total_found += found
-            total_processed += len(albums)
-            _log(f"Artwork sync batch: {found}/{len(albums)} encontradas (total: {total_found}/{total_processed})")
-
-            if len(albums) < BATCH_SIZE:
-                break
-            offset += BATCH_SIZE
-
-    _log(f"Artwork sync completado: {total_found}/{total_processed} portadas encontradas.")

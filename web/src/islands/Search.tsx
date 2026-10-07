@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { countryLabel, genreLabel } from '../lib/labels.js';
+import { getCardMeta } from '../lib/cardMeta.js';
 
 // Mirrors BrowseEntry from types.ts — must stay in sync.
 interface BrowseEntry {
@@ -283,7 +284,9 @@ export default function Search({ genres, countries, years, totalCount, initial }
       {/* ── Album grid ────────────────────────────────────────────────── */}
       {!showEmpty && (
         <div class="album-grid search-grid">
-          {visible.map((a) => (
+          {visible.map((a) => {
+            const meta = getCardMeta(a.year, a.country);
+            return (
             <a key={a.id} class="album-card" href={`/metal-archive/album/${a.id}`}>
               <div class="album-card__art">
                 {a.thumb
@@ -310,16 +313,17 @@ export default function Search({ genres, countries, years, totalCount, initial }
               <div class="album-card__body">
                 <div class="album-card__band">{a.band_name}</div>
                 <div class="album-card__album">{a.album_title}</div>
-                {(a.year || a.country) && (
+                {meta.showRow && (
                   <div class="album-card__meta">
-                    {a.year && <span>{a.year}</span>}
-                    {a.year && a.country && <span aria-hidden="true"> · </span>}
-                    {a.country && <span>{countryLabel(a.country)}</span>}
+                    {meta.showYear && <span>{a.year}</span>}
+                    {meta.showSeparator && <span aria-hidden="true"> · </span>}
+                    {meta.showCountry && <span>{countryLabel(a.country)}</span>}
                   </div>
                 )}
               </div>
             </a>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -103,7 +103,7 @@ const bandJsonLd = safeJsonLd({
         {cover && <div class="artist-header__backdrop" style={`background-image: url('${cover}')`} aria-hidden="true"></div>}
         <div class="artist-header__inner">
           {cover
-            ? <img class="artist-header__avatar" src={cover} alt="" loading="eager" decoding="async" />
+            ? <img class="artist-header__avatar" src={cover} alt={`${realName} — cover art`} loading="eager" decoding="async" />
             : <div class="artist-header__avatar artist-header__avatar--empty" aria-hidden="true"></div>
           }
           <div class="artist-header__info">

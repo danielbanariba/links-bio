@@ -273,23 +273,32 @@ const albumJsonLd = safeJsonLd({
 
           <div class="stage__panel">
             <div class="stage__eyebrow">{releaseType}</div>
-            <!-- Big title = the now-playing TRACK; the Player swaps it on play -->
-            <h1 class="stage__title js-np-title">{heroTitle}</h1>
-            <!-- Band name in the accent color, high contrast (REQ-003) -->
-            <div class="stage__artist">
-              {bandSlug
-                ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
-                : album.band_name
-              }
-            </div>
-            <!-- Album name in the small line (stays put while the big title changes) -->
-            <div class="stage__album">{album.album_title}</div>
+            <!-- F6 (Oct 2026 UI audit): the only <h1> on this page used to be
+                 this "now playing" track-name line, not the album — a wrong
+                 page heading for SEO/a11y (and it changed as the Player
+                 advanced tracks). It is now a plain paragraph; the Player
+                 still updates it via the .js-np-title class hook below, which
+                 doesn't care about tag name. The real h1 (band + album title)
+                 follows, keeping the exact same two-line visual split. -->
+            <p class="stage__title js-np-title">{heroTitle}</p>
+            <h1 class="stage__heading">
+              <!-- Band name in the accent color, high contrast (REQ-003) -->
+              <div class="stage__artist">
+                {bandSlug
+                  ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
+                  : album.band_name
+                }
+              </div>
+              <!-- Album name in the small line (stays put while the big title changes) -->
+              <div class="stage__album">{album.album_title}</div>
+            </h1>
             <div class="stage__metarow">
               {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{genreName}</a>}
               {album.genre && !genreSlug && <span>{genreName}</span>}
-              {album.genre && album.year && <span class="sep"> · </span>}
-              {album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
-              {(album.genre || album.year) && countryName && <span class="sep"> · </span>}
+              {/* year 0 means "unknown". The !! is required, since a bare `0 && ...` renders a literal "0" (see lib/cardMeta.ts) */}
+              {!!album.genre && !!album.year && <span class="sep"> · </span>}
+              {!!album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
+              {(!!album.genre || !!album.year) && countryName && <span class="sep"> · </span>}
               {countryName && <span>{countryName}</span>}
             </div>
 

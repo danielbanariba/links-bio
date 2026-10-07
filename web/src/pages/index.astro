@@ -368,7 +368,13 @@ const PROJECTS = [
       }
       .bio-header__id { display: flex; flex-direction: column; gap: 0.35rem; }
       .bio-name { font-size: 2.2em; line-height: 1.1; }
-      .bio-handle { color: var(--primary); font-size: 1.05em; }
+      /* F12 (Oct 2026 UI audit): var(--primary) (#0073a8) on this page's
+         --bg (#09080d) measures 3.82:1, short of the 4.5:1 text minimum. A
+         slightly lighter step of the same cyan (#0088c2) clears 5:1 while
+         keeping the brand hue — scoped to this one rule, not a global
+         --primary change, since --primary is used elsewhere against
+         different (already-compliant) backgrounds. */
+      .bio-handle { color: #0088c2; font-size: 1.05em; }
 
       /* Social icons */
       .bio-social { display: flex; gap: 1.1rem; align-items: center; }
@@ -495,6 +501,11 @@ const PROJECTS = [
         .bio-social--mobile { display: flex; }
         .bio-name { font-size: 1.8em; }
         .bio-stats { justify-content: space-around; }
+        /* F9 (Oct 2026 UI audit): the mobile social icons measured 24x24 —
+           the <img> size itself, with no padding on the link around it.
+           10px of padding each side grows the tap target to 44x44 without
+           changing the visible icon size. */
+        .bio-social--mobile a { padding: 10px; margin: -10px; }
       }
     </style>
   </body>

@@ -105,7 +105,7 @@ def test_main_exits_nonzero_when_deploy_fails(monkeypatch, fake_vercel_bin, clea
     monkeypatch.setattr(bg, "run_normalize", lambda: None)
     monkeypatch.setattr(bg, "find_node_bin", lambda: str(fake_vercel_bin))
 
-    rc = sync_and_deploy.main(["--skip-youtube", "--skip-artwork"])
+    rc = sync_and_deploy.main(["--skip-youtube"])
 
     assert rc != 0
 
@@ -115,6 +115,6 @@ def test_main_exits_zero_when_everything_succeeds(monkeypatch, fake_vercel_bin, 
     monkeypatch.setattr(bg, "run_normalize", lambda: None)
     monkeypatch.setattr(bg, "find_node_bin", lambda: str(fake_vercel_bin))
 
-    rc = sync_and_deploy.main(["--skip-youtube", "--skip-artwork"])
+    rc = sync_and_deploy.main(["--skip-youtube"])
 
     assert rc == 0

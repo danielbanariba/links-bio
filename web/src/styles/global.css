@@ -141,6 +141,19 @@ a:hover {
   color: var(--text-header);
 }
 
+/* Sitewide default focus-visible ring (F2, Oct 2026 UI audit): the logo and
+   top-nav links had no visible keyboard-focus indicator at all (outline
+   rgb(16,16,16) on a rgb(9,8,13) background, ~1.05:1). --text-header is the
+   near-white brand bone color, which stays well above 3:1 against every
+   background the site uses (the dark --bg, --content, and the per-album
+   --accent-tinted navbar). :where() gives this rule zero specificity, so any
+   component rule that sets outline (.album-card, .facet-refine,
+   a.band-pill, .stage__* etc.) wins outright. The rule declares nothing
+   but outline, so it cannot change a component's radius or offset. */
+:where(a, button, summary, [tabindex]):where(:focus-visible) {
+  outline: 2px solid var(--text-header);
+}
+
 img {
   display: block;
   max-width: 100%;
@@ -536,8 +549,26 @@ img {
 @media (max-width: 560px) {
   .navbar__surprise-label { display: none; }
   .navbar__surprise { padding: 0.5em 0.55em; }
-  .navbar__links { gap: 0.85rem; }
   .navbar__brand { font-size: 1.4rem; }
+  /* F3 (Oct 2026 UI audit): the bio page (/) has no .navbar--ma tabbar to
+     fall back to on mobile (that's a metal-archive-only pattern, scoped via
+     .navbar--ma), so .navbar__links staying `flex-wrap: nowrap` forced all 6
+     links + the Surprise button onto one unbreakable row wider than the
+     viewport (scrollWidth 427 vs clientWidth 375). Letting this row wrap is
+     the smallest fix consistent with the existing pattern of a tabbar-less
+     bio nav, instead of building bio its own bottom tab bar. */
+  .navbar__links { gap: 0.85rem; flex-wrap: wrap; justify-content: center; row-gap: 0.5rem; }
+  /* F9 (Oct 2026 UI audit): text links measured ~22px tall on mobile (no
+     padding, just the font's line-height) — short of the 44x44 minimum
+     touch-target size. Padding grows the tappable box without enlarging the
+     visible text. */
+  .navbar__links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.6rem 0.7rem;
+  }
 }
 
 /* ─── Footer ─────────────────────────────────────────────────────────────────*/
@@ -866,9 +897,14 @@ body.album-detail { padding-bottom: 80px; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .stage {
   position: relative;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  /* F10 (Oct 2026 UI audit): plain 100vw overflows the real viewport by the
+     vertical scrollbar's width (vw includes it, clientWidth doesn't) — an
+     8px overflow measured on both desktop and mobile. --scrollbar-w is
+     measured in JS (Navbar.astro) and defaults to 0px before that runs or if
+     JS is disabled, at which point this is identical to the old rule. */
+  width: calc(100vw - var(--scrollbar-w, 0px));
+  margin-left: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
+  margin-right: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
   padding: 0 0 clamp(1.5rem, 4vw, 2.5rem);
   isolation: isolate;
 }
@@ -931,6 +967,15 @@ body.album-detail { padding-bottom: 80px; }
   letter-spacing: -0.02em;
   color: var(--title-white);          /* REQ-002: pure white */
   overflow-wrap: anywhere;
+}
+
+/* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
+   .stage__album (see album/[id].astro). Reset the browser's default h1 box
+   (margin, font-size, font-weight) so the two children keep their own
+   explicit styling below and the visual result is unchanged. */
+.stage__heading {
+  margin: 0;
+  font: inherit;
 }
 
 .stage__artist {
@@ -1570,9 +1615,9 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     height: 40px;
     transition: height 0.3s ease;
   }
-  /* Collapsed affordance label ("Ver video") shown over the slim strip. */
+  /* Collapsed affordance label ("Watch video") shown over the slim strip. */
   #mini-player::after {
-    content: 'Ver video';
+    content: 'Watch video';
     position: absolute;
     inset: 0;
     display: flex;
@@ -1745,6 +1790,12 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 
 .search-select {
   flex: 1 1 140px;
+  /* F4 (Oct 2026 UI audit): without min-width:0, a flex item's automatic
+     minimum size is its content's intrinsic width — for a <select> that can
+     be wider than its longest <option> text, which overflowed the mobile
+     layout (382px measured at a 375px viewport) despite flex-wrap on the
+     parent .search-filters row. */
+  min-width: 0;
   padding: 0.55rem 0.75rem;
   background: var(--content);
   border: 1px solid rgba(0, 115, 168, 0.3);

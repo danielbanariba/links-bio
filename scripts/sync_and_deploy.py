@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Run ONE cycle of YouTube sync -> normalize -> artwork -> Astro
-build+deploy, then exit.
+"""Run ONE cycle of YouTube sync -> normalize -> Astro build+deploy, then
+exit.
 
 Replaces having links-bio.service run the entire legacy Reflex app 24/7
 (~490MB RAM) just to host links_bio/background_sync.py's daemon thread.
@@ -8,13 +8,20 @@ This script reuses that module's step functions directly and is meant to
 be run twice a day by the links-bio-sync.{service,timer} systemd user
 units.
 
+There used to be a DeathGrind-artwork step here too; it was removed because
+cdn.deathgrind.club sends `Cross-Origin-Resource-Policy: same-site`, so
+every browser blocks those cover images regardless of what this pipeline
+does at sync time. YouTube thumbnails are the cover source of truth now
+(see background_sync.py's module docstring and CLAUDE.md "Data layer &
+sync").
+
 A failed step logs clearly and makes the process exit non-zero. This
 script never sends its own email: systemd's OnFailure=notify-failure@%n.service
 on links-bio-sync.service is the one alert mechanism, so a failure is
 reported exactly once no matter which step inside the cycle failed.
 
 Usage:
-    scripts/sync_and_deploy.py [--skip-youtube] [--skip-artwork] [--skip-deploy] [--full-youtube-sync]
+    scripts/sync_and_deploy.py [--skip-youtube] [--skip-deploy] [--full-youtube-sync]
 """
 from __future__ import annotations
 
@@ -32,13 +39,13 @@ logger = logging.getLogger("sync_and_deploy")
 
 
 def run_cycle(
-    skip_youtube: bool, skip_artwork: bool, skip_deploy: bool, full_youtube_sync: bool = False
+    skip_youtube: bool, skip_deploy: bool, full_youtube_sync: bool = False
 ) -> list[str]:
     """Run each pipeline step once, in order. Returns the names of the
     steps that failed; a skipped step is never counted as failed. The
     normalize step has no skip flag -- it's the cheap, fast, local-only
-    step and always runs so a dry run (--skip-youtube --skip-artwork
-    --skip-deploy) still proves the DB-to-build pipeline works.
+    step and always runs so a dry run (--skip-youtube --skip-deploy) still
+    proves the DB-to-build pipeline works.
 
     full_youtube_sync forces a full (not incremental) YouTube sync for a
     manual backfill, bypassing the usual cadence in
@@ -61,15 +68,6 @@ def run_cycle(
         logger.exception("normalize step failed")
         failed.append("normalize")
 
-    if skip_artwork:
-        logger.info("--skip-artwork: skipping the artwork sync step.")
-    else:
-        try:
-            bg.run_artwork_sync()
-        except Exception:
-            logger.exception("artwork-sync step failed")
-            failed.append("artwork-sync")
-
     try:
         bg.run_astro_build_and_deploy(skip_deploy=skip_deploy)
     except Exception:
@@ -84,7 +82,6 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-youtube", action="store_true", help="skip the YouTube video sync step")
-    parser.add_argument("--skip-artwork", action="store_true", help="skip the DeathGrind artwork sync step")
     parser.add_argument(
         "--skip-deploy",
         action="store_true",
@@ -97,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    failed = run_cycle(args.skip_youtube, args.skip_artwork, args.skip_deploy, args.full_youtube_sync)
+    failed = run_cycle(args.skip_youtube, args.skip_deploy, args.full_youtube_sync)
 
     if failed:
         logger.error("sync_and_deploy: %d step(s) failed: %s", len(failed), ", ".join(failed))
