@@ -123,4 +123,23 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   // overlap on the first metal-archive load a no-op.
   bindNavbarSurprise();
   document.addEventListener('astro:page-load', bindNavbarSurprise);
+
+  // F10 (Oct 2026 UI audit): width:100vw full-bleed sections (.stage on the
+  // album page) overflow the real viewport by exactly the vertical
+  // scrollbar's width, because `vw` is computed from the full window width
+  // while the document's own clientWidth already excludes the scrollbar — a
+  // well-known CSS gap with no scrollbar-aware unit to fix it in pure CSS.
+  // Measuring it once in JS and exposing it as --scrollbar-w lets .stage
+  // subtract it from its width/margins instead of clipping page content.
+  // This script runs once per full page load (not per client-side nav), so
+  // the listeners below are registered exactly once; re-measuring on resize
+  // and on astro:page-load covers both a resized window and a navigation to
+  // a page tall/short enough to gain or lose the scrollbar.
+  function setScrollbarWidthVar() {
+    const w = Math.max(window.innerWidth - document.documentElement.clientWidth, 0);
+    document.documentElement.style.setProperty('--scrollbar-w', w + 'px');
+  }
+  setScrollbarWidthVar();
+  window.addEventListener('resize', setScrollbarWidthVar);
+  document.addEventListener('astro:page-load', setScrollbarWidthVar);
 </script>
