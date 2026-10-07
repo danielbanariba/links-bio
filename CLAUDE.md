@@ -141,6 +141,21 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 
 ## Deployment
 
+**Two independent traffic paths (decision D7), not one Cloudflare → Caddy → Reflex chain:**
+- **The apex, `danielbanariba.com`** (the static site), is served **directly by Vercel**. Nothing on
+  this host proxies it — no cloudflared tunnel, no Caddy. This is the path described below.
+- **`app.danielbanariba.com`** (the forms API) is tunneled through `cloudflared` straight to
+  `metal-archive-forms.service` on `:8001` (`/api/metal-archive/.*`). There is no `/webhook` route and
+  no `:8000` Reflex catch-all anymore — both were removed with the webhook (D4) and Reflex itself (T7).
+  `cloudflared-config.yml` in this repo is a sanitized mirror of the real, host-only
+  `/etc/cloudflared/config.yml`.
+
+**Host cutover note** (sudo, run on the host — not from this repo): edit
+`/etc/cloudflared/config.yml` to match `cloudflared-config.yml`, then `sudo systemctl restart
+cloudflared`; drop the `:8080` block from `/etc/caddy/Caddyfile` (per D7, Caddy no longer proxies
+anything for this site), then `sudo systemctl reload caddy`; confirm `curl -sI
+https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Caddy change.
+
 - **Production = Astro static build deployed to Vercel** with `vercel deploy --prod --prebuilt`, run **from the host** (the only machine with `reflex.db`). The Vercel project link lives in `web/.vercel/`,
   and the **CLI is invoked from `web/`**, so it reads `web/vercel.json` — that is the live config (it
   holds the security headers; see "The Astro frontend" above). The **root `vercel.json`** (`cleanUrls` +
@@ -190,11 +205,10 @@ no dead Reflex code left in this repo to accidentally edit; the table below is n
 | `links_bio/background_sync.py` + sync scripts + `scripts/sync_and_deploy.py` | Oneshot pipeline, triggered by `links-bio-sync.timer`. No daemon thread. |
 | `reflex.db` (data) | Lives only on the host (gitignored); backed up by `scripts/backup_reflex_db.sh`. |
 
-Two tracked files are stale placeholders left over from the Reflex-era topology and are being replaced
-(T23 in the same feature): `cloudflared-config.yml` still routes a dead `danielbanariba.com` → Caddy
-`:8080` → Reflex `:8000` chain with a placeholder tunnel ID, and `caddy-block.txt` documents that same
-dead Caddy block. Neither reflects what `/etc/cloudflared/config.yml` / `/etc/caddy/Caddyfile` actually
-run today.
+`cloudflared-config.yml` is a sanitized mirror of the real `/etc/cloudflared/config.yml` (see
+"Deployment" for the live ingress topology it describes). `caddy-block.txt`, which used to document a
+Caddy `:8080` block proxying to the Reflex app, was deleted (D7): the apex is served directly by Vercel
+now, and nothing on this host proxies it through Caddy.
 
 `links_bio/states/form_state.py` is live for one reason only: `fastapi_forms.py` imports its
 `_send_email_notification` helper (Gmail SMTP) for form notification emails. There is no Reflex
