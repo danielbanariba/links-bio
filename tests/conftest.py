@@ -59,7 +59,11 @@ def fake_vercel_bin(tmp_path: Path) -> Path:
     argv (one line, shell-quoted) to a file instead of touching the network.
 
     Tests select the fake's exit code by writing to `<bin_dir>/vercel.exit`
-    (defaults to 0 when absent).
+    (defaults to 0 when absent) -- this only governs `vercel deploy`.
+    `vercel whoami` always exits 0 here: deploy_to_vercel() now runs a
+    whoami preflight before every deploy, and if it honored the same exit
+    file it would fail there instead, short-circuiting before the deploy
+    call these tests exist to exercise.
     """
     bin_dir = tmp_path / "fakebin"
     bin_dir.mkdir()
@@ -70,6 +74,7 @@ def fake_vercel_bin(tmp_path: Path) -> Path:
         "#!/usr/bin/env bash\n"
         f"for a in \"$@\"; do printf '%s\\n' \"$a\" >> {recorded}; done\n"
         f"printf -- '--\\n' >> {recorded}\n"
+        "if [ \"$1\" = \"whoami\" ]; then exit 0; fi\n"
         f"if [ -f {exit_file} ]; then exit \"$(cat {exit_file})\"; fi\n"
         "exit 0\n"
     )

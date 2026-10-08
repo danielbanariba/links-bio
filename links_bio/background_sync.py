@@ -24,6 +24,11 @@ from datetime import datetime, timezone
 logger = logging.getLogger("background_sync")
 logger.setLevel(logging.INFO)
 
+# Cap on how long a `vercel whoami` preflight may hang before we give up
+# instead of blocking the whole sync cycle on a network blip or a wedged
+# CLI session.
+_WHOAMI_TIMEOUT_SECONDS = 60
+
 
 def _log(msg: str):
     """Log + print so the message reaches both pytest's caplog and the
@@ -149,46 +154,110 @@ def _masked_cmd(cmd: list) -> str:
     return " ".join(parts)
 
 
+def _run_vercel(cmd: list, cwd: str, env: dict, timeout: float | None = None):
+    """Run a `vercel` subcommand via Popen, streaming its combined
+    stdout+stderr to our own stdout line by line as each one arrives --
+    so a hung upload, or a unit killed by its own systemd timeout, still
+    leaves something in the journal/OnFailure email instead of nothing
+    (a plain `subprocess.run(capture_output=True)` buffers everything
+    until the process exits). The same lines are accumulated and
+    returned so the caller can inspect them (e.g. for "not authorized").
+
+    Shared by `_vercel_whoami` and `deploy_to_vercel` so this capture-
+    and-echo logic isn't duplicated between them.
+
+    When `timeout` is given and elapses before the process exits, it is
+    killed and `subprocess.TimeoutExpired` is raised (carrying whatever
+    output had streamed so far). Otherwise returns (returncode, output).
+    """
+    import subprocess
+    import threading
+
+    proc = subprocess.Popen(
+        cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
+
+    timed_out = threading.Event()
+    watchdog = None
+    if timeout is not None:
+        def _kill_on_timeout():
+            timed_out.set()
+            proc.kill()
+
+        watchdog = threading.Timer(timeout, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+
+    lines = []
+    try:
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+            lines.append(line)
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+
+    proc.wait()
+    output = "".join(lines)
+    if timed_out.is_set():
+        # TimeoutExpired renders its cmd into its message: pass the masked
+        # form so `--token <value>` can never reach a log or traceback.
+        raise subprocess.TimeoutExpired(_masked_cmd(cmd), timeout, output=output)
+    return proc.returncode, output
+
+
+def _whoami_failure_hint(token: str | None) -> str:
+    """The actionable half of a `vercel whoami` failure message, shared
+    between a nonzero exit and a timeout. Deliberately conditional ("if
+    the CLI output above says...") instead of asserting the token was
+    rejected: a network blip or a Vercel 5xx would otherwise send someone
+    to rotate a perfectly good token. Never contains the token itself."""
+    if token:
+        return (
+            " If the CLI output above says Not authorized, rotate "
+            "VERCEL_TOKEN in .env (decision D2)."
+        )
+    return (
+        " If the CLI output above says Not authorized, run `vercel "
+        "login` on the host, or set VERCEL_TOKEN in .env (decision D2)."
+    )
+
+
 def _vercel_whoami(env: dict, web_dir, token: str | None) -> None:
     """Run `vercel whoami` with the same env, cwd and auth argv
-    `deploy_to_vercel` is about to use.
+    `deploy_to_vercel` is about to use, capped at
+    _WHOAMI_TIMEOUT_SECONDS.
 
     This both confirms the session is authorized before the long upload
     starts, and gives an expiring Vercel CLI session a chance to refresh
     itself outside the deploy request's own window -- see
     `deploy_to_vercel`'s docstring for the 2026-10-07 incident this closes.
 
-    Raises RuntimeError, never containing the token, when the session is
-    not authorized; callers must not deploy after that.
+    Raises RuntimeError, never containing the token, on a nonzero exit or
+    a timeout; callers must not deploy after that.
     """
     import subprocess
-    import sys
 
     whoami_cmd = ["vercel", "whoami"]
     if token:
         whoami_cmd += ["--token", token]
 
     _log(f"Verificando sesion de Vercel: {_masked_cmd(whoami_cmd)}")
-    result = subprocess.run(
-        whoami_cmd, cwd=str(web_dir), env=env, capture_output=True, text=True
-    )
-    if result.returncode == 0:
-        return
-    # Echo the CLI's own output so the journal and the OnFailure email show
-    # whether it was an auth rejection or something else (e.g. no network).
-    if result.stdout:
-        print(result.stdout, end="", flush=True)
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr, flush=True)
-    if token:
-        raise RuntimeError(
-            "vercel whoami failed: the VERCEL_TOKEN in .env was likely "
-            "rejected and needs rotating (decision D2); see the CLI output above."
+    try:
+        returncode, _output = _run_vercel(
+            whoami_cmd, cwd=str(web_dir), env=env, timeout=_WHOAMI_TIMEOUT_SECONDS
         )
+    except subprocess.TimeoutExpired:
+        # `from None`: never chain the TimeoutExpired, whose message carries
+        # the whoami argv, into the traceback sync_and_deploy logs.
+        raise RuntimeError(
+            f"vercel whoami timed out after {_WHOAMI_TIMEOUT_SECONDS}s."
+            + _whoami_failure_hint(token)
+        ) from None
+    if returncode == 0:
+        return
     raise RuntimeError(
-        "vercel whoami failed: the Vercel CLI session is likely not "
-        "authorized. Run `vercel login` on the host, or better, set "
-        "VERCEL_TOKEN in .env (decision D2); see the CLI output above."
+        f"vercel whoami failed (exit {returncode})." + _whoami_failure_hint(token)
     )
 
 
@@ -231,13 +300,12 @@ def deploy_to_vercel(env: dict) -> None:
     rendered command goes through `_masked_cmd`, and failure raises a
     RuntimeError instead of CalledProcessError, whose message would embed
     the raw argv (and end up in the journal and the OnFailure alert email).
-    The deploy's own stdout/stderr is captured (instead of streaming
-    straight to the journal) so it can be inspected for "Not authorized",
-    but is always printed back out afterwards so the journal and the
-    OnFailure email tail still show Vercel's output.
+    Both the whoami and deploy subprocesses run through the shared
+    `_run_vercel` helper, which streams their output line by line as it
+    arrives (instead of buffering it until exit) so a hung upload still
+    leaves something in the journal/OnFailure email, while also handing
+    back the accumulated text so it can be checked for "Not authorized".
     """
-    import subprocess
-    import sys
     from pathlib import Path
 
     web_dir = Path(__file__).resolve().parent.parent / "web"
@@ -255,30 +323,22 @@ def deploy_to_vercel(env: dict) -> None:
 
     def _attempt_deploy():
         _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
-        result = subprocess.run(
-            deploy_cmd, cwd=str(web_dir), env=env, capture_output=True, text=True
-        )
-        if result.stdout:
-            print(result.stdout, end="", flush=True)
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr, flush=True)
-        return result
+        return _run_vercel(deploy_cmd, cwd=str(web_dir), env=env)
 
     _vercel_whoami(env, web_dir, token)
 
-    result = _attempt_deploy()
-    if result.returncode != 0:
-        output = f"{result.stdout or ''}{result.stderr or ''}"
+    returncode, output = _attempt_deploy()
+    if returncode != 0:
         if "not authorized" in output.lower():
             _log(
                 "vercel deploy fallo con 'Not authorized'; re-verificando "
                 "sesion y reintentando una vez."
             )
             _vercel_whoami(env, web_dir, token)
-            result = _attempt_deploy()
-        if result.returncode != 0:
+            returncode, output = _attempt_deploy()
+        if returncode != 0:
             raise RuntimeError(
-                f"vercel deploy failed with exit code {result.returncode}: "
+                f"vercel deploy failed with exit code {returncode}: "
                 f"{_masked_cmd(deploy_cmd)}"
             )
     _log("Deploy Astro completado.")
