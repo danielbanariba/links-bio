@@ -7,18 +7,86 @@ its argv instead of doing anything. These tests never touch the dev or
 production database -- the normalize and build steps are stubbed out so
 only the deploy-command construction and failure propagation are
 exercised.
+
+The whoami-preflight/auth-retry tests below need per-call, per-subcommand
+behaviour (whoami succeeds while deploy fails, deploy fails once then
+succeeds, ...) that the single-exit-code fake_vercel_bin script can't
+express, so they stub subprocess.Popen directly instead -- background_sync's
+functions all do `import subprocess` locally, which binds to the very same
+module object in sys.modules, so patching `subprocess.Popen` here reaches
+them exactly like patching bg's own import would.
 """
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from links_bio import background_sync as bg  # noqa: E402
 from scripts import sync_and_deploy  # noqa: E402
+
+
+def _fake_vercel_popen(deploy_results=((0, []),), whoami_exits=(0,)):
+    """Build a subprocess.Popen stand-in for both `vercel whoami` and
+    `vercel deploy`.
+
+    Its `.stdout` is a real line iterator (a plain list, not a
+    pre-joined string), so each fake process is read through
+    background_sync._run_vercel's own read-line/print/accumulate loop
+    instead of bypassing it. That is what guarantees the retry tests
+    below actually depend on output capture: if someone changed
+    _run_vercel to stop accumulating those lines into the "not
+    authorized" check (e.g. dropped `lines.append(line)`), the returned
+    `output` would be empty, the retry test's "Not authorized" line
+    would never be seen, and it would fail with 1 deploy call instead of
+    the expected 2 -- it does not pass "by construction" the way a
+    pre-built output string handed straight to the caller would.
+
+    deploy_results: list of (exit_code, lines) for successive `vercel
+    deploy` calls, lines already carrying their trailing "\\n" the way a
+    real streamed line would. The last entry repeats for extra calls.
+    whoami_exits: list of exit codes for successive `vercel whoami`
+    calls. The last entry repeats for extra calls.
+
+    Returns (FakePopen, calls) -- calls["whoami"]/["deploy"] record each
+    call's argv, and calls["sequence"] records "whoami"/"deploy" in the
+    exact order they were invoked.
+    """
+    calls = {"whoami": [], "deploy": [], "sequence": []}
+
+    class FakePopen:
+        def __init__(self, cmd, cwd=None, env=None, stdout=None, stderr=None, text=None):
+            self.args = cmd
+            if cmd[:2] == ["vercel", "whoami"]:
+                idx = min(len(calls["whoami"]), len(whoami_exits) - 1)
+                calls["whoami"].append(cmd)
+                calls["sequence"].append("whoami")
+                self._exit = whoami_exits[idx]
+                self.stdout = iter([])
+            elif cmd[:2] == ["vercel", "deploy"]:
+                idx = min(len(calls["deploy"]), len(deploy_results) - 1)
+                calls["deploy"].append(cmd)
+                calls["sequence"].append("deploy")
+                self._exit, lines = deploy_results[idx]
+                self.stdout = iter(lines)
+            else:
+                raise AssertionError(f"unexpected Popen call: {cmd}")
+            self.returncode = None
+
+        def wait(self, timeout=None):
+            self.returncode = self._exit
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+    return FakePopen, calls
 
 
 def _read_recorded_argv(fake_vercel_bin: Path) -> list[str]:
@@ -118,3 +186,182 @@ def test_main_exits_zero_when_everything_succeeds(monkeypatch, fake_vercel_bin, 
     rc = sync_and_deploy.main(["--skip-youtube"])
 
     assert rc == 0
+
+
+def test_deploy_retries_once_after_not_authorized_and_succeeds(monkeypatch, clean_env):
+    """Reproduces the 2026-10-07 incident: the CLI's session token
+    refreshed mid-deploy and the in-flight `vercel deploy` was rejected
+    with "Error: Not authorized". Catches a regression that gives up on
+    the first such failure instead of re-checking auth and retrying once,
+    and a regression that reorders the retry (e.g. deploying again before
+    re-checking whoami)."""
+    fake_popen, calls = _fake_vercel_popen(
+        deploy_results=[(1, ["Error: Not authorized\n"]), (0, ["Deployed!\n"])],
+    )
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    bg.deploy_to_vercel({})
+
+    assert len(calls["deploy"]) == 2
+    assert calls["sequence"] == ["whoami", "deploy", "whoami", "deploy"]
+
+
+def test_deploy_raises_immediately_on_non_auth_failure_without_retry(monkeypatch, clean_env):
+    """Catches a regression that retries (or swallows) every deploy
+    failure instead of only the "Not authorized" case -- an unrelated
+    build/upload failure must still raise after exactly one attempt."""
+    fake_popen, calls = _fake_vercel_popen(
+        deploy_results=[(1, ["Error: build artifact missing\n"])],
+    )
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    with pytest.raises(RuntimeError):
+        bg.deploy_to_vercel({})
+
+    assert len(calls["deploy"]) == 1
+
+
+def test_deploy_raises_when_retry_whoami_fails_after_not_authorized(monkeypatch, clean_env):
+    """Catches a regression that retries the deploy even though the
+    re-check whoami itself failed -- if auth is confirmed broken, a
+    second long upload would just waste it again instead of failing
+    fast."""
+    fake_popen, calls = _fake_vercel_popen(
+        deploy_results=[(1, ["Error: Not authorized\n"])],
+        whoami_exits=[0, 1],
+    )
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    with pytest.raises(RuntimeError):
+        bg.deploy_to_vercel({})
+
+    assert len(calls["deploy"]) == 1
+    assert calls["sequence"] == ["whoami", "deploy", "whoami"]
+
+
+def test_deploy_whoami_failure_raises_actionable_message_token_set(monkeypatch):
+    """Catches a regression that deploys anyway (or raises a vague error)
+    when the preflight `vercel whoami` fails with VERCEL_TOKEN configured
+    -- the message must point at rotating the token (decision D2), and no
+    deploy attempt may happen."""
+    fake_popen, calls = _fake_vercel_popen(whoami_exits=[1])
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    monkeypatch.setenv("VERCEL_TOKEN", "fake-token-xyz")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        bg.deploy_to_vercel({})
+
+    message = str(excinfo.value)
+    assert "VERCEL_TOKEN" in message
+    assert ".env" in message
+    assert "fake-token-xyz" not in message
+    assert len(calls["deploy"]) == 0
+
+
+def test_deploy_whoami_failure_raises_actionable_message_token_unset(monkeypatch, clean_env):
+    """Same as above but with no VERCEL_TOKEN configured: the message must
+    point at `vercel login` or setting VERCEL_TOKEN (decision D2) instead
+    of blaming a token that was never set."""
+    fake_popen, calls = _fake_vercel_popen(whoami_exits=[1])
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        bg.deploy_to_vercel({})
+
+    message = str(excinfo.value)
+    assert "vercel login" in message
+    assert "VERCEL_TOKEN" in message
+    assert len(calls["deploy"]) == 0
+
+
+def test_whoami_timeout_raises_and_makes_no_deploy_calls(monkeypatch, clean_env):
+    """Catches a regression that lets a hung `vercel whoami` block the
+    whole sync cycle forever instead of failing fast with an actionable
+    message, and a regression that deploys anyway after the auth check
+    timed out. Stubs background_sync._run_vercel directly (not Popen)
+    since the thing worth testing is the TimeoutExpired -> RuntimeError
+    translation in _vercel_whoami, not whether threading.Timer itself
+    fires on schedule -- the real watchdog would need a real 60s wait to
+    exercise honestly, which tests a framework, not this code."""
+    calls = {"deploy": []}
+
+    def fake_run_vercel(cmd, cwd, env, timeout=None):
+        if cmd[:2] == ["vercel", "whoami"]:
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        calls["deploy"].append(cmd)
+        return 0, ""
+
+    monkeypatch.setattr(bg, "_run_vercel", fake_run_vercel)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        bg.deploy_to_vercel({})
+
+    assert "timed out" in str(excinfo.value).lower()
+    assert len(calls["deploy"]) == 0
+
+
+def test_whoami_timeout_traceback_never_leaks_token(monkeypatch):
+    """Catches the RuntimeError implicitly chaining the TimeoutExpired,
+    whose message renders the whoami argv -- `--token <value>` included --
+    into the traceback that sync_and_deploy logs to the journal and the
+    OnFailure email."""
+    import traceback
+
+    token = "tok-secret-timeout-123"
+    monkeypatch.setenv("VERCEL_TOKEN", token)
+
+    def fake_run_vercel(cmd, cwd, env, timeout=None):
+        raise subprocess.TimeoutExpired(cmd, timeout)
+
+    monkeypatch.setattr(bg, "_run_vercel", fake_run_vercel)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        bg.deploy_to_vercel({})
+
+    rendered = "".join(traceback.format_exception(excinfo.value))
+    assert token not in rendered
+
+
+def test_run_vercel_timeout_error_masks_token(tmp_path):
+    """Catches _run_vercel raising TimeoutExpired with the raw argv, which
+    puts `--token <value>` into the exception message for any caller that
+    logs it. Uses a real hung process and a short real timeout."""
+    token = "tok-secret-runvercel-456"
+    hang = [sys.executable, "-c", "import time; time.sleep(30)", "--token", token]
+
+    with pytest.raises(subprocess.TimeoutExpired) as excinfo:
+        bg._run_vercel(hang, cwd=str(tmp_path), env=dict(os.environ), timeout=0.3)
+
+    assert token not in str(excinfo.value)
+
+
+def test_deploy_retry_exhausted_never_leaks_token(monkeypatch, caplog, capsys):
+    """Catches a regression where the retry path's own error message, the
+    whoami/deploy log lines around it, or _run_vercel's streamed-output
+    echo embeds the raw VERCEL_TOKEN instead of going through
+    _masked_cmd. _log() both logs (caplog) and print()s (capsys), and
+    _run_vercel's per-line echo only print()s, so both must be checked --
+    a caplog-only check would miss a leak through the new streaming
+    echo."""
+    import logging
+
+    fake_popen, calls = _fake_vercel_popen(
+        deploy_results=[
+            (1, ["Error: Not authorized\n"]),
+            (1, ["Error: Not authorized\n"]),
+        ],
+    )
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    monkeypatch.setenv("VERCEL_TOKEN", "fake-token-xyz")
+    caplog.set_level(logging.INFO)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        bg.deploy_to_vercel({})
+
+    assert "fake-token-xyz" not in str(excinfo.value)
+    for record in caplog.records:
+        assert "fake-token-xyz" not in record.getMessage()
+    captured = capsys.readouterr()
+    assert "fake-token-xyz" not in captured.out
+    assert "fake-token-xyz" not in captured.err
+    assert len(calls["deploy"]) == 2

@@ -210,7 +210,15 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   `VERCEL_TOKEN` is unset — **do not rely on that fallback for the unattended timer**: a logged-in
   session can expire silently, which is exactly what caused `vercel deploy` to fail on every cycle for
   3+ weeks (Sep–Oct 2026) with nobody told, until the `notify-failure@.service` alert mechanism
-  described above existed to say so.
+  described above existed to say so. `deploy_to_vercel()` (`links_bio/background_sync.py`) now runs a
+  `vercel whoami` preflight before every deploy — with the same env/cwd/auth argv, capped at 60s — so
+  an expiring CLI session gets a chance to refresh itself before the long upload starts instead of
+  during it; if the deploy still fails with "Not authorized", it re-checks whoami and retries the
+  deploy exactly once. This closes the 2026-10-07 incident where the CLI rewrote its session token in
+  the middle of an in-flight deploy and the request was rejected. Both the whoami and deploy
+  subprocesses run through a shared `_run_vercel()` helper that streams Vercel's own output line by
+  line as it arrives instead of buffering it until exit, so a hung upload (or a unit killed by its own
+  timeout) still leaves something in the journal and the OnFailure email.
 - **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Deploy locally, or let the sync timer / the pre-push hook do it.
 
 ## Backups
