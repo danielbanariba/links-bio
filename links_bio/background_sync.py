@@ -149,6 +149,49 @@ def _masked_cmd(cmd: list) -> str:
     return " ".join(parts)
 
 
+def _vercel_whoami(env: dict, web_dir, token: str | None) -> None:
+    """Run `vercel whoami` with the same env, cwd and auth argv
+    `deploy_to_vercel` is about to use.
+
+    This both confirms the session is authorized before the long upload
+    starts, and gives an expiring Vercel CLI session a chance to refresh
+    itself outside the deploy request's own window -- see
+    `deploy_to_vercel`'s docstring for the 2026-10-07 incident this closes.
+
+    Raises RuntimeError, never containing the token, when the session is
+    not authorized; callers must not deploy after that.
+    """
+    import subprocess
+    import sys
+
+    whoami_cmd = ["vercel", "whoami"]
+    if token:
+        whoami_cmd += ["--token", token]
+
+    _log(f"Verificando sesion de Vercel: {_masked_cmd(whoami_cmd)}")
+    result = subprocess.run(
+        whoami_cmd, cwd=str(web_dir), env=env, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        return
+    # Echo the CLI's own output so the journal and the OnFailure email show
+    # whether it was an auth rejection or something else (e.g. no network).
+    if result.stdout:
+        print(result.stdout, end="", flush=True)
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr, flush=True)
+    if token:
+        raise RuntimeError(
+            "vercel whoami failed: the VERCEL_TOKEN in .env was likely "
+            "rejected and needs rotating (decision D2); see the CLI output above."
+        )
+    raise RuntimeError(
+        "vercel whoami failed: the Vercel CLI session is likely not "
+        "authorized. Run `vercel login` on the host, or better, set "
+        "VERCEL_TOKEN in .env (decision D2); see the CLI output above."
+    )
+
+
 def build_astro_site(env: dict) -> None:
     """Run `npm run build` for the Astro site. `env` must already have PATH
     pointing at the resolved node/npm bin dir (see find_node_bin()). Raises
@@ -168,31 +211,76 @@ def deploy_to_vercel(env: dict) -> None:
     that lives in .env, instead of a logged-in CLI session that can expire
     silently -- which is exactly what has been happening since mid-
     September). Falls back to the logged-in Vercel CLI session otherwise,
-    exactly like .git/hooks/pre-push. --archive=tgz matches that working
-    pre-push hook (the previous divergence here was flagged separately from
-    the "Not authorized" failures, but it's still the right flag to match).
+    exactly like .git/hooks/pre-push, and logs a warning that D2 wants
+    VERCEL_TOKEN set instead. --archive=tgz matches that working pre-push
+    hook (the previous divergence here was flagged separately from the
+    "Not authorized" failures, but it's still the right flag to match).
+
+    Before deploying, runs `vercel whoami` (see _vercel_whoami) with the
+    same env/cwd/auth argv. This closes the 2026-10-07 incident where the
+    CLI's auth.json was rewritten mid-deploy -- a session-token refresh --
+    and the in-flight `vercel deploy` was rejected with "Not authorized":
+    the preflight lets that refresh happen before the long upload starts
+    instead of during it. If the deploy still fails with "Not authorized"
+    (case-insensitive) in its output, whoami is re-checked and the deploy
+    is retried exactly once; any other failure, or a second failure after
+    the retry, raises immediately with no further retry.
 
     The token is passed as a real argv element to the real subprocess, but
-    is never written to this process's own logs or exceptions: the command
-    is only ever rendered through `_masked_cmd`, and failure raises a
+    is never written to this process's own logs or exceptions: every
+    rendered command goes through `_masked_cmd`, and failure raises a
     RuntimeError instead of CalledProcessError, whose message would embed
     the raw argv (and end up in the journal and the OnFailure alert email).
+    The deploy's own stdout/stderr is captured (instead of streaming
+    straight to the journal) so it can be inspected for "Not authorized",
+    but is always printed back out afterwards so the journal and the
+    OnFailure email tail still show Vercel's output.
     """
     import subprocess
+    import sys
     from pathlib import Path
 
     web_dir = Path(__file__).resolve().parent.parent / "web"
-    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes", "--archive=tgz"]
     token = os.environ.get("VERCEL_TOKEN")
+    if not token:
+        _log(
+            "VERCEL_TOKEN no esta configurado en .env: el deploy usara la "
+            "sesion de la CLI de Vercel como fallback, que puede expirar en "
+            "silencio. Configurar VERCEL_TOKEN es mas confiable (decision D2)."
+        )
+
+    deploy_cmd = ["vercel", "deploy", "--prod", "--prebuilt", "--yes", "--archive=tgz"]
     if token:
         deploy_cmd += ["--token", token]
 
-    _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
-    result = subprocess.run(deploy_cmd, cwd=str(web_dir), env=env)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"vercel deploy failed with exit code {result.returncode}: {_masked_cmd(deploy_cmd)}"
+    def _attempt_deploy():
+        _log(f"Deploy a Vercel (prod): {_masked_cmd(deploy_cmd)}")
+        result = subprocess.run(
+            deploy_cmd, cwd=str(web_dir), env=env, capture_output=True, text=True
         )
+        if result.stdout:
+            print(result.stdout, end="", flush=True)
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr, flush=True)
+        return result
+
+    _vercel_whoami(env, web_dir, token)
+
+    result = _attempt_deploy()
+    if result.returncode != 0:
+        output = f"{result.stdout or ''}{result.stderr or ''}"
+        if "not authorized" in output.lower():
+            _log(
+                "vercel deploy fallo con 'Not authorized'; re-verificando "
+                "sesion y reintentando una vez."
+            )
+            _vercel_whoami(env, web_dir, token)
+            result = _attempt_deploy()
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"vercel deploy failed with exit code {result.returncode}: "
+                f"{_masked_cmd(deploy_cmd)}"
+            )
     _log("Deploy Astro completado.")
 
 
