@@ -55,14 +55,16 @@ def _fake_vercel_popen(deploy_results=((0, []),), whoami_exits=(0,)):
     calls. The last entry repeats for extra calls.
 
     Returns (FakePopen, calls) -- calls["whoami"]/["deploy"] record each
-    call's argv, and calls["sequence"] records "whoami"/"deploy" in the
-    exact order they were invoked.
+    call's argv, calls["sequence"] records "whoami"/"deploy" in the
+    exact order they were invoked, and calls["env"] records the env each
+    call was started with, in that same order.
     """
-    calls = {"whoami": [], "deploy": [], "sequence": []}
+    calls = {"whoami": [], "deploy": [], "sequence": [], "env": []}
 
     class FakePopen:
         def __init__(self, cmd, cwd=None, env=None, stdout=None, stderr=None, text=None):
             self.args = cmd
+            calls["env"].append(env)
             if cmd[:2] == ["vercel", "whoami"]:
                 idx = min(len(calls["whoami"]), len(whoami_exits) - 1)
                 calls["whoami"].append(cmd)
@@ -219,6 +221,26 @@ def test_deploy_raises_immediately_on_non_auth_failure_without_retry(monkeypatch
         bg.deploy_to_vercel({})
 
     assert len(calls["deploy"]) == 1
+
+
+def test_every_vercel_subprocess_runs_with_ci_set(monkeypatch, clean_env):
+    """Catches a regression that lets the global Vercel CLI upgrade itself
+    in the middle of a cycle. With `updates.auto` on in the CLI's config,
+    a successful command on a global install runs `npm i -g
+    vercel@latest`; on 2026-10-13 that swapped the package's files under
+    the still-running deploy, which then crashed importing a chunk that no
+    longer existed. The CLI skips that upgrade under CI, so the whoami
+    preflight and the deploy must both see CI set -- without mutating the
+    caller's env, which also feeds `npm run build`."""
+    fake_popen, calls = _fake_vercel_popen()
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    caller_env = {"PATH": "/usr/bin"}
+
+    bg.deploy_to_vercel(caller_env)
+
+    assert calls["sequence"] == ["whoami", "deploy"]
+    assert [env.get("CI") for env in calls["env"]] == ["1", "1"]
+    assert "CI" not in caller_env
 
 
 def test_deploy_raises_when_retry_whoami_fails_after_not_authorized(monkeypatch, clean_env):

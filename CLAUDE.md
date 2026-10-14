@@ -219,6 +219,13 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   subprocesses run through a shared `_run_vercel()` helper that streams Vercel's own output line by
   line as it arrives instead of buffering it until exit, so a hung upload (or a unit killed by its own
   timeout) still leaves something in the journal and the OnFailure email.
+  `_run_vercel()` also runs every `vercel` subprocess with `CI=1`. The host's CLI config
+  (`~/.local/share/com.vercel.cli/config.json`) has `updates.auto: true`. With it, any successful
+  command on the global install makes the CLI run `npm i -g vercel@latest` on itself. On 2026-10-13
+  that upgrade (63.1.2 → 64.0.2) swapped the package's files under the still-running deploy. The
+  deploy was already live, but the old process crashed importing a chunk that no longer existed,
+  exited 1, and failed the unit. The CLI skips the self-upgrade under CI. Manual `vercel` runs on the
+  host still auto-update.
 - **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Deploy locally, or let the sync timer / the pre-push hook do it.
 
 ## Backups
