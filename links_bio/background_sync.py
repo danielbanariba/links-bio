@@ -169,12 +169,27 @@ def _run_vercel(cmd: list, cwd: str, env: dict, timeout: float | None = None):
     When `timeout` is given and elapses before the process exits, it is
     killed and `subprocess.TimeoutExpired` is raised (carrying whatever
     output had streamed so far). Otherwise returns (returncode, output).
+
+    Every vercel subprocess runs with CI=1. The host's CLI config has
+    automatic updates on (`updates.auto`), and after any successful
+    command the CLI runs `npm i -g vercel@latest` on itself. On
+    2026-10-13 that upgrade (63.1.2 -> 64.0.2) replaced the package's
+    files while the deploy was still running; the deploy had already
+    gone live, but the old process then crashed importing a chunk that
+    no longer existed, exited 1, and failed the unit. The CLI skips
+    the self-upgrade under CI. The env is copied, not mutated, because
+    the caller's dict also feeds `npm run build`.
     """
     import subprocess
     import threading
 
     proc = subprocess.Popen(
-        cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        cmd,
+        cwd=cwd,
+        env={**env, "CI": "1"},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
     timed_out = threading.Event()
