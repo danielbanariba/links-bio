@@ -8,7 +8,7 @@
 // the hero ("2,703 full albums"). Scratch SQLite DB, synthetic rows, same
 // pattern as facet-order.test.ts: the live row is deliberately the newest and
 // the most viewed, so a missing predicate changes the first element.
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -66,46 +66,57 @@ function buildScratchDb(extra: Row[]): { dbPath: string; dir: string } {
   return { dbPath, dir };
 }
 
-async function loadHomeQueries(t: test.TestContext, extra: Row[], tag: string) {
-  const prevReflexDb = process.env.REFLEX_DB;
+// db.ts reads REFLEX_DB once, when it is imported, so each load points the variable at its
+// own scratch DB before importing. The caller's value is saved and the scratch dirs are
+// removed once, after the whole file: per-load hooks would restore a stale path, and
+// assigning an unset value back would leave the string 'undefined' in the environment.
+const savedReflexDb = process.env.REFLEX_DB;
+const scratchDirs: string[] = [];
+after(() => {
+  if (savedReflexDb === undefined) delete process.env.REFLEX_DB;
+  else process.env.REFLEX_DB = savedReflexDb;
+  for (const dir of scratchDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+async function loadHomeQueries(extra: Row[], tag: string) {
   const { dbPath, dir } = buildScratchDb(extra);
+  scratchDirs.push(dir);
   process.env.REFLEX_DB = dbPath;
-  t.after(() => {
-    process.env.REFLEX_DB = prevReflexDb;
-    rmSync(dir, { recursive: true, force: true });
-  });
   return import(`../src/lib/db.ts?scratch=${tag}-${Date.now()}`);
 }
 
-test('getLatestUploads lists newest first and never the live sets', async (t) => {
-  const db = await loadHomeQueries(t, [], 'latest');
+test('getLatestUploads lists newest first and never the live sets', async () => {
+  const db = await loadHomeQueries([], 'latest');
   assert.deepEqual(db.getLatestUploads(10).map((c: any) => c.band_name), ['Gamma', 'Delta', 'Alpha']);
 });
 
-test('getMostPlayed ranks by views, skipping live sets and albums without views', async (t) => {
-  const db = await loadHomeQueries(t, [], 'played');
+test('getMostPlayed ranks by views, skipping live sets and albums without views', async () => {
+  const db = await loadHomeQueries([], 'played');
   const played = db.getMostPlayed(10);
   assert.deepEqual(played.map((c: any) => c.band_name), ['Alpha', 'Gamma']);
   assert.deepEqual(played.map((c: any) => c.views), [9000, 700]);
 });
 
-test('getArchiveFacts counts studio albums, bands and non-blank countries only', async (t) => {
-  const db = await loadHomeQueries(t, [], 'facts');
+test('getArchiveFacts counts studio albums, bands and non-blank countries only', async () => {
+  const db = await loadHomeQueries([], 'facts');
   // Studio rows: Alpha, Gamma, Delta. Countries: Alemania only (blank and the live set's Honduras do not count).
   assert.deepEqual(db.getArchiveFacts(), { albums: 3, bands: 3, countries: 1 });
 });
 
-test('getHiddenGems keeps views strictly below the bound, unfeatured, studio only', async (t) => {
-  const probe = await loadHomeQueries(t, [], 'bound-probe');
+test('getHiddenGems keeps views strictly below the bound, unfeatured, studio only', async () => {
+  const probe = await loadHomeQueries([], 'bound-probe');
   const bound = probe.HIDDEN_GEM_VIEWS;
   const extra: Row[] = [
     { id: 5, band: 'JustUnder', title: 'Studio Five', country: 'Chile', views: bound - 1, upload: '2019-06-01', featured: 0 },
     { id: 6, band: 'AtBound', title: 'Studio Six', country: 'Chile', views: bound, upload: '2019-01-01', featured: 0 },
     { id: 7, band: 'Featured', title: 'Studio Seven', country: 'Brasil', views: 10, upload: '2018-01-01', featured: 1 },
+    // A live set that passes every other gate (unfeatured, NULL views): only NOT_LIVE keeps it out.
+    // The fixture live row (id 2) has 99999 views, so the views bound alone already excludes it.
+    { id: 8, band: 'LiveGem', title: 'LiveGem - Live in Tegucigalpa', country: 'Honduras', views: null, upload: '2019-03-01', featured: 0 },
   ];
-  const db = await loadHomeQueries(t, extra, 'gems');
+  const db = await loadHomeQueries(extra, 'gems');
   const gems = db.getHiddenGems();
-  // Delta (NULL views, reported as 0) and JustUnder qualify; AtBound is not below the bound, Featured is excluded, the live set never appears.
+  // Delta (NULL views, reported as 0) and JustUnder qualify; AtBound is not below the bound, Featured is excluded, the live sets never appear.
   assert.deepEqual(gems.map((g: any) => g.band_name).sort(), ['Delta', 'JustUnder']);
   assert.equal(gems.find((g: any) => g.band_name === 'Delta').views, 0);
 });
