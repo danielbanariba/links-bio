@@ -9,7 +9,7 @@
 //   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getAlbumsByBand
 //   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds; every album is
 //     ONE long video and a timestamp is where a track STARTS, so a track's length
-//     is the gap to the next start
+//     is the gap to the next start (lib/tracks.ts)
 //   - getAlbumColor() extracts the dominant swatch from the thumb (cached); the
 //     header field is that colour mixed down into the dark ground (see fieldFor)
 //
@@ -31,6 +31,7 @@ import {
   slugify,
 } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
+import { lengthLabel, trackLengths, tsToSeconds } from '../../../lib/tracks.js';
 import { thumb } from '../../../lib/thumb.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import { safeJsonLd } from '../../../lib/seo.js';
@@ -75,25 +76,6 @@ function similarBandHref(name: string): string {
     : `/metal-archive/browse?q=${encodeURIComponent(name)}`;
 }
 
-// ─── Parse "MM:SS" / "HH:MM:SS" timestamps to seconds (build-time) ───────────
-function tsToSeconds(ts: string | null): number {
-  if (!ts) return 0;
-  const parts = ts.split(':').map((p) => parseInt(p, 10));
-  if (parts.some((n) => Number.isNaN(n))) return 0;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 1) return parts[0];
-  return 0;
-}
-
-function clock(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = Math.floor(total % 60);
-  const ss = String(s).padStart(2, '0');
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
-}
-
 const tracks = rawTracks.map((t, i) => ({
   idx: i,
   number: t.track_number ?? i + 1,
@@ -101,18 +83,9 @@ const tracks = rawTracks.map((t, i) => ({
   seconds: tsToSeconds(t.timestamp),
 }));
 
-// Track lengths. A timestamp is where a track starts inside the one long video, so a
-// length is the gap to the next start. The last track runs to the end of the video,
-// whose length is only known to the minute (duration_minutes is rounded), so that one
-// is an estimate. Without strictly rising starts no length can be told: show none.
-const albumSeconds = (album.duration_minutes ?? 0) * 60;
-const risingStarts = tracks.every((t, i) => i === 0 || t.seconds > tracks[i - 1].seconds);
-const trackLengths = tracks.map((t, i) => {
-  if (tracks.length === 1) return albumSeconds;
-  if (!risingStarts) return 0;
-  if (i + 1 < tracks.length) return tracks[i + 1].seconds - t.seconds;
-  return albumSeconds - t.seconds >= 15 ? albumSeconds - t.seconds : 0;
-});
+// Track lengths (see lib/tracks.ts): the gap to the next start, and for the last track an
+// estimate from the minute-rounded album length, printed as "~6 min" rather than exact m:ss.
+const lengths = trackLengths(tracks.map((t) => t.seconds), (album.duration_minutes ?? 0) * 60);
 
 // ─── Artwork ─────────────────────────────────────────────────────────────────
 const coverUrl = album.album_artwork_url || '';
@@ -356,6 +329,7 @@ const albumJsonLd = safeJsonLd({
     <ClientRouter />
   </head>
   <body class="ma">
+    <Reveal />
     <Navbar />
 
     <main id="main" tabindex="-1">
@@ -439,7 +413,7 @@ const albumJsonLd = safeJsonLd({
                 >
                   <span class="tl__n"><span class="tl__num">{t.number}</span><span class="tl__eq" aria-hidden="true"><i></i><i></i><i></i></span></span>
                   <span class="tl__t" data-track-name="1">{t.name}</span>
-                  <span class="tl__d">{trackLengths[i] > 0 ? clock(trackLengths[i]) : ''}</span>
+                  <span class="tl__d">{lengthLabel(lengths[i])}</span>
                 </button>
               </li>
             ))}
@@ -484,6 +458,5 @@ const albumJsonLd = safeJsonLd({
     )}
 
     <Footer cover={coverUrl || undefined} />
-    <Reveal />
   </body>
 </html>
