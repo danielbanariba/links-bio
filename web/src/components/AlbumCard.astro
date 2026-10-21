@@ -13,6 +13,7 @@
 //   - `frame` shows the whole 16:9 thumbnail instead of its left square. A live set's
 //     thumbnail is a frame of the show, not cover art, so cropping it would cut it at random.
 import type { Card } from '../lib/types.js';
+import { splitTitle } from '../lib/titles.js';
 
 interface Props {
   album: Card;
@@ -24,11 +25,11 @@ interface Props {
 const { album, loading = 'lazy', ofBand = false, frame = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
 
-// "Name (tail)" or "Name [tail]": the name leads, the tail follows in the muted line. A live
-// set's year column is mostly 0 or the year of its songs; its date is in the tail, so no year.
-const parts = /^(.{4,}?)\s+([(\[].+)$/.exec(album.album_title);
-const name = ofBand && parts ? parts[1] : album.album_title;
-const sub = ofBand ? [parts ? parts[2] : '', !frame && album.year ? String(album.year) : ''].filter(Boolean).join(' · ') : '';
+// "Name (tail)" or "Name [tail]": the name leads, the tail follows in the muted line (see
+// lib/titles.ts). A live set's year column is mostly 0 or the year of its songs; its date is in
+// the tail, so no year.
+const { name, tail } = splitTitle(album.album_title);
+const sub = ofBand ? [tail, !frame && album.year ? String(album.year) : ''].filter(Boolean).join(' · ') : '';
 ---
 
 <a class:list={['album-card', frame && 'album-card--frame']} href={href}>

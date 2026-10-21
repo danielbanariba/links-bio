@@ -32,6 +32,7 @@ import {
 } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { lengthLabel, trackLengths, tsToSeconds } from '../../../lib/tracks.js';
+import { splitTitle } from '../../../lib/titles.js';
 import { thumb } from '../../../lib/thumb.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import { safeJsonLd } from '../../../lib/seo.js';
@@ -211,9 +212,8 @@ const genreName = genreLabel(album.genre);
 // Long tails ("(Live in Honduras, Tegucigalpa - October 3, 2019)", "[Remastered]") sit
 // under the name at a smaller size, inside the same <h1>. The name's size is set from
 // how it wraps (--cc), so it holds on two lines at every width; see .album-head__title.
-const titleParts = /^(.{4,}?)\s+([(\[].+)$/.exec(album.album_title);
-const titleMain = titleParts ? titleParts[1] : album.album_title;
-const titleSub = titleParts ? titleParts[2] : '';
+// Only trailing bracket groups are a tail (lib/titles.ts), so a bracket mid-title stays in the name.
+const { name: titleMain, tail: titleSub } = splitTitle(album.album_title);
 // How many characters the widest of the two lines holds when the name is split at the best
 // word boundary (one word: the word itself). The CSS turns it into a font size that keeps the
 // name on two lines in any column width. Erode has no Cyrillic or CJK, so those fall back to
