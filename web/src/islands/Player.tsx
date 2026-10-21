@@ -806,51 +806,25 @@ export default function Player() {
 
         <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
           <div class="mp-spinner" />
-          <span style={{ color: 'var(--text-body)', fontSize: '0.72em', marginTop: '0.6em' }}>
-            Loading player...
-          </span>
+          <span class="mp-text">Loading player...</span>
         </div>
 
         <div id="mini-player-error" class="mp-overlay" ref={errorRef} style={{ display: 'none' }}>
-          <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
-            Video unavailable
-          </span>
-          <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
-            This video cannot be played here.
-          </span>
-          <a
-            ref={ytErrorLinkRef}
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--primary)', fontSize: '0.75em', textDecoration: 'none', marginTop: '0.6em', fontWeight: 600 }}
-          >
+          <span class="mp-title">Video unavailable</span>
+          <span class="mp-text">This video cannot be played here.</span>
+          <a ref={ytErrorLinkRef} href="#" target="_blank" rel="noopener noreferrer" class="mp-link">
             Open on YouTube ↗
           </a>
         </div>
 
         <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
-          <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
-            The player is taking a while to load.
-          </span>
-          <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
-            Check your internet connection.
-          </span>
-          <button
-            type="button"
-            data-mp-retry="1"
-            style={{
-              background: 'var(--primary)', color: 'var(--text-header)', border: 'none',
-              cursor: 'pointer', fontSize: '0.72em', padding: '0.4em 1em',
-              borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
-            }}
-          >
-            Retry
-          </button>
+          <span class="mp-title">The player is taking a while to load.</span>
+          <span class="mp-text">Check your internet connection.</span>
+          <button type="button" data-mp-retry="1" class="btn btn--primary mp-retry">Retry</button>
         </div>
       </div>
 
-      <div id="now-playing-bar">
+      <div id="now-playing-bar" role="region" aria-label="Player">
         {/* left: cover + track/band */}
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />
@@ -875,8 +849,12 @@ export default function Player() {
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
             </button>
           </div>
-          <div id="now-playing-progress" ref={npProgressRef} class="np-progress">
-            <div id="now-playing-progress-fill" ref={npProgressFillRef} class="np-progress-fill js-progress-fill" />
+          <div class="np-timeline">
+            <span class="np-time js-time-current">0:00</span>
+            <div id="now-playing-progress" ref={npProgressRef} class="np-progress">
+              <div id="now-playing-progress-fill" ref={npProgressFillRef} class="np-progress-fill js-progress-fill" />
+            </div>
+            <span class="np-time js-time-total">0:00</span>
           </div>
         </div>
 
