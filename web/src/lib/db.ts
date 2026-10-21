@@ -487,6 +487,32 @@ export function getGenreFacetGroups(): FacetGroup[] {
   return groupFacetsBySlug(getAllGenres());
 }
 
+// The most common values of a list, grouped by `key`: raw spellings that share a key are ONE
+// value (a genre page groups its spellings by slug; a country is shown by its English label),
+// their counts add up, and the spelling seen most often stands for the group (the first one
+// seen on a tie). Grouping happens BEFORE the limit, so two spellings of one value never
+// take two of the slots and push a real next value out. Blank values are skipped.
+export function topValues(
+  values: Array<string | null | undefined>,
+  limit: number,
+  key: (raw: string) => string = (raw) => raw,
+): string[] {
+  const counts = new Map<string, number>();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+
+  const groups = new Map<string, { total: number; raw: string; rawCount: number }>();
+  for (const [raw, n] of counts) {
+    const k = key(raw);
+    const g = groups.get(k);
+    if (!g) groups.set(k, { total: n, raw, rawCount: n });
+    else {
+      g.total += n;
+      if (n > g.rawCount) { g.raw = raw; g.rawCount = n; }
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.total - a.total).slice(0, limit).map((g) => g.raw);
+}
+
 export function getAlbumsByGenres(genres: string[]): Card[] {
   if (genres.length === 0) return [];
   const placeholders = genres.map(() => '?').join(',');

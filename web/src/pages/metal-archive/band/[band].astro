@@ -26,6 +26,7 @@ import {
   getTracks,
   isLiveRecording,
   slugify,
+  topValues,
 } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { tsToSeconds } from '../../../lib/tracks.js';
@@ -70,30 +71,31 @@ const latest = studioAlbums[0] ?? allAlbums[0] ?? null;
 const catalogue = studioAlbums.length ? studioAlbums : allAlbums;
 const bandColor = latest ? await getAlbumColor(latest.thumb, latest.cover) : '';
 
+// Only the headings and the first ten cards reveal, each card on its own: a discography can
+// run past a hundred albums, and the observer waits for 8% of an element to be on screen, so a
+// reveal on the whole list would leave it blank until it was that tall a part of the screen
+// (never, past about 60 albums). The same rule as FacetMain.
+const REVEALED = 10;
+
 const nf = new Intl.NumberFormat('en-US');
 const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 const plural = (n: number, one: string, many: string) => `${nf.format(n)} ${n === 1 ? one : many}`;
 
 // Facets are counted on the RAW values (the slugs of the genre and country pages come from
-// them) and shown by their English label, deduped after translating: "Venezuela" and
-// "Venezuela, Bolivarian Republic of" are one name on this page. Genre and country pages list
-// studio albums only, so a live-only band links to neither.
-const topRaw = (values: Array<string | null>, limit: number) => {
-  const counts = new Map<string, number>();
-  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([raw]) => raw);
-};
+// them) and shown by their English label. Spellings that land on one page count as one value,
+// and they are merged BEFORE the top three are cut: "Black Death Metal" and "Black/Death
+// Metal" share /genre/black-death-metal, and "Venezuela" and "Venezuela, Bolivarian Republic
+// of" read as one name, so neither pair may take two slots and push a real third value out.
+// Genre and country pages list studio albums only, so a live-only band links to neither.
 const linkable = studioAlbums.length > 0;
-const genreFacts = topRaw(catalogue.map((a) => a.genre), 3).map((raw) => ({
+const genreFacts = topValues(catalogue.map((a) => a.genre), 3, slugify).map((raw) => ({
   text: genreLabel(raw),
   href: linkable ? `/metal-archive/genre/${slugify(raw)}` : undefined,
 }));
-const countryFacts: { text: string; href?: string }[] = [];
-for (const raw of topRaw(catalogue.map((a) => a.country), 3)) {
-  const text = countryLabel(raw);
-  if (countryFacts.some((c) => c.text === text)) continue;
-  countryFacts.push({ text, href: linkable ? `/metal-archive/country/${slugify(raw)}` : undefined });
-}
+const countryFacts = topValues(catalogue.map((a) => a.country), 3, countryLabel).map((raw) => ({
+  text: countryLabel(raw),
+  href: linkable ? `/metal-archive/country/${slugify(raw)}` : undefined,
+}));
 // year 0 means "unknown"; a bare `0 && ...` would render a literal "0" (see lib/cardMeta.ts).
 const years = catalogue.map((a) => a.year).filter((y): y is number => !!y);
 const yearRange = years.length
@@ -208,21 +210,33 @@ const bandJsonLd = safeJsonLd({
 
       <!-- ─── Studio / official works ─────────────────────────────────────────── -->
       {studioAlbums.length > 0 && (
-        <section class="sect" aria-labelledby="disc-title" data-reveal>
-          <h2 class="sect-title rv" id="disc-title" style="--i:0">Discography</h2>
-          <ul class="wall rv" style="--i:1">
-            {studioAlbums.map((album, i) => <li><AlbumCard album={album} ofBand loading={i < 5 ? 'eager' : 'lazy'} /></li>)}
+        <section class="sect" aria-labelledby="disc-title">
+          <div data-reveal>
+            <h2 class="sect-title rv" id="disc-title" style="--i:0">Discography</h2>
+          </div>
+          <ul class="wall">
+            {studioAlbums.map((album, i) => (
+              <li class:list={[i < REVEALED && 'rv']} data-reveal={i < REVEALED ? '' : undefined} style={i < REVEALED ? `--i:${i % 5}` : undefined}>
+                <AlbumCard album={album} ofBand loading={i < 5 ? 'eager' : 'lazy'} />
+              </li>
+            ))}
           </ul>
         </section>
       )}
 
       <!-- ─── Live recordings: Daniel's own live sets, whole frames ──────────── -->
       {liveAlbums.length > 0 && (
-        <section class="sect" aria-labelledby="live-title" data-reveal>
-          <h2 class="sect-title rv" id="live-title" style="--i:0">Live recordings</h2>
-          <p class="sect-lead rv" style="--i:1">Live sets and concert recordings.</p>
-          <ul class="wall wall--frames rv" style="--i:2">
-            {liveAlbums.map((album) => <li><AlbumCard album={album} ofBand frame /></li>)}
+        <section class="sect" aria-labelledby="live-title">
+          <div data-reveal>
+            <h2 class="sect-title rv" id="live-title" style="--i:0">Live recordings</h2>
+            <p class="sect-lead rv" style="--i:1">Live sets and concert recordings.</p>
+          </div>
+          <ul class="wall wall--frames">
+            {liveAlbums.map((album, i) => (
+              <li class:list={[i < REVEALED && 'rv']} data-reveal={i < REVEALED ? '' : undefined} style={i < REVEALED ? `--i:${i % 5}` : undefined}>
+                <AlbumCard album={album} ofBand frame />
+              </li>
+            ))}
           </ul>
         </section>
       )}
