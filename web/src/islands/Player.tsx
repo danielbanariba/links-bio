@@ -825,6 +825,9 @@ export default function Player() {
       </div>
 
       <div id="now-playing-bar" role="region" aria-label="Player">
+        {/* phone only: a 3px progress line along the top edge (the times row is hidden
+            there). Same js-progress-fill hook as the timeline, so one updater feeds both. */}
+        <div class="np-edge" aria-hidden="true"><div class="np-progress-fill js-progress-fill" /></div>
         {/* left: cover + track/band */}
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />

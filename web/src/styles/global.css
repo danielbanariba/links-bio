@@ -182,7 +182,7 @@ a:hover {
    background the site uses (the dark --bg, --content, and the per-album
    --accent-tinted navbar). :where() gives this rule zero specificity, so any
    component rule that sets outline (.album-card, .facet-refine,
-   a.band-pill, .stage__* etc.) wins outright. The rule declares nothing
+   and so on) wins outright. The rule declares nothing
    but outline, so it cannot change a component's radius or offset. */
 :where(a, button, summary, [tabindex]):where(:focus-visible) {
   outline: 2px solid var(--text-header);
@@ -238,11 +238,6 @@ img {
 }
 .animate-skeleton {
   animation: skeleton-fade 1.5s ease-in-out infinite;
-}
-
-/* ─── Track active state (set by Player island via JS) ───────────────────────*/
-.track-active {
-  background: rgba(0, 115, 168, 0.13);
 }
 
 /* ─── Noise texture overlay helper ──────────────────────────────────────────
@@ -456,364 +451,6 @@ img {
   .facet-refine { transition: none; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ALBUM DETAIL PAGE  (ported from _ALBUM_DETAIL_CSS + the hero/track/player
-   style dicts in links_bio/styles/styles.py). The --album-color variable is
-   baked per-page at BUILD time on the <html> element (see vibrant.ts), so the
-   halo + active-track tint are correct on first paint with zero client JS.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Reserve space for the fixed now-playing bar (72px + breathing room). */
-body.album-detail { padding-bottom: 80px; }
-
-/* Album-color halo on the page background. --album-color falls back to the
-   cyan brand if Vibrant produced nothing. */
-.album-detail-bg {
-  /* Global accent wash (REQ-004/008): the per-album color floods the whole page
-     from the top and fades into the neutral base — recolors per album page.
-     Richer / more opaque gradient (client feedback: more gradient opacity). */
-  background:
-    radial-gradient(140% 90% at 50% -15%,
-      color-mix(in srgb, var(--accent) 70%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 30%, transparent) 38%,
-      transparent 72%),
-    var(--bg);
-  background-attachment: fixed;
-}
-
-.album-detail-main {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-.album-detail-body {
-  padding: 1.8em clamp(1.2em, 4vw, 3em) 2em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   NOW PLAYING SCREEN (REQ-001..008)
-   Mobile: full-bleed square cover up top, controls panel below.
-   Desktop/tablet (≥768px): large square cover left, controls right.
-   Everything tinted by --accent (= per-album --album-color, amber fallback).
-   ═══════════════════════════════════════════════════════════════════════════ */
-.stage {
-  position: relative;
-  /* F10 (Oct 2026 UI audit): plain 100vw overflows the real viewport by the
-     vertical scrollbar's width (vw includes it, clientWidth doesn't) — an
-     8px overflow measured on both desktop and mobile. --scrollbar-w is
-     measured in JS (Navbar.astro) and defaults to 0px before that runs or if
-     JS is disabled, at which point this is identical to the old rule. */
-  width: calc(100vw - var(--scrollbar-w, 0px));
-  margin-left: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  margin-right: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  padding: 0 0 clamp(1.5rem, 4vw, 2.5rem);
-  isolation: isolate;
-}
-
-.stage__inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1.1rem, 3vw, 1.6rem);
-}
-
-/* ─── Cover: square 1:1 (REQ-001) ─── */
-.stage__cover-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
-  /* #18: object-fit:contain below never crops a non-square cover (16:9
-     YouTube thumbs are common), which used to leave a big flat gap of
-     --content above/below it. A gradient seeded from the already-computed
-     per-album --accent token fills that gap -- it's the container's own
-     background, so it paints behind the <img> with no z-index/pseudo-element
-     stacking to get wrong, and it never reaches the text in the sibling
-     .stage__panel, so contrast there is unaffected. */
-  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 38%, var(--content)) 0%, var(--content) 75%);
-}
-.stage__cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;   /* fit the WHOLE cover inside the reserved 1:1 box — never crop (covers may be 16:9 YouTube thumbs) */
-}
-.stage__cover--empty {
-  aspect-ratio: 1 / 1;   /* only the empty placeholder is forced square */
-  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
-}
-/* On mobile the cover is full-bleed; fade its bottom edge into the page. */
-.stage__cover-wrap::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 34%;
-  background: linear-gradient(to top, var(--bg) 2%, transparent 100%);
-  pointer-events: none;
-}
-
-/* ─── Controls panel ─── */
-.stage__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0 clamp(1.2rem, 5vw, 2rem);
-}
-
-.stage__eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent-bright);
-}
-
-.stage__title {
-  margin: 0;
-  font-size: clamp(1.9rem, 7vw, 3rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--title-white);          /* REQ-002: pure white */
-  overflow-wrap: anywhere;
-}
-
-/* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
-   .stage__album (see album/[id].astro). Reset the browser's default h1 box
-   (margin, font-size, font-weight) so the two children keep their own
-   explicit styling below and the visual result is unchanged. */
-.stage__heading {
-  margin: 0;
-  font: inherit;
-}
-
-.stage__artist {
-  font-size: clamp(1rem, 3vw, 1.25rem);
-  font-weight: 600;
-  color: var(--accent-bright);        /* REQ-003: high-contrast accent */
-}
-.stage__artist-link {
-  color: inherit;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.15s ease;
-}
-.stage__artist-link:hover { color: var(--accent-bright); border-bottom-color: currentColor; }
-
-/* Album name — small line under the band; stays put while the big title (the
-   now-playing track) changes. */
-.stage__album {
-  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
-  font-weight: 600;
-  color: var(--text-header);
-}
-
-.stage__metarow {
-  color: var(--text-body);
-  font-size: 0.88rem;
-  font-weight: 300;
-}
-.stage__metarow .sep { color: var(--text-footer); }
-.stage__metarow .meta-link {
-  color: var(--text-body);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-.stage__metarow .meta-link:hover { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
-
-/* ─── Progress ─── */
-.stage__progress {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.stage__bar {
-  height: 5px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, #fff 13%, transparent);
-  overflow: hidden;
-}
-.stage__bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bright);
-  transition: width 0.4s linear;
-}
-.stage__times {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
-  color: var(--text-footer);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ─── Transport ─── */
-.stage__transport {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.4rem, 7vw, 2.4rem);
-  margin-top: 0.7rem;
-}
-.stage__ctl {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border: none;
-  background: none;
-  border-radius: var(--radius-pill);
-  color: var(--text-header);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-.stage__ctl:hover { color: var(--accent-bright); background: color-mix(in srgb, #fff 7%, transparent); }
-.stage__ctl:active { transform: scale(0.92); }
-
-.stage__play {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 76px;
-  height: 76px;
-  border: none;
-  border-radius: var(--radius-pill);
-  /* Lightened accent fill so the dark glyph reads on ANY album hue. */
-  background: color-mix(in srgb, var(--accent) 86%, #fff);
-  color: var(--on-accent);
-  cursor: pointer;
-  box-shadow: 0 12px 34px var(--accent-glow);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.stage__play:hover { transform: scale(1.05); }
-.stage__play:active { transform: scale(0.97); }
-.stage__play .ic-play { margin-left: 3px; }       /* optically centre the triangle */
-
-/* Radial gradient behind the play button (REQ-005) + subtle pulse (REQ-006). */
-.stage__play-glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 240%;
-  height: 240%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 68%);
-  z-index: -1;
-  pointer-events: none;
-  animation: stage-pulse 4.5s ease-in-out infinite;
-}
-@keyframes stage-pulse {
-  0%, 100% { opacity: 0.5;  transform: translate(-50%, -50%) scale(0.9); }
-  50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.08); }
-}
-
-/* SVG play/pause/buffering swap driven by data-state — shared by EVERY .js-pp
-   control (the Now Playing hero button and the bottom-bar toggle). */
-.js-pp .ic { position: absolute; }
-.js-pp .ic-pause,
-.js-pp .ic-spinner { display: none; }
-.js-pp[data-state="playing"] .ic-play { display: none; }
-.js-pp[data-state="playing"] .ic-pause { display: block; }
-.js-pp[data-state="buffering"] .ic-play,
-.js-pp[data-state="buffering"] .ic-pause { display: none; }
-.js-pp[data-state="buffering"] .ic-spinner { display: block; }
-/* #9: onError used to only show the corner overlay -- the clicked control
-   itself (e.g. the big hero play button) kept its normal idle look. Reuse
-   the project's existing error red (.form-input--error, .form-toast--error)
-   so every .js-pp control visibly reflects the failure too. */
-.js-pp[data-state="error"] {
-  background: rgba(220, 38, 38, 0.15);
-  box-shadow: inset 0 0 0 2px #dc2626;
-}
-.js-pp .ic-spinner {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--on-accent) 28%, transparent);
-  border-top-color: var(--on-accent);
-  animation: mp-spin 0.8s linear infinite;
-}
-.stage__play .ic-spinner { width: 26px; height: 26px; border-width: 3px; }
-
-/* ─── Secondary actions (glass pills) ─── */
-.stage__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-.stage__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  padding: 0.6em 1.15em;
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.stage__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
-.stage__action-ico { display: inline-flex; align-items: center; }
-.stage__action svg,
-.stage__action-ico svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* Visible keyboard focus on every interactive control (a11y — CRITICAL). */
-.stage__play:focus-visible,
-.stage__ctl:focus-visible,
-.stage__action:focus-visible,
-.stage__artist-link:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 3px;
-}
-
-/* ─── Desktop / tablet: cover left, controls right ─── */
-@media (min-width: 768px) {
-  .stage { padding-top: clamp(1.5rem, 4vw, 3rem); }
-  .stage__inner {
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(2rem, 5vw, 4rem);
-    padding-inline: clamp(1.5rem, 5vw, 3rem);
-  }
-  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42vw, 560px); }  /* REQ-001 ~35-45% */
-  .stage__cover {
-    border-radius: var(--radius-lg);
-    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 60px var(--accent-glow);
-  }
-  .stage__cover-wrap::after { display: none; }
-  .stage__panel { flex: 1 1 0; min-width: 0; padding: 0; }
-  .stage__title { font-size: clamp(2.4rem, 4.2vw, 3.8rem); }
-  .stage__transport { justify-content: flex-start; }
-  .stage__actions { justify-content: flex-start; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stage__play-glow { animation: none; }
-  .stage__play:hover,
-  .stage__ctl:active,
-  .stage__play:active { transform: none; }
-  .stage__bar-fill { transition: none; }
-}
-
 /* ─── Band page ──────────────────────────────────────────────────────────────*/
 .band-page {
   max-width: var(--max-width);
@@ -833,160 +470,6 @@ body.album-detail { padding-bottom: 80px; }
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid var(--border);
-}
-
-/* ─── Tracklist ──────────────────────────────────────────────────────────────*/
-.tracklist-section {
-  width: 100%;
-  padding: 0 0.4em;
-}
-
-.track-header {
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.55em 0.9em;
-  border-bottom: 1px solid rgba(0, 115, 168, 0.33);
-  color: var(--text-footer);
-  font-size: 0.72em;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 500;
-  align-items: center;
-}
-
-.track-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1em;
-  margin-top: 0.3em;
-}
-
-.track-row {
-  /* track-row is a real <button> for keyboard operability: reset the native
-     button chrome but keep the 3-column grid (#/title/time). The native click
-     that Enter/Space emit is what the delegated Player handler intercepts, so
-     the synchronous autoplay path is preserved. */
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: none;
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.65em 0.9em;
-  border-radius: 2px;
-  cursor: pointer;
-  align-items: center;
-  transition: background 0.12s ease, color 0.12s ease;
-  color: var(--text-header);
-}
-.track-row:hover { background: rgba(2, 43, 68, 0.3); }
-
-.track-row__index {
-  text-align: center;
-  font-size: 0.95em;
-}
-.track-number { color: var(--text-footer); }
-
-/* CSS-only ▸ toggle: number by default; ▸ on hover; ▸ (accent) when active. */
-.track-play-icon,
-.track-active-icon { display: none; font-size: 0.85em; }
-.track-row:hover .track-number { display: none; }
-.track-row:hover .track-play-icon { display: inline; color: var(--text-header); }
-
-.track-row__title {
-  color: var(--text-header);
-  font-size: 0.95em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.track-row__time {
-  color: var(--text-footer);
-  font-size: 0.85em;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Active row (set by the Player island). Tint uses --album-color. */
-.track-row.track-active {
-  background: color-mix(in srgb, var(--accent) 13%, transparent) !important;
-  border-left: 2px solid var(--accent) !important;
-}
-.track-row.track-active .track-row__title {
-  color: var(--accent);
-  font-weight: 500;
-}
-.track-row.track-active .track-number { display: none; }
-.track-row.track-active .track-play-icon { display: none; }
-.track-row.track-active .track-active-icon { display: inline; color: var(--accent) !important; }
-
-/* ─── Similar bands pills ─────────────────────────────────────────────────────*/
-.similar-bands-section { width: 100%; padding-top: 1em; }
-.similar-bands-section h2 {
-  font-size: 1.3em;
-  color: var(--text-header);
-  margin-bottom: 0.6em;
-}
-.similar-bands {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-}
-.band-pill {
-  display: inline-block;
-  background: var(--content);
-  color: var(--text-body);
-  padding: 0.4em 0.9em;
-  border-radius: 999px;
-  font-size: 0.85em;
-  border: 1px solid var(--secondary);
-  text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-a.band-pill:hover,
-a.band-pill:focus-visible {
-  color: var(--accent-bright);
-  border-color: var(--accent);
-  background: var(--secondary);
-}
-@media (prefers-reduced-motion: reduce) {
-  .band-pill { transition: none; }
-}
-
-/* ─── Related album sections (similar / more to explore) ─────────────────────*/
-.related-section { width: 100%; padding-top: 1.5em; }
-.related-section h2 {
-  font-size: clamp(1.3em, 3vw, 1.6em);
-  color: var(--text-header);
-  margin-bottom: 0.8em;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.related-section--bordered {
-  padding-top: 2em;
-  padding-bottom: 1em;
-  border-top: 1px solid var(--secondary);
-  margin-top: 2em;
-}
-.related-section__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.8em;
-}
-.related-section__header h2 { margin-bottom: 0; }
-.related-section__more {
-  color: var(--primary);
-  font-size: 0.9em;
-  text-decoration: none;
-  font-weight: 600;
 }
 
 /* ─── Browse page ────────────────────────────────────────────────────────────*/
@@ -1938,7 +1421,7 @@ body:has(.ma-footer) {
   .ma-bar__links { display: none; }
   .ma-bar__search { width: 44px; padding: 0; }
   .ma-bar__search-label {
-    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    position: absolute; width: 1px; height: 1px; overflow: hidden; /* visually-hidden clip, not a rule line: taste-skill-ignore */
     clip: rect(0, 0, 0, 0); white-space: nowrap;
   }
   .tabbar {
@@ -2092,8 +1575,11 @@ body:has(.np-cover[style*='visibility: visible']) #now-playing-bar {
 
 /* Mini video: docked above the bar's right end. Square corners, no shadow.
    While the album is only cued (nothing played yet) it is parked below the screen and
-   inert; it slides in as soon as playback starts or an overlay (loading / error)
-   needs to be seen, and stays visible while playing (YouTube terms). */
+   inert; it slides in as soon as the listener presses Play (the bar appears with it, so a
+   loading or error overlay is seen then) and stays visible while playing (YouTube terms).
+   An album whose video cannot be embedded fails while it is only cued: that must not pop an
+   error box over the page's own buttons before anyone asked for sound, so a cue-time
+   error does not dock it. */
 #mini-player {
   position: fixed;
   right: var(--margin);
@@ -2110,8 +1596,7 @@ body:has(.np-cover[style*='visibility: visible']) #now-playing-bar {
   transition: width 240ms var(--ease-out), transform 300ms var(--ease-out);
 }
 body:has(#now-playing-bar .np-cover[style*='visibility: visible']) #mini-player,
-body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'], [data-state='error'])) #mini-player,
-#mini-player:has(.mp-overlay[style*='display: flex']) {
+body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'])) #mini-player {
   transform: none;
   pointer-events: auto;
 }
@@ -2736,6 +2221,239 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
   .ask .btn { width: min(100%, 22rem); }
 }
 
+/* ─── Play / pause / loading: one icon (and label) swap for every .js-pp control ─
+   The Player writes data-state on each one: paused (the default), playing,
+   buffering or error. The player bar's round toggle and the album page's Play
+   button are both .js-pp, so they always agree. ─────────────────────────────*/
+.js-pp .ic-pause,
+.js-pp .ic-spinner,
+.js-pp .pp-lbl--pause,
+.js-pp .pp-lbl--wait { display: none; }
+.js-pp[data-state='playing'] :is(.ic-play, .pp-lbl--play) { display: none; }
+.js-pp[data-state='playing'] .ic-pause { display: block; }
+.js-pp[data-state='playing'] .pp-lbl--pause { display: inline; }
+.js-pp[data-state='buffering'] :is(.ic-play, .ic-pause, .pp-lbl--play) { display: none; }
+.js-pp[data-state='buffering'] .ic-spinner { display: block; }
+.js-pp[data-state='buffering'] .pp-lbl--wait { display: inline; }
+.js-pp .ic-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent-ink) 30%, transparent);
+  border-top-color: var(--accent-ink);
+  animation: mp-spin 0.8s linear infinite;
+}
+/* Nothing is playing and the last attempt failed: the control drops its accent. */
+.js-pp[data-state='error'] { background: var(--surface-3); color: var(--ink); }
+
+/* ─── Player bar states ──────────────────────────────────────────────────────
+   Playing: accent progress, cover at full strength, pause icon. Paused (or
+   failed): the progress fill goes muted and the cover dims, play icon. Buffering:
+   spinner in the toggle and a pulsing progress. On a phone the times row is
+   hidden, so a 3px progress line runs along the top edge of the bar instead. */
+.np-cover { transition: filter 160ms var(--ease-out); }
+#now-playing-bar:has(.np-toggle:is([data-state='paused'], [data-state='error'])) .np-progress-fill { background: var(--muted); }
+#now-playing-bar:has(.np-toggle:is([data-state='paused'], [data-state='error'])) .np-cover { filter: brightness(0.55); }
+#now-playing-bar:has(.np-toggle[data-state='buffering']) .np-edge { animation: np-pulse 1s ease-in-out infinite; }
+.np-edge { display: none; }
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .np-edge { display: block; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--surface-3); overflow: hidden; }
+}
+
+/* ─── Album page ─────────────────────────────────────────────────────────────
+   A header band on a field of the album's own colour (--field, set inline and
+   capped dark at build time), running up under the top bar to a hard edge below
+   the actions. The cover sits lit on the left at 5 of 12 columns, the left square
+   of the thumbnail (the art), square corners. Below it: the tracklist, then two
+   shelves and a row of chips. */
+.album-head {
+  position: relative;
+  margin-top: calc(var(--bar-h) * -1);
+  padding: calc(var(--bar-h) + clamp(1.25rem, 2.6vw, 2.5rem)) var(--margin) clamp(2rem, 4vw, 3.5rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.album-head__inner {
+  max-width: 1920px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: end;
+}
+.album-head__cover { grid-column: 1 / span 5; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.album-head__cover img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 0% 50%; }
+/* The one slow move on the page: the cover drifts in by 3.5% over half a minute (the box clips it). */
+@keyframes cover-drift { from { transform: scale(1); } to { transform: scale(1.035); } }
+.album-head__cover img { transform-origin: 25% 60%; animation: cover-drift 28s ease-in-out infinite alternate; }
+.album-head__cover-empty { width: 100%; height: 100%; background: var(--surface-2); }
+.album-head__text { grid-column: 6 / -1; min-width: 0; container-type: inline-size; padding-left: clamp(0.5rem, 3vw, 3rem); }
+@media (min-width: 1100px) {
+  /* six of twelve: on a wide screen the cover is the first thing, a third of the first screen */
+  .album-head__cover { grid-column: 1 / span 6; }
+  .album-head__text { grid-column: 7 / -1; }
+}
+
+/* The title is data of any length (up to ~100 characters), so its size is fitted to the
+   column. --cc is how many characters the wider of its two lines must hold (set on the column,
+   which is the container); one character takes about 0.56em, so the name fills two lines at
+   178 container-widths / --cc. The clamp holds short names at display size and the longest
+   ones at a readable one. */
+.album-head__title {
+  font-size: var(--step-head);
+  font-size: clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display));
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+.album-head__sub {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: var(--step-lead);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.album-head__band {
+  margin-top: clamp(0.75rem, 1.4vw, 1.25rem);
+  font-family: var(--font-display);
+  /* the lead size, but never larger than the title it sits under */
+  font-size: var(--step-lead);
+  font-size: max(var(--step-small), min(var(--step-lead), calc(0.85 * clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display)))));
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.album-head__band a,
+.album-head__facts a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, var(--ink) 45%, transparent);
+  transition: text-decoration-color 160ms var(--ease-out);
+}
+.album-head__band a:hover,
+.album-head__facts a:hover { color: var(--ink); text-decoration-color: currentColor; }
+.album-head__facts {
+  /* Separators lead each item and the list clips its own left edge, so a dot is never the
+     first or last thing on a wrapped line (the item's -1.1em margin parks its dot out of view). */
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  margin-top: 0.75rem;
+  padding-block: 3px;
+  list-style: none;
+  font-size: var(--step-small);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.album-head__facts li { position: relative; margin: 0 1.1em 0 -1.1em; padding-left: 1.1em; }
+.album-head__facts li::before { content: '·'; content: '·' / ''; position: absolute; left: 0.4em; color: var(--muted); }
+.album-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: clamp(1.25rem, 2.4vw, 2rem); }
+.album-head__play { min-width: 8.5em; }  /* the label changes: Play, Pause, Loading */
+.album-head__links { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: -0.6rem; list-style: none; }  /* the 44px target, so the glyph itself lines up with the text above */
+/* On the field, the secondary fill and the hover tone are steps of the bone ink, so they
+   read on any album colour (a fixed grey can land on the field's own tone). */
+.album-head .btn--secondary { background: color-mix(in srgb, var(--ink) 14%, var(--field)); }
+.album-head .btn--secondary:hover { background: color-mix(in srgb, var(--ink) 24%, var(--field)); }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--ink);
+  transition: background-color 160ms var(--ease-out);
+}
+.icon-btn:hover { background: color-mix(in srgb, var(--ink) 18%, transparent); color: var(--ink); }
+@media (max-width: 699px) {
+  .album-head__inner { display: block; }
+  .album-head__cover { max-width: 100%; }
+  .album-head__text { padding-left: 0; margin-top: 1.5rem; }
+  .album-head__play { width: 100%; }
+}
+
+/* From 1000px the tracklist sits beside its heading, on the header's own columns (heading in
+   the first four, rows in the last eight), so a row never runs the full width of the page. */
+@media (min-width: 1000px) {
+  .tracks { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+  .tracks > .sect-title { grid-column: 1 / span 4; position: sticky; top: calc(var(--bar-h) + 1.5rem); }
+  .tracks > .tl { grid-column: 5 / -1; margin: 0; }
+}
+
+/* Tracklist: a real ordered list, one button per row. The row is wider than the text
+   column by --row-pad on both sides, so the text lines up with the heading and the
+   hover tone reaches into the margin. */
+.tl { --row-pad: clamp(0.75rem, 1.4vw, 1.25rem); margin: clamp(1.25rem, 2.4vw, 2rem) calc(var(--row-pad) * -1) 0; list-style: none; }
+.tl__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: clamp(0.75rem, 1.6vw, 1.5rem);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.5rem var(--row-pad);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.tl__row:disabled { cursor: default; }
+.tl__row:hover { background: var(--surface-2); }
+.tl__row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tl__row.track-active { background: var(--surface-3); }
+/* The marker of the row that is playing (the Player sets .track-active and aria-current). */
+.tl__row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 4px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+.tl__row.track-active::before { opacity: 1; }
+.tl__n { position: relative; display: block; font-size: var(--step-small); font-variant-numeric: tabular-nums; color: var(--muted); }
+.tl__t { font-size: var(--step-body); line-height: 1.3; overflow-wrap: anywhere; }
+.tl__d { font-size: var(--step-small); font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); white-space: nowrap; }
+/* On hover (or focus) the number gives way to a play mark; on the playing row it gives
+   way to three bars that move while the music does and rest when it stops. */
+.tl__n::before {
+  content: '';
+  position: absolute;
+  left: 0.05em;
+  top: 50%;
+  width: 0.7em;
+  height: 0.8em;
+  transform: translateY(-50%);
+  background: var(--ink);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  opacity: 0;
+}
+.tl__row:not(:disabled, .track-active):focus-visible .tl__n::before { opacity: 1; }
+.tl__row:not(:disabled, .track-active):focus-visible .tl__num { visibility: hidden; }
+@media (hover: hover) {
+  .tl__row:not(:disabled, .track-active):hover .tl__n::before { opacity: 1; }
+  .tl__row:not(:disabled, .track-active):hover .tl__num { visibility: hidden; }
+}
+.tl__eq { position: absolute; left: 0; top: 50%; display: none; align-items: flex-end; gap: 2px; width: 1.1em; height: 1em; transform: translateY(-50%); }
+.tl__eq i { flex: 1; height: 100%; background: var(--ink); transform: scaleY(0.45); transform-origin: bottom; }
+.tl__row.track-active .tl__eq { display: flex; }
+.tl__row.track-active .tl__num { visibility: hidden; }
+.tl__eq i:nth-child(1) { --d: 640ms; }
+.tl__eq i:nth-child(2) { --d: 480ms; }
+.tl__eq i:nth-child(3) { --d: 800ms; }
+@keyframes tl-eq { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
+body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__eq i { animation: tl-eq var(--d, 700ms) ease-in-out infinite alternate; }
+
 /* ─── Reduced motion: keep the finished state, drop the travel ───────────────*/
 @media (prefers-reduced-motion: reduce) {
   .rise { animation: none; }
@@ -2745,6 +2463,8 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
   .btn:active, .np-toggle:active { transform: none; }
   .played__img { transition: none; }
   #mini-player, #now-playing-bar { transition: none; }
+  .tl__eq i { animation: none !important; }
+  .album-head__cover img { animation: none; }
 }
 
 /* Scroll-linked drift of the live pictures (4-12% of their own height) */
