@@ -1,9 +1,14 @@
 ---
-// Carousel: a section of AlbumCards rendered as either a responsive gallery
-// GRID (Bandcamp-style, default) or a horizontal scroll ROW.
-//   layout="grid"   -> 2 / 3 / 4-5 column responsive grid of large covers
-//   layout="scroll" -> single horizontal scroll row of large covers
-// Below-fold sections set `deferred` for content-visibility:auto.
+// Carousel: a "shelf" of AlbumCards. A heading, then "See all" and the
+// previous/next buttons on the right, then one row that shows a whole number of
+// cards (so no card is ever cut by the edge of the screen) and scrolls a page at
+// a time. The buttons are wired by the script below and stay hidden while there
+// is nothing to scroll in that direction; the row itself is a focusable scroll
+// region, so the keyboard can scroll it too.
+//
+// `headless` drops the heading (used inside the home page's genre tab panels,
+// where the tab list is the heading) and keeps the buttons. Below-fold shelves
+// set `deferred` for content-visibility:auto.
 import type { Card } from '../lib/types.js';
 import AlbumCard from './AlbumCard.astro';
 
@@ -11,20 +16,67 @@ interface Props {
   title: string;
   albums: Card[];
   href?: string;
-  deferred?: boolean;            // true for below-fold sections (content-visibility:auto)
-  layout?: 'grid' | 'scroll';    // gallery grid (default) vs horizontal scroll
+  hrefLabel?: string;
+  deferred?: boolean;
+  headless?: boolean;
+  id?: string;
 }
 
-const { title, albums, href, deferred = false, layout = 'grid' } = Astro.props;
-const containerClass = layout === 'scroll' ? 'carousel-row' : 'gallery-grid';
+const { title, albums, href, hrefLabel = 'See all', deferred = false, headless = false, id } = Astro.props;
+const headingId = id ? `${id}-title` : undefined;
 ---
 
-<section class:list={['section', deferred && 'carousel-deferred']}>
-  <div class="section-header">
-    <h3>{title}</h3>
-    {href && <a href={href} class="section-header__link">See all →</a>}
+<section class:list={['shelf', deferred && 'carousel-deferred', headless && 'shelf--headless']} id={id} aria-labelledby={headless ? undefined : headingId} aria-label={headless ? title : undefined} data-reveal={headless ? undefined : ''}>
+  <div class:list={['shelf__head', !headless && 'rv']} style={headless ? undefined : '--i:0'}>
+    {!headless && <h2 class="shelf__title" id={headingId}>{title}</h2>}
+    <div class="shelf__tools">
+      {href && <a href={href} class="shelf__more">{hrefLabel}</a>}
+      <div class="shelf__nav-group">
+        <button class="shelf__nav shelf__nav--prev" type="button" aria-label={`Previous in ${title}`} hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+        </button>
+        <button class="shelf__nav shelf__nav--next" type="button" aria-label={`Next in ${title}`} hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+        </button>
+      </div>
+    </div>
   </div>
-  <div class={containerClass}>
-    {albums.map((a) => <AlbumCard album={a} loading="lazy" />)}
+  <div class:list={['shelf__frame', !headless && 'rv']} style={headless ? undefined : '--i:1'}>
+    <div class="shelf__track" tabindex="0" role="group" aria-label={`${title}, scroll for more`}>
+      {albums.map((a, i) => <AlbumCard album={a} loading={i < 4 && !deferred ? 'eager' : 'lazy'} />)}
+    </div>
   </div>
 </section>
+
+<script>
+  // Shelf buttons: scroll by one "page" of cards (the row's own width), and show each button only
+  // when the row can actually move that way. Markup is fresh after every
+  // ClientRouter swap, so everything (re)binds on astro:page-load; the flag
+  // keeps a row from binding twice. The hidden attribute is the no-JS default.
+  function bindShelf(shelf: HTMLElement) {
+    if ((shelf as any).__shelf) return;
+    (shelf as any).__shelf = true;
+    const track = shelf.querySelector<HTMLElement>('.shelf__track');
+    const prev = shelf.querySelector<HTMLButtonElement>('.shelf__nav--prev');
+    const next = shelf.querySelector<HTMLButtonElement>('.shelf__nav--next');
+    if (!track || !prev || !next) return;
+    const sync = () => {
+      const max = track.scrollWidth - track.clientWidth;
+      prev.hidden = track.scrollLeft <= 1;
+      next.hidden = max - track.scrollLeft <= 1;
+    };
+    const page = () => track.clientWidth + (parseFloat(getComputedStyle(track).columnGap) || 0);
+    const reduce = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    prev.addEventListener('click', () => track.scrollBy({ left: -page(), behavior: reduce() ? 'auto' : 'smooth' }));
+    next.addEventListener('click', () => track.scrollBy({ left: page(), behavior: reduce() ? 'auto' : 'smooth' }));
+    track.addEventListener('scroll', sync, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(sync).observe(track);
+    window.addEventListener('resize', sync);
+    sync();
+  }
+  function initShelves() {
+    document.querySelectorAll<HTMLElement>('.shelf').forEach(bindShelf);
+  }
+  initShelves();
+  document.addEventListener('astro:page-load', initShelves);
+</script>

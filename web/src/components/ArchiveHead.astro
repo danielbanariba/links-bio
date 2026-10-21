@@ -1,0 +1,13 @@
+---
+// ArchiveHead: the <head> pieces every Metal Archive page shares.
+//
+// Onest is self-hosted (public/fonts, @font-face in global.css); only the
+// latin file is preloaded, because it is the one every page paints with.
+// Erode comes from the Fontshare API: its licence does not allow the files in
+// a public repository, so it is never copied here. The two preconnects let the
+// stylesheet and the font files start downloading in parallel.
+---
+<link rel="preload" href="/fonts/Onest-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=erode@400,500&display=swap" />

@@ -210,266 +210,11 @@ img {
   padding-block: 1.5rem;
 }
 
-/* ─── Carousel utilities (horizontal cover rows) ─────────────────────────────
-   Bigger thumbnails + more gap than the old tight carousel for a gallery feel. */
-.carousel-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(200px, 24vw, 260px);
-  gap: 1.75rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.75rem;
-  /* Hide scrollbar but keep scroll functionality */
-  scrollbar-width: none;
-}
-.carousel-row::-webkit-scrollbar {
-  display: none;
-}
-
-/* #16/R3-003: a right-edge fade signals there is more to scroll to -- these
-   rows hid 73-87% of their content with no affordance at all otherwise.
-   .has-scroll-fade is toggled by the home page's script (metal-archive/
-   index.astro) based on actual scroll position, so the fade is only present
-   while scrolling further right would reveal more content -- never at rest
-   with no overflow, and never once scrolled to the end, where a permanent
-   mask would otherwise keep the last card's focus ring dimmed. */
-.carousel-row.has-scroll-fade {
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-}
-
-.carousel-row > * {
-  scroll-snap-align: start;
-}
-
-/* ─── Gallery grid (Bandcamp-style cover wall) ───────────────────────────────
-   auto-fill + minmax keeps every row completely full (no awkward end gaps) and
-   reflows fluidly: ~2 cols on phones up to 6+ on wide desktops. The min track
-   shrinks on narrow viewports so two covers always fit on a phone. */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 220px), 1fr));
-  gap: 1.75rem 1.5rem;
-}
-
-@media (min-width: 1200px) {
-  .gallery-grid { gap: 2.25rem 1.75rem; }
-}
 
 /* Below-fold carousels: defer rendering until near viewport */
 .carousel-deferred {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
-}
-
-/* ─── Album card (cover-first gallery unit) ──────────────────────────────────
-   The cover is the protagonist: large, square, crisp. Text sits below in clean
-   minimal type. On hover the cover lifts/scales, brightens, gains an accent ring
-   and a play affordance fades in. --card-accent (optional, set inline per card)
-   tints the ring/glow; falls back to the cyan brand.                          */
-.album-card {
-  --card-accent: var(--accent);
-  display: block;
-  width: 100%;
-  background: transparent;
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.album-card:focus-visible {
-  outline: none;
-}
-.album-card:focus-visible .album-card__art {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
-}
-
-/* The framed cover. Its own element so the lift/glow stay scoped to the art. */
-.album-card__art {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.6em;
-  overflow: hidden;
-  background: var(--content);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
-              box-shadow 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
-}
-
-.album-card:hover .album-card__art {
-  /* Lift + glow only — NO scale (scaling the framed cover clipped the artwork
-     on hover, and the brand guide bans scale on cards anyway). */
-  transform: translateY(-6px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55),
-              0 0 0 1px color-mix(in srgb, var(--card-accent) 55%, transparent),
-              0 0 28px color-mix(in srgb, var(--card-accent) 40%, transparent);
-}
-
-.album-card__cover {
-  /* Strict uniform square: every cover renders identically regardless of the
-     source image's intrinsic dimensions. aspect-ratio guards against any image
-     whose natural ratio would otherwise leak through. */
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
-  background: var(--content);
-  transition: filter 0.28s ease;
-}
-
-.album-card:hover .album-card__cover {
-  filter: brightness(1.08) saturate(1.05);
-}
-
-.album-card__cover--empty {
-  background: linear-gradient(135deg, var(--content), var(--secondary));
-}
-
-/* Live Recordings placeholder — brand-colored square with band name + LIVE badge.
-   Replaces the API-sourced YouTube thumbnails (red overlays, inconsistent frames)
-   with an intentional, on-brand treatment. */
-.album-card__cover--live {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(0, 115, 168, 0.18) 0%, transparent 70%),
-    var(--content);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.8rem;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Subtle noise / scan-line texture behind the text */
-.album-card__cover--live::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
-  opacity: 0.055;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
-
-/* Thin cyan top border accent line */
-.album-card__cover--live::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--primary);
-  opacity: 0.7;
-}
-
-.live-cover__band {
-  position: relative;
-  font-family: var(--font-default);
-  font-size: clamp(0.62rem, 1.8vw, 0.78rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: 0.04em;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  max-width: 90%;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-.live-cover__badge {
-  position: relative;
-  font-family: var(--font-default);
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: 2px;
-  padding: 0.15em 0.5em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* "Open" affordance: cyan/accent circle, bottom-right, fades + slides in on
-   hover. An arrow (not a play triangle) — the card links to the album page, it
-   does not play in place, so it must not imply in-situ playback. */
-.album-card__open {
-  position: absolute;
-  right: 0.6rem;
-  bottom: 0.6rem;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-header);
-  background: var(--card-accent);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(8px) scale(0.85);
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
-  pointer-events: none;
-}
-
-.album-card:hover .album-card__open,
-.album-card:focus-visible .album-card__open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.album-card__body {
-  padding: 0.7rem 0.15rem 0;
-}
-
-.album-card__band {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-header);
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.album-card__album {
-  color: var(--text-footer);
-  font-size: 0.82rem;
-  margin-top: 0.1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Kept for the browse page markup, which still renders a genre line. */
-.album-card__genre {
-  color: var(--primary);
-  font-size: 0.72rem;
-  margin-top: 0.3rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .album-card__art,
-  .album-card__cover,
-  .album-card__open {
-    transition: opacity 0.2s ease;
-  }
-  .album-card:hover .album-card__art { transform: none; }
 }
 
 /* ─── Album grid (genre / country / year / browse / album pages) ──────────────
@@ -524,14 +269,6 @@ img {
   position: sticky;
   top: 0;
   z-index: 10;
-}
-
-/* Metal-archive navbar takes the album color (REQ-004 global flood). On album
-   pages --accent = the cover color; on home/browse it = the amber base. The bio
-   uses plain .navbar (no --ma), so it keeps var(--content) and is untouched. */
-.navbar--ma {
-  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
-  border-bottom-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .navbar__brand {
@@ -632,73 +369,6 @@ img {
   }
 }
 
-/* ─── Footer ─────────────────────────────────────────────────────────────────*/
-.footer {
-  color: var(--text-footer);
-  text-align: center;
-  padding: 2rem;
-  font-size: 0.8rem;
-  border-top: 1px solid var(--border);
-  margin-top: 2rem;
-}
-
-.footer__brand {
-  font-family: var(--font-logo);
-  color: var(--primary);
-}
-
-/* ─── Section headers ────────────────────────────────────────────────────────*/
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.section-header h2,
-.section-header h3 {
-  font-size: clamp(1.45rem, 3vw, 1.9rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-header);
-}
-
-.section-header__link {
-  color: var(--text-footer);
-  font-size: 0.88rem;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: color 0.15s;
-}
-
-.section-header__link:hover {
-  color: var(--primary);
-}
-
-/* ─── Home: vertical rhythm between sections (generous, breathing) ────────────*/
-.home-sections {
-  padding-top: clamp(2.5rem, 5vw, 4rem);
-  padding-bottom: 3rem;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3rem, 6vw, 5rem);
-}
-
-/* Carousel/Gallery <section> wrappers reset their own bottom margins — the
-   parent flex `gap` owns the rhythm now. */
-.home-sections > .section,
-.home-sections > .home-browse-by { margin-bottom: 0; }
-
-.home-browse-by { margin-bottom: 0; }
-
-/* ─── Home: section divider ──────────────────────────────────────────────────*/
-.home-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0;
-}
-
 /* ─── Home: Live Recordings section ──────────────────────────────────────────
    Daniel's own live sets, visually set apart from the official-album feeds:
    a left accent rule, a "Live sets" badge, and a short clarifying note.       */
@@ -732,106 +402,6 @@ img {
   color: var(--text-footer);
   font-size: 0.85rem;
   margin: -0.8rem 0 1.4rem;
-}
-
-/* ─── Home: centered CTA rows (Surprise Me / YouTube) ────────────────────────*/
-.home-cta-row {
-  display: flex;
-  justify-content: center;
-}
-.home-cta-row--tight { margin-top: -2rem; }
-
-/* ─── Home: browse-by-country grid ──────────────────────────────────────────*/
-.country-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-@media (min-width: 480px) {
-  .country-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .country-grid { grid-template-columns: repeat(5, 1fr); }
-}
-
-/* ─── Home: browse-by-genre grid (#20) — same breakpoints as country-grid,
-   genre labels run a similar short-to-medium length. ───────────────────────*/
-.genre-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-@media (min-width: 480px) {
-  .genre-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .genre-grid { grid-template-columns: repeat(5, 1fr); }
-}
-
-/* ─── Home: browse-by-year grid ──────────────────────────────────────────────*/
-.year-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.65rem;
-}
-
-@media (min-width: 480px) {
-  .year-grid { grid-template-columns: repeat(4, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .year-grid { grid-template-columns: repeat(6, 1fr); }
-}
-
-/* ─── Home: facet card (country/year tile) ───────────────────────────────────*/
-.facet-card {
-  background: var(--content);
-  border: 1px solid transparent;
-  border-radius: 0.7em;
-  padding: 1rem 0.6rem;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  transition: background 0.18s, transform 0.18s, border-color 0.18s;
-  text-decoration: none;
-  color: inherit;
-}
-
-.facet-card:hover {
-  background: var(--secondary);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  transform: translateY(-2px);
-  color: var(--text-header);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .facet-card:hover { transform: none; }
-}
-
-.facet-card__flag {
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.facet-card__name {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-header);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.facet-card__count {
-  font-size: 0.72rem;
-  color: var(--text-footer);
 }
 
 /* ─── Facet pages: mini-hero + chain-to-Browse refine button ─────────────────*/
@@ -884,48 +454,6 @@ img {
 }
 @media (prefers-reduced-motion: reduce) {
   .facet-refine { transition: none; }
-}
-
-/* ─── Home: Sorpréndeme button ───────────────────────────────────────────────*/
-.btn-sorprendeme {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  background: var(--content);
-  color: var(--text-header);
-  border: 2px solid var(--primary);
-  padding: 0.7em 1.8em;
-  border-radius: 999px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  font-family: var(--font-default);
-}
-
-.btn-sorprendeme:hover {
-  background: var(--primary);
-  color: var(--text-header);
-}
-
-/* ─── Home: YouTube CTA ──────────────────────────────────────────────────────*/
-.btn-youtube {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  background: #ff0000;
-  color: #fff;
-  padding: 0.75em 2em;
-  border-radius: 0.5em;
-  font-size: 1.05em;
-  font-weight: 600;
-  text-decoration: none;
-  transition: opacity 0.15s;
-}
-
-.btn-youtube:hover {
-  opacity: 0.88;
-  color: #fff;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1461,286 +989,6 @@ a.band-pill:focus-visible {
   font-weight: 600;
 }
 
-/* ═══ Now-playing bar (ported from now_playing_bar.py) ═══════════════════════ */
-/* The bar is now GLOBAL + persistent across the whole metal-archive section
-   (rendered from the Navbar, transition:persist), so every archive page must
-   reserve space for it — not just the album detail page. :has() scopes the
-   padding to pages that actually render the bar (the bio never does), so the bio
-   is untouched. The mobile override (134px = tab bar + bar) lives in the
-   max-width media query below. */
-body:has(#now-playing-bar) { padding-bottom: 80px; }
-
-#now-playing-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 72px;
-  background: color-mix(in srgb, var(--accent) 22%, var(--glass-bg));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  border-top: 1px solid var(--glass-border);
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--accent-soft);
-  display: flex;
-  align-items: center;
-  padding: 0 1.5em;
-  z-index: 100;
-}
-
-.np-left {
-  display: flex;
-  align-items: center;
-  gap: 0.8em;
-  flex: 1 1 0;
-  min-width: 0;
-}
-.np-cover {
-  width: 48px;
-  height: 48px;
-  border-radius: 2px;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 1px solid var(--accent-soft);
-}
-.np-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-.np-name {
-  color: var(--text-header);
-  font-size: 0.9em;
-  font-weight: 500;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-.np-artist {
-  color: var(--text-footer);
-  font-size: 0.75em;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-
-.np-center {
-  flex: 2 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-.np-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-}
-.np-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: transparent;
-  color: var(--text-body);
-  border: none;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.np-icon-btn:hover {
-  color: var(--text-header);
-  background: color-mix(in srgb, #fff 8%, transparent);
-}
-.np-toggle {
-  position: relative;
-  background: var(--accent);
-  color: var(--on-accent);
-  border: none;
-  cursor: pointer;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow: 0 4px 14px var(--accent-glow);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.np-toggle:hover { transform: scale(1.08); }
-.np-toggle .ic-play { margin-left: 2px; }
-
-.np-progress {
-  width: 100%;
-  max-width: 360px;
-  height: 4px;
-  background: color-mix(in srgb, #fff 12%, transparent);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 0.4em;
-}
-.np-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--accent-bright);
-  border-radius: 999px;
-  transition: width 0.4s linear;
-}
-@keyframes mp-progress-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-#now-playing-progress.np-loading { animation: mp-progress-pulse 1s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  #now-playing-progress.np-loading { animation: none; }
-}
-
-.np-right {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
-}
-.np-yt-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  color: var(--text-footer);
-  font-size: 0.8em;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.np-yt-link:hover { color: var(--text-header); }
-/* Desktop shows the text label; the icon is reserved for the compact mobile
-   icon-button (revealed in the ≤767px media query). */
-.np-yt-icon { display: none; }
-
-/* ═══ Mini-player (ported from mini_player.py) ═══════════════════════════════ */
-#mini-player {
-  position: fixed;
-  bottom: 96px;
-  left: 20px;
-  width: 240px;
-  height: 135px;
-  border-radius: 2px;
-  border: 1px solid var(--accent);
-  overflow: hidden;
-  z-index: 50;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
-  background: #000;
-  transition: width 0.3s ease, height 0.3s ease;
-}
-#mini-player.expanded { width: 480px; height: 270px; }
-#mini-player iframe { border: 0; pointer-events: none; }
-
-@keyframes mp-spin { to { transform: rotate(360deg); } }
-.mp-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: mp-spin 0.8s linear infinite;
-}
-.mp-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
-
-.mp-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0.6em;
-  background: #000;
-  z-index: 2;
-}
-
-/* ─── Mobile: keep the player reachable (YouTube out + collapsible video) ─────*/
-@media (max-width: 767px) {
-  #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
-  #now-playing-bar .np-cover { width: 40px; height: 40px; }
-  #now-playing-progress { max-width: 100%; }
-
-  /* #11: prev/play/next measured 38-40px here (below the 44px minimum the
-     bar already applies to .np-yt-link below), matching the treatment the
-     YouTube link gets a few lines down. */
-  .np-icon-btn { width: 44px; height: 44px; }
-  .np-toggle { width: 44px; height: 44px; }
-
-  /* The right-side YouTube link stays visible on mobile (it used to be hidden,
-     leaving no path out to the video). Collapse it to a compact icon-button
-     with a ≥44px tap target so it is always reachable in the bar. */
-  .now-playing-right { flex: 0 0 auto; }
-  .np-yt-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-pill);
-    color: var(--text-header);
-    gap: 0;
-  }
-  .np-yt-link:active { background: color-mix(in srgb, #fff 8%, transparent); }
-  .np-yt-icon { display: block; }
-  .np-yt-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
-  /* The mini-player (video iframe) becomes an on-demand bottom-sheet instead of
-     being hidden outright. It is shown by the Player (inline display:'' once an
-     album is cued) — so we no longer force display:none. Collapsed by default:
-     a slim strip docked above the bottom bar that, when tapped (the whole
-     #mini-player is data-mini-toggle), expands to a 16:9 video via .expanded.
-     Tapping it toggles toggleMiniSize() -> .expanded. */
-  #mini-player {
-    left: 0.6em;
-    right: 0.6em;
-    width: auto;
-    bottom: calc(58px + 72px + 0.5em);   /* above the now-playing bar + tab bar */
-    height: 40px;
-    transition: height 0.3s ease;
-  }
-  /* Collapsed affordance label ("Watch video") shown over the slim strip. */
-  #mini-player::after {
-    content: 'Watch video';
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-header);
-    font-size: 0.78em;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    background: color-mix(in srgb, var(--accent) 28%, #000);
-    pointer-events: none;   /* the parent #mini-player is the toggle target */
-    z-index: 1;             /* below mp-overlay (z-index:2) so loader/error/retry win */
-  }
-  #mini-player.expanded {
-    width: auto;
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-  #mini-player.expanded::after { content: none; }   /* hide the label when open */
-}
-@media (max-width: 480px) {
-  #now-playing-name, #now-playing-artist { max-width: 140px; }
-}
-
 /* ─── Browse page ────────────────────────────────────────────────────────────*/
 .browse-page {
   max-width: var(--max-width);
@@ -1765,80 +1013,6 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   color: var(--text-body);
   font-size: 0.9rem;
   margin: 0;
-}
-
-/* ─── Home search bar (prominent discovery entry point) ──────────────────────*/
-.home-search {
-  width: 100%;
-  padding: 2rem 0 0.5rem;
-}
-
-.home-search__form {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  /* Cap the search width so it stays comfortable on the now-wide container,
-     while the gallery grids below still span the full viewport. */
-  max-width: 900px;
-  margin-inline: auto;
-  background: var(--content);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-  border-radius: 0.8em;
-  padding: 0.5rem 0.6rem 0.5rem 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.home-search__form:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-.home-search__icon {
-  color: var(--text-footer);
-  flex-shrink: 0;
-}
-
-.home-search__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-size: 1.05rem;
-  padding: 0.45rem 0;
-}
-
-.home-search__input::placeholder {
-  color: var(--text-footer);
-}
-
-.home-search__btn {
-  flex-shrink: 0;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 0.6em;
-  padding: 0.6rem 1.4rem;
-  font-family: var(--font-default);
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: filter 0.18s ease;
-}
-
-.home-search__btn:hover {
-  filter: brightness(1.15);
-}
-
-@media (max-width: 560px) {
-  .home-search__btn { padding: 0.6rem 1rem; }
-  /* Stay at >=16px even here: WebKit auto-zooms on any focused input under
-     16px (#1) -- this override used to drop it to 0.95rem (15.2px). */
-  .home-search__input { font-size: 1rem; }
 }
 
 /* ─── Search island controls ─────────────────────────────────────────────────*/
@@ -2462,343 +1636,6 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HOME REDESIGN (2026) — greeting + themed hero carousel.
-   Neutral base tokens are untouched; each hero slide is tinted by its own
-   album cover via --slide-color (set inline, sourced from vibrant.ts).
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ─── Greeting header ────────────────────────────────────────────────────────*/
-.home-greeting {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 0.5rem;
-}
-.home-greeting__hello {
-  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.home-greeting__sub {
-  color: var(--text-footer);
-  font-size: 0.9rem;
-  margin-top: 0.2rem;
-}
-.home-greeting__actions {
-  display: flex;
-  gap: 0.45rem;
-  flex-shrink: 0;
-}
-.home-greeting__icon {
-  width: 2.6rem;
-  height: 2.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: var(--text-body);
-  background: color-mix(in srgb, var(--content) 85%, transparent);
-  border: 1px solid var(--border);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.home-greeting__icon:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-
-/* ─── Hero carousel ──────────────────────────────────────────────────────────*/
-.hero-carousel { margin-top: 1.25rem; }
-
-.hero-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 100%;
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.hero-track::-webkit-scrollbar { display: none; }
-
-.hero-slide {
-  scroll-snap-align: center;
-  position: relative;
-  display: block;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-height: clamp(220px, 40vw, 360px);
-  color: var(--text-header);
-  text-decoration: none;
-  isolation: isolate;
-}
-
-/* cover image layer (behind the gradient + text) */
-.hero-slide__bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -2;
-}
-
-/* color + dark gradient: text-legible on the left, cover/tint bleeds right */
-.hero-slide::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    100deg,
-    rgba(8, 6, 4, 0.92) 0%,
-    rgba(8, 6, 4, 0.60) 44%,
-    color-mix(in srgb, var(--slide-color, var(--primary)) 62%, transparent) 100%
-  );
-}
-
-.hero-slide__inner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.45rem;
-  height: 100%;
-  min-height: inherit;
-  padding: clamp(1.4rem, 4vw, 2.6rem);
-  max-width: 62%;
-}
-@media (max-width: 600px) {
-  .hero-slide__inner { max-width: 84%; }
-}
-
-.hero-slide__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--slide-color, var(--primary));
-  filter: brightness(1.35);
-}
-
-.hero-slide__band {
-  font-size: clamp(1.9rem, 6vw, 3.4rem);
-  font-weight: 900;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: var(--text-header);
-}
-
-.hero-slide__album {
-  font-size: clamp(1rem, 2.4vw, 1.35rem);
-  font-weight: 600;
-  color: color-mix(in srgb, var(--slide-color, var(--primary)) 65%, white);
-}
-
-.hero-slide__meta {
-  color: var(--text-body);
-  font-size: 0.88rem;
-  margin-bottom: 0.3rem;
-}
-
-.hero-slide__cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  margin-top: auto;
-  background: var(--slide-color, var(--primary));
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  padding: 0.7em 1.5em;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  font-size: 0.95rem;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
-  transition: transform 0.16s ease, filter 0.16s ease;
-}
-.hero-slide__cta:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.08);
-  color: #fff;
-}
-
-/* dots */
-.hero-dots {
-  display: flex;
-  justify-content: center;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-}
-.hero-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border);
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: background 0.2s ease, width 0.2s ease;
-}
-.hero-dot.is-active {
-  background: var(--primary);
-  width: 18px;
-  border-radius: 999px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-slide__cta:hover { transform: none; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE CHROME (metal-archive only) — minimal top + bottom tab bar, matching
-   the player mockups. Scoped via .navbar--ma and :has(): the bio (/) renders no
-   tab bar and keeps its full navbar, so it stays untouched.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.tabbar { display: none; }   /* desktop: the top navbar handles navigation */
-
-/* #8: also cover landscape phones with the same swap -- a portrait-only
-   breakpoint let the nav tap targets fall back under the 44px minimum and
-   hid the album grid above the fold whenever a phone was rotated to
-   landscape (e.g. to watch the embedded video), since neither this media
-   query nor the bio 44px tap-target fix above used to match.
-   R3-006: (max-width: 900px) and (orientation: landscape) also matched a
-   768-900px-wide desktop/laptop window, and missed 915-932px-wide landscape
-   phones. (max-height: 500px) targets a phone's short landscape dimension
-   regardless of width, and (pointer: coarse) excludes a mouse-driven window
-   that happens to be short. */
-@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
-     over primary nav) and centre the brand. */
-  .navbar--ma .navbar__links { display: none; }
-  .navbar--ma { justify-content: center; }
-
-  /* Bottom tab bar */
-  .tabbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 110;
-    display: flex;
-    align-items: stretch;
-    justify-content: space-around;
-    height: 58px;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    border-top: 1px solid var(--glass-border);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .tabbar__item {
-    flex: 1 1 0;
-    min-width: 0;   /* allow 4–5 columns to shrink evenly without overflow */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 0 2px;
-    color: var(--text-footer);
-    /* #15: fixed 0.6rem + a fixed 20px icon didn't shrink enough for the 5
-       items to fit under an extreme-zoom effective viewport (195px wide at
-       200% zoom measured scrollWidth 200 vs clientWidth 195) -- scale both
-       down with the available width via clamp(). */
-    font-size: clamp(0.45rem, 2.2vw, 0.6rem);
-    font-weight: 500;
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-  .tabbar__item span {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .tabbar__item svg { width: clamp(14px, 5vw, 20px); height: clamp(14px, 5vw, 20px); }
-  .tabbar__item.is-active,
-  .tabbar__item:active { color: var(--accent-bright); }
-
-  /* Now-playing bar sits ABOVE the tab bar (mockups #4 / #6). */
-  #now-playing-bar { bottom: 58px; }
-
-  /* Reserve space so the fixed bars never cover content. :has() scopes the
-     padding to metal-archive pages only — the bio has neither bar. */
-  body:has(.tabbar) { padding-bottom: 58px; }
-  body:has(#now-playing-bar) { padding-bottom: 134px; }   /* 58 tab + 72 bar + 4 */
-}
-
-/* ─── Home: "Bands" circular avatar row (representative cover as the avatar) ── */
-.bands-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(108px, 28vw, 148px);
-  gap: 1.25rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  padding-bottom: 0.5rem;
-}
-.bands-row::-webkit-scrollbar { display: none; }
-
-/* #16/R3-003: same scoped scroll affordance as .carousel-row above --
-   .has-scroll-fade toggled by the home page's script. */
-.bands-row.has-scroll-fade {
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-}
-
-.band-avatar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.55rem;
-  text-decoration: none;
-  color: inherit;
-  scroll-snap-align: start;
-}
-.band-avatar__img-wrap {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--content);
-  border: 2px solid transparent;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-.band-avatar:hover .band-avatar__img-wrap {
-  border-color: var(--accent);
-  transform: translateY(-3px);
-}
-.band-avatar__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.band-avatar__img--empty {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
-}
-.band-avatar__name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-header);
-  text-align: center;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.band-avatar__count { font-size: 0.72rem; color: var(--text-footer); }
-
-@media (prefers-reduced-motion: reduce) {
-  .band-avatar:hover .band-avatar__img-wrap { transform: none; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    BAND ("artist") PAGE HEADER — cover backdrop + circular avatar + real stats.
    --album-color is set per band (its newest cover) so the header takes that
    band's colour. No fabricated monthly-listeners / follow.
@@ -2884,3 +1721,1039 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 }
 @media (prefers-reduced-motion: reduce) { .artist-header__play:hover { transform: none; } }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   METAL ARCHIVE, "THE DARK ROOM" (premium redesign, 2026)
+
+   One warm-black field top to bottom; the covers are the only lit things.
+   Tokens live on the archive <body> (body.ma, or any body that renders the
+   archive bar / footer), so the bio (/) keeps the original look untouched.
+
+   Order: fonts · tokens + legacy bridge · base · buttons/chips · top bar and
+   tab bar · player bar and mini video · footer · album card and shelf · home
+   sections · motion.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Onest: self-hosted variable font (400-700), OFL, one file per script. Erode
+   (display) loads from the Fontshare API (see ArchiveHead.astro): its licence
+   does not allow the files in this repository. */
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+body.ma,
+body:has(.ma-bar),
+body:has(.ma-footer) {
+  /* ground, surfaces, ink */
+  --bg: #0e0d0c;
+  --surface: #171514;
+  --surface-2: #201d1b;
+  --surface-3: #2a2624;
+  --ink: #ece6da;
+  --muted: #a39b8f;
+  --on-ink: #17140f;          /* text on a bone card */
+  --on-ink-muted: #4d463d;    /* secondary text on a bone card, 7:1 */
+  /* the one accent: fill of primary actions and the progress fill, nothing else */
+  --accent: #b3261e;
+  --accent-hover: #c62f26;
+  --accent-ink: #f6f1e7;
+  /* type */
+  --font-display: 'Erode', 'Onest', Georgia, serif;
+  --font-text: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --step-small: clamp(1rem, 0.95rem + 0.1vw, 1.0625rem);
+  --step-body: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
+  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-head: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --step-display: clamp(2.75rem, 1.4rem + 5.4vw, 6.75rem);
+  /* frame */
+  --margin: clamp(1rem, 2.2vw, 2rem);
+  --col-gap: clamp(0.75rem, 1.4vw, 1.5rem);
+  --gap-sect: clamp(5rem, 11vw, 10rem);
+  --bar-h: 4rem;
+  --player-h: 76px;
+  --tabbar-h: 0px;
+  /* motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* Bridge: the screens not redesigned yet still read these legacy tokens, so
+     they sit in the same room instead of keeping the old blue-black. */
+  --text-header: var(--ink);
+  --text-body: var(--ink);
+  --text-footer: var(--muted);
+  --border: var(--surface-3);
+  --content: var(--surface);
+  --secondary: var(--surface-2);
+  --primary: var(--accent);
+  --on-accent: var(--accent-ink);
+  --font-default: var(--font-text);
+  --accent-bright: color-mix(in srgb, var(--accent) 72%, #fff);
+  --accent-soft: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 40%, transparent);
+
+  color-scheme: dark;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────────*/
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-weight: 400;
+  line-height: 1.5;
+  font-kerning: normal;
+}
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+  text-wrap: balance;
+  hyphens: none;
+}
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+/* Cover art and avatars never need a frame; images are plain pictures. */
+.ma-bar a, .ma-footer a, .tabbar a, .hero a, .shelf a, .chip, .btn { text-underline-offset: 0.22em; }
+
+/* ─── Buttons and chips: one shape, fully round ──────────────────────────────*/
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  min-height: 48px;
+  padding: 0.7em 1.5em;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-text);
+  font-size: var(--step-body);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.btn:active { transform: scale(0.98); }
+.btn--primary { background: var(--accent); color: var(--accent-ink); }
+.btn--primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+.btn--secondary { background: var(--surface-2); color: var(--ink); }
+.btn--secondary:hover { background: var(--surface-3); color: var(--ink); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  min-height: 44px;
+  padding: 0.45em 1.1em;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--step-small);
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.chip:hover { background: var(--surface-3); color: var(--ink); }
+.chip.is-active, .chip[aria-selected='true'] { background: var(--ink); color: var(--bg); }
+.chip__n { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ─── Top bar (archive): on the ground, no band, no border, no blur ──────────*/
+.ma-bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.4vw, 2.5rem);
+  height: var(--bar-h);
+  padding-inline: var(--margin);
+  background: transparent;
+  transition: background-color 160ms var(--ease-out);
+}
+.ma-bar.is-scrolled { background: var(--bg); }
+.ma-bar__brand {
+  margin-right: auto;
+  font-family: var(--font-logo);
+  font-size: var(--step-body);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ma-bar__brand, .ma-bar__brand span { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.01em; }
+.ma-bar__brand .logo-word { color: var(--ink); }
+.ma-bar__brand .logo-paren, .ma-bar__brand .logo-semi { color: var(--muted); }
+.ma-bar__brand:hover { color: var(--ink); }
+.ma-bar__links { display: flex; align-items: center; gap: clamp(1rem, 2vw, 2rem); }
+.ma-bar__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--ink);
+  transition: text-decoration-color 160ms var(--ease-out);
+}
+.ma-bar__links a:hover { color: var(--ink); text-decoration: underline; text-decoration-thickness: 0.09em; }
+.ma-bar__links a[aria-current='page'] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 0.09em;
+}
+.ma-bar__search { min-height: 44px; padding: 0.5em 1.15em 0.5em 1em; font-size: var(--step-small); }
+
+/* Bottom tab bar: phone only */
+.tabbar { display: none; }
+
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  body:has(.tabbar) { --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px)); --player-h: 68px; }
+  .ma-bar__links { display: none; }
+  .ma-bar__search { width: 44px; padding: 0; }
+  .ma-bar__search-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap;
+  }
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 110;
+    display: flex;
+    height: var(--tabbar-h);
+    padding: 0 var(--margin) env(safe-area-inset-bottom, 0px);
+    background: var(--surface);
+  }
+  .tabbar__item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.1;
+    transition: color 160ms var(--ease-out);
+  }
+  .tabbar__item svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .tabbar__item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabbar__item:hover, .tabbar__item.is-active { color: var(--ink); }
+}
+
+/* ─── Player bar: fixed at the bottom, solid surface ─────────────────────────
+   Persistent across the whole archive (Navbar renders the Player island with
+   transition:persist). Cover + names left, transport + progress centre, the
+   YouTube link right. Accent appears twice: the play button and the progress
+   fill. */
+/* The bar stays off-screen until the first Play: nothing to show before that, and an
+   empty bar would sit over the page for no reason. The Player reveals the cover when it
+   paints "now playing", which is the signal used here. */
+body:has(.tabbar) { padding-bottom: var(--tabbar-h); }
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) { padding-bottom: calc(var(--player-h) + var(--tabbar-h)); }
+
+#now-playing-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--tabbar-h);
+  z-index: 100;
+  height: var(--player-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1rem;
+  padding-inline: var(--margin);
+  background: var(--surface);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 300ms var(--ease-out), visibility 0s linear 300ms;
+}
+body:has(.np-cover[style*='visibility: visible']) #now-playing-bar {
+  transform: none;
+  visibility: visible;
+  transition: transform 300ms var(--ease-out);
+}
+.np-cover[style*='hidden'] { display: none; }
+.np-left { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
+.np-cover {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  object-position: 0% 50%;
+  background: var(--surface-2);
+}
+.np-text { display: flex; flex-direction: column; min-width: 0; }
+.np-name, .np-artist {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--step-small);
+  line-height: 1.35;
+}
+.np-name { color: var(--ink); font-weight: 500; }
+.np-artist { color: var(--muted); }
+.np-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
+.np-controls { display: flex; align-items: center; gap: 0.25rem; }
+.np-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.np-icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+.np-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.np-toggle:hover { background: var(--accent-hover); }
+.np-toggle:active { transform: scale(0.96); }
+.np-toggle .ic-play { margin-left: 2px; }
+.np-timeline { display: flex; align-items: center; gap: 0.75rem; width: 100%; max-width: 560px; }
+.np-time {
+  flex: 0 0 auto;
+  min-width: 3.4ch;
+  font-size: var(--step-small);
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.np-time:last-child { text-align: right; }
+.np-progress { flex: 1 1 auto; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.np-progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 400ms linear; }
+@keyframes np-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+#now-playing-progress.np-loading { animation: np-pulse 1s ease-in-out infinite; }
+.np-right { display: flex; justify-content: flex-end; min-width: 0; }
+.np-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 160ms var(--ease-out);
+}
+.np-yt-link:hover { color: var(--ink); }
+.np-yt-icon { display: none; }
+
+/* Mini video: docked above the bar's right end. Square corners, no shadow.
+   While the album is only cued (nothing played yet) it is parked below the screen and
+   inert; it slides in as soon as playback starts or an overlay (loading / error)
+   needs to be seen, and stays visible while playing (YouTube terms). */
+#mini-player {
+  position: fixed;
+  right: var(--margin);
+  bottom: calc(var(--player-h) + var(--tabbar-h) + 0.75rem);
+  z-index: 90;
+  width: 240px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+  /* Parked below the screen until needed (not hidden: a hidden iframe is a worse
+     place to start playback from, and a transparent one would still sit over the page). */
+  transform: translateY(calc(100% + 160px));
+  pointer-events: none;
+  transition: width 240ms var(--ease-out), transform 300ms var(--ease-out);
+}
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) #mini-player,
+body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'], [data-state='error'])) #mini-player,
+#mini-player:has(.mp-overlay[style*='display: flex']) {
+  transform: none;
+  pointer-events: auto;
+}
+#mini-player.expanded { width: min(480px, calc(100vw - 2 * var(--margin))); }
+#mini-player iframe { border: 0; pointer-events: none; }
+
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--surface-3);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: mp-spin 0.8s linear infinite;
+}
+.mp-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: #000;
+  text-align: center;
+}
+.mp-title { font-size: var(--step-small); font-weight: 600; color: var(--ink); }
+.mp-text { font-size: var(--step-small); color: var(--muted); }
+.mp-link { font-size: var(--step-small); font-weight: 500; color: var(--ink); text-decoration: underline; }
+.mp-retry { min-height: 36px; padding: 0.4em 1.1em; font-size: var(--step-small); }
+
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  #now-playing-bar { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.5rem; }
+  .np-cover { width: 48px; height: 48px; }
+  .np-center { grid-column: 2; grid-row: 1; }
+  .np-right { display: none; }
+  .np-timeline { display: none; }
+  .np-controls { gap: 0; }
+  #mini-player { width: 176px; bottom: calc(var(--player-h) + var(--tabbar-h) + 0.5rem); }
+}
+
+/* ─── Footer: the name across the last photograph ────────────────────────────*/
+.ma-footer {
+  --bleed-h: clamp(520px, 78svh, 820px);
+  position: relative;
+  isolation: isolate;
+  margin-top: var(--gap-sect);
+  min-height: var(--bleed-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.25rem, 2vw, 2rem) var(--margin) clamp(1.25rem, 2.4vw, 2rem);
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--surface);
+}
+main:has(.ask) + .ma-footer { margin-top: 0; }
+.ma-footer__photo { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.ma-footer__photo::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.55); }
+.ma-footer__photo img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.ma-footer__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+.ma-footer__links, .ma-footer__contact { display: flex; flex-direction: column; align-items: flex-start; }
+.ma-footer__contact { align-items: flex-end; text-align: right; }
+.ma-footer__links a, .ma-footer__contact a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-body);
+  color: var(--ink);
+}
+.ma-footer__links a:hover, .ma-footer__contact a:hover { text-decoration: underline; color: var(--ink); }
+.ma-footer__bottom { display: flex; flex-direction: column; gap: 0.75rem; }
+.ma-footer__name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14vw;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ma-footer__legal { font-size: var(--step-small); color: var(--ink); max-width: 58ch; }
+@media (max-width: 599px) {
+  .ma-footer { --bleed-h: max(78svh, 800px); }
+  .ma-footer__top { flex-direction: column; gap: 0.75rem; }
+  .ma-footer__contact { align-items: flex-start; text-align: left; }
+}
+
+/* ─── Pictures that bleed: the left square of a YouTube thumbnail is the cover,
+   so a full-bleed close-up scales that square up to the frame width. --bleed-h
+   is the frame height; on a portrait frame the image is as tall as the frame
+   and the crop is centred on the cover. ──────────────────────────────────────*/
+.hero__img, .gem__img, .ma-footer__photo img {
+  max-width: none;
+  height: auto;
+  width: max(195%, calc(var(--bleed-h) * 1.95));
+}
+@media (max-aspect-ratio: 1 / 1) {
+  .hero__img, .gem__img, .ma-footer__photo img { left: 50%; transform: translate(-29%, -50%); }
+}
+
+/* ─── Album card ─────────────────────────────────────────────────────────────
+   One real link for the whole card. The cover is the left square of the 16:9
+   thumbnail. Hover: the cover brightens and a round accent play mark appears.
+   No shadow, no scale. */
+.album-card {
+  display: block;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+  scroll-snap-align: start;
+}
+.album-card:hover { color: var(--ink); }
+.album-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.album-card__art { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface-2); }
+.album-card__cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 0% 50%;
+  transition: filter 160ms var(--ease-out);
+}
+.album-card:hover .album-card__cover { filter: brightness(1.12); }
+.album-card__cover--empty { background: var(--surface-2); }
+.album-card__cover--live {
+  display: grid;
+  place-content: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  text-align: center;
+  background: var(--surface-2);
+}
+.live-cover__band { font-family: var(--font-display); font-size: var(--step-body); line-height: 1.1; color: var(--ink); overflow-wrap: anywhere; }
+.live-cover__tag { font-size: var(--step-small); color: var(--muted); }
+.album-card__open {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out), background-color 160ms var(--ease-out);
+  pointer-events: none;
+}
+.album-card__open svg { margin-left: 2px; }
+.album-card:hover .album-card__open, .album-card:focus-visible .album-card__open { opacity: 1; }
+@media (hover: none) { .album-card__open { display: none; } }
+.album-card__body { padding-top: 0.75rem; min-width: 0; }
+.album-card__band, .album-card__album {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.album-card__band { font-family: var(--font-display); font-weight: 500; font-size: var(--step-body); line-height: 1.2; color: var(--ink); letter-spacing: -0.01em; }
+.album-card__album { margin-top: 0.15rem; font-size: var(--step-small); color: var(--muted); }
+.album-card__genre { color: var(--muted); font-size: var(--step-small); margin-top: 0.3rem; }
+
+.album-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 17vw, 230px), 1fr)); gap: 2rem var(--col-gap); }
+@media (min-width: 1200px) { .album-grid { gap: 2.5rem var(--col-gap); } }
+
+/* ─── Shelf: heading, "See all" and the two buttons, one row of whole cards ───
+   The row shows a whole number of cards (2 on a phone, up to 6 on a wide screen)
+   between the page margins, so no card is cut by the edge of the screen; the
+   buttons and a swipe move it a page at a time. */
+.carousel-deferred { content-visibility: auto; contain-intrinsic-size: auto 480px; }
+.shelf { margin-top: var(--gap-sect); }
+.shelf--headless { margin-top: 0; }
+.shelf__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+  padding-inline: var(--margin);
+  margin-bottom: clamp(1.25rem, 2.4vw, 2rem);
+}
+.shelf--headless .shelf__head { justify-content: flex-end; margin-bottom: 1rem; }
+.shelf__title { font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; }
+.shelf__tools { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
+.shelf__more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-body);
+  color: var(--ink);
+  text-decoration: underline;
+}
+.shelf__nav-group { display: flex; gap: 0.5rem; }
+.shelf__nav {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.shelf__nav[hidden] { display: none; }
+.shelf__nav:hover { background: var(--surface-3); }
+.shelf__frame { margin-inline: var(--margin); }
+.shelf__track {
+  --cols: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--cols) - 1) * var(--col-gap)) / var(--cols));
+  gap: var(--col-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.shelf__track::-webkit-scrollbar { display: none; }
+.shelf__track:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+@media (min-width: 560px) { .shelf__track { --cols: 3; } }
+@media (min-width: 760px) { .shelf__track { --cols: 4; } }
+@media (min-width: 1000px) { .shelf__track { --cols: 5; } }
+@media (min-width: 1240px) { .shelf__track { --cols: 6; } }
+
+/* ─── Home sections ──────────────────────────────────────────────────────────*/
+.sect { margin-top: var(--gap-sect); padding-inline: var(--margin); max-width: 1920px; margin-inline: auto; }
+.sect-title { font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; }
+
+/* Entrances: the parts of a section (.rv) rise into place once, staggered. */
+.rv { transition: opacity 700ms var(--ease-expo), transform 700ms var(--ease-expo); transition-delay: calc(var(--i, 0) * 70ms); }
+.js [data-reveal]:not(.is-in) .rv,
+.js .rv[data-reveal]:not(.is-in) { opacity: 0; transform: translateY(20px); }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 800ms var(--ease-expo) both; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
+
+/* 1 · Hero: card over a dim room */
+.hero {
+  --bleed-h: 100svh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 100svh;
+  margin-top: calc(var(--bar-h) * -1);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-content: center;
+  padding: calc(var(--bar-h) + 1rem) var(--margin) calc(var(--player-h) + var(--tabbar-h) + 1.25rem);
+  background: var(--bg);
+}
+.hero__bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
+.hero__img {
+  /* The room: the cover pushed down to a dim, desaturated backdrop (a plain filter on the
+     image itself, no backdrop-filter). The light blur hides the softness of a 480p upscale. */
+  filter: brightness(0.32) saturate(0.75) blur(2.5px);
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scale(1.04);
+  animation: hero-drift 32s var(--ease-soft) infinite alternate;
+}
+@keyframes hero-drift {
+  from { transform: translateY(-50%) scale(1.04); }
+  to { transform: translateY(-50%) scale(1.14) translate3d(-1.5%, 0, 0); }
+}
+@media (max-aspect-ratio: 1 / 1) {
+  @keyframes hero-drift {
+    from { transform: translate(-29%, -50%) scale(1.04); }
+    to { transform: translate(-29%, -50%) scale(1.14); }
+  }
+}
+.hero__card {
+  --cover: clamp(112px, 9.5vw, 144px);
+  grid-column: 4 / span 7;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  row-gap: clamp(1.5rem, 3vw, 2.5rem);
+  min-height: clamp(21rem, 46svh, 30rem);
+  padding: clamp(1.25rem, 2.2vw, 2rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.hero__head { display: grid; row-gap: 0.85rem; }
+.hero__title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: 0.4em;
+  font-size: var(--step-head);
+  line-height: 0.98;
+}
+.hero__lead { max-width: 46ch; font-size: var(--step-body); line-height: 1.45; color: var(--ink); text-wrap: balance; }
+/* The one lit thing in the card: the featured cover, un-dimmed, beside its credit. */
+.hero__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 30ch); column-gap: var(--col-gap); align-items: end; }
+.hero__credit {
+  display: grid;
+  grid-template-columns: var(--cover) minmax(0, 1fr);
+  column-gap: 1.1rem;
+  align-items: end;
+  color: var(--ink);
+  text-decoration: none;
+}
+.hero__credit:hover { color: var(--ink); }
+.hero__cover { display: block; width: var(--cover); height: var(--cover); object-fit: cover; object-position: 0% 50%; border-radius: 0; background: var(--surface); }
+.hero__credit-text { display: grid; row-gap: 0.2em; min-width: 0; }
+.hero__credit-band, .hero__credit-album {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+}
+.hero__credit-band { -webkit-line-clamp: 2; font-size: var(--step-body); font-weight: 500; }
+.hero__credit-album { -webkit-line-clamp: 3; font-size: var(--step-small); text-decoration: underline; text-underline-offset: 0.22em; }
+.hero__credit:hover .hero__credit-album { text-decoration-thickness: 0.12em; }
+.hero__facts {
+  display: grid;
+  gap: 0.2em;
+  list-style: none;
+  font-family: var(--font-display);
+  font-size: var(--step-lead);
+  line-height: 1.15;
+  color: var(--ink);
+}
+.hero__facts strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.hero__foot { display: flex; align-items: center; justify-content: space-between; column-gap: var(--col-gap); }
+.hero__surprise {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+}
+.hero__surprise:hover { color: var(--ink); text-decoration-thickness: 0.12em; }
+
+@media (max-width: 899px) {
+  .hero__title { justify-content: flex-start; column-gap: 0.28em; }
+  .hero { display: block; padding-inline: var(--margin); }
+  .hero__card { --cover: 112px; min-height: 0; }
+  .hero__body { grid-template-columns: 1fr; row-gap: 1.25rem; align-items: start; }
+  .hero__facts { order: 1; }
+  .hero__credit { order: 2; }
+  .hero__foot { flex-direction: column; align-items: stretch; row-gap: 0.5rem; }
+  .hero__play { width: 100%; }
+  .hero__surprise { justify-self: center; align-self: center; }
+}
+@media (max-width: 599px) { .hero__card { --cover: 88px; } }
+
+/* 2 · Find a record */
+.find { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.find__intro { grid-column: 1 / span 4; }
+.find__lead { margin-top: 1rem; max-width: 30ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.find__tools { grid-column: 5 / span 8; padding-top: 0.5rem; }
+.find__form { display: flex; gap: 0.75rem; }
+.find__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 1.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-body);
+}
+.find__input::placeholder { color: var(--muted); opacity: 1; }
+.find__input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.find__form .btn { min-height: 56px; }
+@media (max-width: 479px) { .find__input { padding: 0 1.1rem; } .find__form .btn { padding-inline: 1.15em; } }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; list-style: none; }
+@media (max-width: 899px) {
+  .find { display: block; }
+  .find__tools { padding-top: 1.5rem; }
+}
+
+/* 4 · Most played: sticky cover, active list */
+.played { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.played__stage { grid-column: 1 / span 5; position: sticky; top: calc(var(--bar-h) + 4vh); }
+.played__cover { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.played__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 0% 50%;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+.played__img.is-active { opacity: 1; }
+.played__main { grid-column: 7 / -1; }
+.played__lead { margin: 1rem 0 clamp(1.5rem, 3vw, 2.5rem); max-width: 36ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.played__list { list-style: none; }
+.played__row a {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 6rem;
+  padding: 0.75rem 0 0.75rem 1.25rem;
+  color: var(--muted);
+  transition: color 160ms var(--ease-out);
+}
+.played__row a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 4px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+.played__row.is-active a { color: var(--ink); }
+.played__row.is-active a::before { opacity: 1; }
+.played__name { display: grid; gap: 0.2rem; min-width: 0; }
+.played__band { font-family: var(--font-display); font-size: var(--step-lead); line-height: 1.1; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.played__album { font-size: var(--step-small); line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.played__views { font-size: var(--step-small); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Narrow screens: the cover becomes a band pinned under the bar (a strip 112px tall: it
+   never hides the list, the list just scrolls under it). */
+@media (max-width: 899px) {
+  .played { display: block; }
+  .played__stage { top: var(--bar-h); z-index: 3; margin-inline: calc(var(--margin) * -1); }
+  .played__cover { aspect-ratio: auto; height: 112px; }
+  .played__img { inset: auto; left: 0; top: 50%; width: 177.78%; height: auto; max-width: none; transform: translateY(-50%); }
+  .played__main { padding-top: 1.5rem; }
+}
+
+/* 5 · By genre */
+.genre__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; margin-bottom: clamp(1.25rem, 2.4vw, 2rem); }
+.genre__tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.genre { padding-inline: 0; max-width: none; }
+.genre__head, .genre__all { padding-inline: var(--margin); }
+.genre__panel .shelf { margin-top: 0; }
+.genre__all { display: inline-flex; align-items: center; min-height: 44px; margin-top: 1.25rem; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+.genre__panel[hidden] { display: none; }
+
+/* 6 · Hidden gems: three close-ups, one bone card per frame */
+.gems { margin-top: var(--gap-sect); }
+.gem {
+  --bleed-h: 85svh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 85svh;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 3rem) var(--margin);
+}
+.gem__bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--field, var(--bg)); }
+.gem__bg::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.56); }
+.gem__img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.gem__intro { grid-column: 1; grid-row: 1; align-self: start; }
+/* The number that makes the album a hidden gem sits across from the card, so each
+   frame has something on both sides of the picture. */
+.gem__figure { grid-column: 1 / span 2; grid-row: 1; align-self: end; display: grid; gap: 0.25rem; }
+.gem--first .gem__figure { grid-column: 4; align-self: center; text-align: right; }
+.gem__n { font-family: var(--font-display); font-weight: 500; font-size: var(--step-display); line-height: 0.95; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.gem__unit { font-size: var(--step-body); color: var(--ink); }
+.gem__title { font-size: var(--step-head); line-height: 0.98; }
+.gem__lead { margin-top: 1rem; max-width: 22ch; font-size: var(--step-body); color: var(--ink); }
+.gem__card {
+  grid-column: var(--col);
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.25rem;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.gem__art { aspect-ratio: 1; overflow: hidden; margin-bottom: 0.65rem; background: #d8d0c2; }
+.gem__art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; }
+.gem__album { font-family: var(--font-display); font-weight: 500; font-size: var(--step-lead); line-height: 1.08; letter-spacing: -0.015em; color: var(--on-ink); overflow-wrap: anywhere; }
+.gem__band { font-size: var(--step-body); color: var(--on-ink); }
+.gem__meta { font-size: var(--step-small); color: var(--on-ink-muted); }
+.gem__card .btn { margin-top: 0.85rem; }
+@media (max-width: 899px) {
+  .gem + .gem { margin-top: clamp(2rem, 6vw, 4rem); }
+  .gem { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 2rem; min-height: 100svh; --bleed-h: 100svh; padding-bottom: 0; }
+  .gem__figure, .gem--first .gem__figure { text-align: left; align-self: stretch; }
+  .gem__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    grid-template-areas: 'album art' 'band art' 'meta art' 'btn btn';
+    column-gap: 1rem;
+    align-content: start;
+    align-self: flex-start;
+    width: min(30rem, 100%);
+    padding: 1.25rem 1.25rem 1.5rem;
+    margin-bottom: clamp(1.5rem, 3vw, 3rem);
+  }
+  .gem__art { grid-area: art; width: 96px; margin: 0; }
+  .gem__album { grid-area: album; }
+  .gem__band { grid-area: band; }
+  .gem__meta { grid-area: meta; }
+  .gem__card .btn { grid-area: btn; width: 100%; margin-top: 0.75rem; }
+}
+/* Phone: the card is a full-width sheet at the foot of the frame. */
+@media (max-width: 599px) {
+  .gem__card { align-self: stretch; width: auto; margin: 0 calc(var(--margin) * -1); padding: 1.25rem var(--margin) 1.5rem; }
+}
+
+/* 7 · Live in Tegucigalpa: pictures gathered round a heading */
+.live { position: relative; display: grid; place-items: center; min-height: clamp(660px, 92svh, 900px); isolation: isolate; }
+.live__center { position: relative; z-index: 2; max-width: 36rem; text-align: center; }
+.live__title { font-size: var(--step-head); line-height: 0.98; }
+.live__lead { margin: 1.25rem auto 1rem; max-width: 34ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.live__more { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+.live__pics { position: absolute; inset: 0; list-style: none; pointer-events: none; }
+.live__pic { position: absolute; left: var(--x); top: var(--y); width: clamp(120px, 15vw, 240px); aspect-ratio: 9 / 10; pointer-events: auto; }
+.live__pic a { display: block; width: 100%; height: 100%; }
+.live__pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; transition: filter 160ms var(--ease-out); }
+.live__pic a:hover img { filter: brightness(1.12); }
+.live__pic--1 { --x: 17%; --y: 7%; --d: 14px; }
+.live__pic--2 { --x: 43%; --y: 1%; --d: 22px; }
+.live__pic--3 { --x: 68%; --y: 9%; --d: 12px; }
+.live__pic--4 { --x: 14%; --y: 50%; --d: 20px; }
+.live__pic--5 { --x: 72%; --y: 46%; --d: 16px; }
+.live__pic--6 { --x: 28%; --y: 76%; --d: 24px; }
+.live__pic--7 { --x: 56%; --y: 73%; --d: 12px; }
+/* Narrow screens: no room to gather pictures round the heading, so they follow it as a
+   staggered grid (3 across on a tablet, 2 across on a phone). */
+@media (max-width: 899px) {
+  .live { display: block; min-height: 0; }
+  .live__center { margin-inline: auto; }
+  .live__pics { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--col-gap); margin-top: 2.5rem; }
+  .live__pic { position: relative; left: auto; top: auto; width: auto; }
+  .live__pic--2, .live__pic--5 { margin-top: 2.5rem; }
+  .live__pic--7 { display: none; }
+}
+@media (max-width: 599px) {
+  .live__pics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live__pic--5, .live__pic--6 { display: none; }
+  .live__pic--4 { margin-top: 2.5rem; }
+}
+
+/* 8 · Bands */
+.bands { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.bands__intro { grid-column: 1 / span 4; }
+.bands__lead { margin-top: 1rem; max-width: 26ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.bands__grid { grid-column: 5 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.25rem var(--col-gap); list-style: none; }
+.avatar { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; color: var(--ink); }
+.avatar:hover { color: var(--ink); }
+.avatar__img { display: block; width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--surface-2); }
+.avatar__img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; transition: filter 160ms var(--ease-out); }
+.avatar:hover .avatar__img img { filter: brightness(1.12); }
+.avatar__empty { display: block; width: 100%; height: 100%; background: var(--surface-3); }
+.avatar__name { max-width: 100%; font-family: var(--font-display); font-weight: 500; font-size: var(--step-body); line-height: 1.15; overflow-wrap: anywhere; }
+.avatar__count { font-size: var(--step-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 899px) {
+  .bands { display: block; }
+  .bands__grid { margin-top: 2rem; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.75rem 0.75rem; }
+}
+
+/* 9 · Countries and years: plain text lists */
+.lists { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.lists__col--countries { grid-column: 1 / span 7; }
+.lists__col--years { grid-column: 9 / span 4; }
+.plain { margin-top: clamp(1.25rem, 2.4vw, 2rem); list-style: none; columns: 3; column-gap: var(--col-gap); }
+.plain--years { columns: 2; }
+.plain li { break-inside: avoid; }
+.plain a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding-inline: 0.5rem;
+  margin-inline: -0.5rem;
+  color: var(--ink);
+  transition: background-color 160ms var(--ease-out);
+}
+.plain a:hover { background: var(--surface-2); color: var(--ink); }
+.plain a:not(:has(.plain__flag)) { grid-template-columns: minmax(0, 1fr) auto; }
+.plain__flag { font-size: var(--step-body); line-height: 1; }
+.plain__name { font-size: var(--step-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plain__n { font-size: var(--step-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.more { margin-top: 1rem; }
+.more:not([open]) > :not(summary) { display: none; }
+.more summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+@media (max-width: 1099px) { .plain { columns: 2; } }
+@media (max-width: 899px) {
+  .lists { display: block; }
+  .lists__col--years { margin-top: var(--gap-sect); }
+}
+@media (max-width: 479px) { .plain { columns: 1; } .plain--years { columns: 2; column-gap: 1.25rem; } }
+
+/* 10 · Two questions, each with its own action: the first at the left edge, the second at
+   the right edge. Natural height, one viewport at most. */
+.ask {
+  margin-top: var(--gap-sect);
+  padding: clamp(1.5rem, 3vw, 2.5rem) var(--margin);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5rem, 7vw, 5.5rem);
+}
+.ask__block { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+.ask__block--end { align-self: flex-end; align-items: flex-end; text-align: right; }
+.ask__q { font-size: min(var(--step-display), 8.6vw); line-height: 0.95; }
+.ask__note { max-width: 34ch; font-size: var(--step-body); line-height: 1.4; color: var(--ink); text-wrap: pretty; }
+.ask .btn { margin-top: 0.5rem; }
+@media (max-width: 899px) {
+  .ask__q { font-size: 10.5vw; }
+  .ask__block--end { align-self: stretch; align-items: flex-start; text-align: left; }
+  .ask .btn { width: min(100%, 22rem); }
+}
+
+/* ─── Reduced motion: keep the finished state, drop the travel ───────────────*/
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  .rv { transition: none; }
+  .js [data-reveal]:not(.is-in) .rv, .js .rv[data-reveal]:not(.is-in) { opacity: 1; transform: none; }
+  .hero__img { animation: none; }
+  .btn:active, .np-toggle:active { transform: none; }
+  .played__img { transition: none; }
+  #mini-player, #now-playing-bar { transition: none; }
+}
+
+/* Scroll-linked drift of the live pictures (4-12% of their own height) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .live__pic { animation: live-drift linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+  }
+}
+@keyframes live-drift {
+  from { transform: translateY(var(--d, 16px)); }
+  to { transform: translateY(calc(var(--d, 16px) * -1)); }
+}

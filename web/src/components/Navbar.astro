@@ -1,53 +1,70 @@
 ---
-// Navbar: sticky top bar with the personal {daniel_banariba}; brand logo
-// (ported faithfully from links_bio/components/metal/metal_navbar.py) + page links.
-// Logo colors come from links_bio/styles/colors.py LogoColor enum:
-//   { }  -> PARENTESIS #f1d700
-//   word -> PALABRAS   #c398f4
-//   ;    -> PUNTO_Y_COMA #bbbbbb
-// font: DinaRemasterII (Font.LOGO) via --font-logo.
-//
-// Mobile chrome: on metal-archive pages we render a bottom tab bar (like the
-// player mockups) and minimise the top bar. The bio (/) keeps its full navbar
-// and renders no tab bar — it is path-scoped so the bio stays untouched.
+// Navbar: two headers behind one component.
+//  - Bio (/) and 404 keep the original `.navbar` exactly as it was (brand logo
+//    ported from links_bio/components/metal/metal_navbar.py; colours from the
+//    LogoColor enum in colors.py: { } #f1d700, word #c398f4, ; #bbbbbb; font
+//    DinaRemasterII via --font-logo).
+//  - Metal Archive pages get the "dark room" bar: wordmark, four plain links
+//    and one action (search), no fill until the page scrolls. On a phone the
+//    links go and a bottom tab bar takes over. The wordmark keeps the logo font
+//    but is set in bone ink there (see `.ma-bar__brand` in global.css).
 import Player from '../islands/Player.tsx';
 
 const path = Astro.url.pathname;
 const isMetalArchive = path.startsWith('/metal-archive');
+const isHome = path === '/metal-archive' || path === '/metal-archive/';
 const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabbar__item');
 ---
 <a href="#main" class="skip-link">Skip to content</a>
-<header class={isMetalArchive ? 'navbar navbar--ma' : 'navbar'}>
-  <a href="/" class="navbar__brand" aria-label="daniel_banariba">
-    <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
-  </a>
-  <nav class="navbar__links" aria-label="Site">
-    <a href="/">Bio</a>
-    <a href="/metal-archive">Archive</a>
-    <a href="/metal-archive/browse">Browse</a>
-    <a href="/metal-archive/submit">Submit</a>
-    <!-- Promote was reachable ONLY from the mobile tab bar; desktop visitors had
-         no path to it at all. It is the page that generates revenue, so it
-         belongs in both navigations. -->
-    <a href="/metal-archive/promo">Promote</a>
-    <a href="/metal-archive/newsletter">Newsletter</a>
-    <!-- F7 (Oct 2026 UI audit): below 560px the label span is display:none
-         (hidden content is excluded from accessible-name computation), and the
-         svg is aria-hidden, so the button had NO accessible name on mobile.
-         aria-label fixes it on every viewport. -->
-    <button id="navbar-surprise" class="navbar__surprise" type="button" aria-label="Surprise me">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-        <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"></circle>
-        <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"></circle>
-        <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"></circle>
-        <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle>
-        <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
-      </svg>
-      <span class="navbar__surprise-label">Surprise me</span>
-    </button>
-  </nav>
-</header>
+{isMetalArchive ? (
+  <header class="ma-bar">
+    <a href="/" class="ma-bar__brand" aria-label="daniel_banariba, personal site">
+      <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
+    </a>
+    <nav class="ma-bar__links" aria-label="Archive">
+      <a href="/metal-archive" aria-current={isHome ? 'page' : undefined}>Archive</a>
+      <a href="/metal-archive/submit" aria-current={path.startsWith('/metal-archive/submit') ? 'page' : undefined}>Submit</a>
+      <a href="/metal-archive/promo" aria-current={path.startsWith('/metal-archive/promo') ? 'page' : undefined}>Promote</a>
+      <a href="/metal-archive/newsletter" aria-current={path.startsWith('/metal-archive/newsletter') ? 'page' : undefined}>Newsletter</a>
+    </nav>
+    <a class="btn btn--secondary ma-bar__search" href="/metal-archive/browse" aria-label="Search the archive">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+      <span class="ma-bar__search-label">Search</span>
+    </a>
+  </header>
+) : (
+  <header class="navbar">
+    <a href="/" class="navbar__brand" aria-label="daniel_banariba">
+      <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
+    </a>
+    <nav class="navbar__links" aria-label="Site">
+      <a href="/">Bio</a>
+      <a href="/metal-archive">Archive</a>
+      <a href="/metal-archive/browse">Browse</a>
+      <a href="/metal-archive/submit">Submit</a>
+      <!-- Promote was reachable ONLY from the mobile tab bar; desktop visitors had
+           no path to it at all. It is the page that generates revenue, so it
+           belongs in both navigations. -->
+      <a href="/metal-archive/promo">Promote</a>
+      <a href="/metal-archive/newsletter">Newsletter</a>
+      <!-- F7 (Oct 2026 UI audit): below 560px the label span is display:none
+           (hidden content is excluded from accessible-name computation), and the
+           svg is aria-hidden, so the button had NO accessible name on mobile.
+           aria-label fixes it on every viewport. -->
+      <button id="navbar-surprise" class="navbar__surprise" type="button" aria-label="Surprise me">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"></circle>
+          <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"></circle>
+          <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"></circle>
+          <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle>
+          <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
+        </svg>
+        <span class="navbar__surprise-label">Surprise me</span>
+      </button>
+    </nav>
+  </header>
+)}
 
 {isMetalArchive && (
   <nav class="tabbar" aria-label="Section navigation">
@@ -124,6 +141,17 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   // overlap on the first metal-archive load a no-op.
   bindNavbarSurprise();
   document.addEventListener('astro:page-load', bindNavbarSurprise);
+
+  // Archive bar: transparent over the page's first screen, solid ground once
+  // the page has scrolled. The header is fresh markup after every ClientRouter
+  // swap, so the class is re-synced on astro:page-load as well.
+  function syncBarScroll() {
+    const bar = document.querySelector('.ma-bar');
+    if (bar) bar.classList.toggle('is-scrolled', window.scrollY > 8);
+  }
+  syncBarScroll();
+  window.addEventListener('scroll', syncBarScroll, { passive: true });
+  document.addEventListener('astro:page-load', syncBarScroll);
 
   // F7 skip-link (#7): move focus to <main id="main"> after a CLIENT-SIDE
   // navigation swap only -- never on the initial page load, which would
