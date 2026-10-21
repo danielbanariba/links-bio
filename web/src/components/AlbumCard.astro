@@ -6,47 +6,59 @@
 // mark is part of the link, not a second control: the card cannot play in
 // place (the Player reads the album page's data island), so it opens the album.
 //
-// `livePlaceholder` (optional) renders a flat label tile instead of the
-// thumbnail, for the band page's live-set cards.
+// Two options for the band page, where the cards are all one band's:
+//   - `ofBand` leads with the album, not the band: the title in the display face, then
+//     the tail of the title (a live set's "(Live in ...)", "[Remastered]") and, for a studio
+//     album, the year.
+//   - `frame` shows the whole 16:9 thumbnail instead of its left square. A live set's
+//     thumbnail is a frame of the show, not cover art, so cropping it would cut it at random.
 import type { Card } from '../lib/types.js';
 
 interface Props {
   album: Card;
   loading?: 'lazy' | 'eager';
-  livePlaceholder?: boolean;
+  ofBand?: boolean;
+  frame?: boolean;
 }
 
-const { album, loading = 'lazy', livePlaceholder = false } = Astro.props;
+const { album, loading = 'lazy', ofBand = false, frame = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
+
+// "Name (tail)" or "Name [tail]": the name leads, the tail follows in the muted line. A live
+// set's year column is mostly 0 or the year of its songs; its date is in the tail, so no year.
+const parts = /^(.{4,}?)\s+([(\[].+)$/.exec(album.album_title);
+const name = ofBand && parts ? parts[1] : album.album_title;
+const sub = ofBand ? [parts ? parts[2] : '', !frame && album.year ? String(album.year) : ''].filter(Boolean).join(' · ') : '';
 ---
 
-<a class="album-card" href={href}>
+<a class:list={['album-card', frame && 'album-card--frame']} href={href}>
   <div class="album-card__art">
-    {livePlaceholder
-      ? (
-        <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-          <span class="live-cover__band">{album.band_name}</span>
-          <span class="live-cover__tag">Live set</span>
-        </div>
-      )
-      : album.thumb
-        ? <img
-            class="album-card__cover"
-            src={album.thumb}
-            alt=""
-            loading={loading}
-            decoding="async"
-            width="320"
-            height="180"
-          />
-        : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+    {album.thumb
+      ? <img
+          class="album-card__cover"
+          src={album.thumb}
+          alt=""
+          loading={loading}
+          decoding="async"
+          width="320"
+          height="180"
+        />
+      : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
     }
     <span class="album-card__open" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
     </span>
   </div>
   <div class="album-card__body">
-    <div class="album-card__band">{album.band_name}</div>
-    <div class="album-card__album">{album.album_title}</div>
+    {ofBand
+      ? <>
+          <div class="album-card__band">{name}</div>
+          {sub && <div class="album-card__album">{sub}</div>}
+        </>
+      : <>
+          <div class="album-card__band">{album.band_name}</div>
+          <div class="album-card__album">{album.album_title}</div>
+        </>
+    }
   </div>
 </a>

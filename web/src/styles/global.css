@@ -193,31 +193,13 @@ img {
   max-width: 100%;
 }
 
-/* ─── Layout utilities ───────────────────────────────────────────────────────
-   Wide container + fluid side padding so content spans the screen instead of a
-   narrow centered column. --gutter scales from 1rem (phones) to 3rem (desktop). */
-.wrap {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-.wrap--detail {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-
 /* Below-fold carousels: defer rendering until near viewport */
 .carousel-deferred {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
 }
 
-/* ─── Album grid (genre / country / year / browse / album pages) ──────────────
+/* ─── Album grid (browse and the Search island; the band and facet pages use .wall) ─
    Gallery wall: large covers, generous gap, matches .gallery-grid rhythm.
    auto-fill + minmax fills every row completely (no holes) and reflows from
    ~2 cols on phones to 6+ on wide desktops.                                   */
@@ -364,69 +346,9 @@ img {
   }
 }
 
-/* ─── Home: Live Recordings section ──────────────────────────────────────────
-   Daniel's own live sets, visually set apart from the official-album feeds:
-   a left accent rule, a "Live sets" badge, and a short clarifying note.       */
-.live-section {
-  border-left: 3px solid var(--primary);
-  padding-left: clamp(0.8rem, 2vw, 1.4rem);
-}
-
-.live-section__heading {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-.live-section__badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: 2px;
-  padding: 0.18em 0.5em;
-  white-space: nowrap;
-}
-
-.live-section__note {
-  color: var(--text-footer);
-  font-size: 0.85rem;
-  margin: -0.8rem 0 1.4rem;
-}
-
-/* ─── Facet pages: mini-hero + chain-to-Browse refine button ─────────────────*/
-/* Genre pages set --album-color on <html> (inherited from the representative
-   cover via vibrant cache), so --accent tints the hero there; country/year keep
-   the resting fallback. */
-.facet-hero {
-  margin-bottom: 1.5rem;
-  padding: 1.4rem 1.2rem;
-  border-radius: 0.9em;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--accent) 16%, transparent),
-      transparent 70%),
-    var(--content);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: flex-start;
-}
-.facet-hero__title {
-  font-size: clamp(1.6rem, 5vw, 2.5rem);
-  color: var(--text-header);
-  line-height: 1.1;
-}
-.facet-hero__count {
-  color: var(--text-footer);
-  font-size: 0.9rem;
-}
+/* ─── 404 buttons (.facet-refine) ───────────────────────────────────────────
+   The genre / country / year pages used to share this pill; they now use .btn. The
+   404 page still does, until it is rebuilt with the forms. */
 .facet-refine {
   margin-top: 0.5rem;
   display: inline-flex;
@@ -449,27 +371,6 @@ img {
 }
 @media (prefers-reduced-motion: reduce) {
   .facet-refine { transition: none; }
-}
-
-/* ─── Band page ──────────────────────────────────────────────────────────────*/
-.band-page {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 var(--gutter) 4rem;
-}
-
-.band-section-title {
-  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: -0.01em;
-  margin-bottom: 1.25rem;
-}
-
-.band-section + .band-section {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
 }
 
 /* ─── Browse page ────────────────────────────────────────────────────────────*/
@@ -1119,93 +1020,6 @@ img {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BAND ("artist") PAGE HEADER — cover backdrop + circular avatar + real stats.
-   --album-color is set per band (its newest cover) so the header takes that
-   band's colour. No fabricated monthly-listeners / follow.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.artist-header {
-  position: relative;
-  margin: 0 calc(-1 * var(--gutter)) 2.5rem;
-  padding: clamp(2rem, 6vw, 4rem) var(--gutter) clamp(1.5rem, 4vw, 2.5rem);
-  overflow: hidden;
-  isolation: isolate;
-}
-.artist-header__backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background-size: cover;
-  background-position: center;
-  filter: blur(44px) saturate(1.25);
-  transform: scale(1.25);
-  opacity: 0.55;
-}
-.artist-header::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent) 32%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 82%, transparent) 68%,
-    var(--bg) 100%);
-}
-.artist-header__inner {
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(1.2rem, 4vw, 2.2rem);
-}
-.artist-header__avatar {
-  width: clamp(120px, 26vw, 196px);
-  height: clamp(120px, 26vw, 196px);
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 3px solid color-mix(in srgb, #fff 12%, transparent);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 50px var(--accent-glow);
-}
-.artist-header__avatar--empty { background: linear-gradient(135deg, var(--content), var(--accent-soft)); }
-.artist-header__info { min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; }
-.artist-header__eyebrow {
-  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.2em;
-  text-transform: uppercase; color: var(--accent-bright);
-}
-.artist-header__name {
-  margin: 0;
-  font-size: clamp(2.2rem, 8vw, 4.5rem);
-  font-weight: 800; line-height: 1; letter-spacing: -0.02em;
-  color: var(--title-white); overflow-wrap: anywhere;
-}
-.artist-header__stats { color: var(--text-body); font-size: 0.95rem; }
-.artist-header__stats .sep { color: var(--text-footer); }
-.artist-header__origin { color: var(--text-footer); font-size: 0.85rem; }
-.artist-header__actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.7rem; }
-.artist-header__play {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  padding: 0.7em 1.5em; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 88%, #fff); color: var(--on-accent);
-  font-weight: 700; font-size: 0.95rem; text-decoration: none;
-  box-shadow: 0 10px 26px var(--accent-glow);
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-.artist-header__play:hover { transform: translateY(-2px); filter: brightness(1.05); color: var(--on-accent); }
-.artist-header__action {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  padding: 0.7em 1.2em; border-radius: var(--radius-pill);
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
-  color: var(--text-header); font-family: var(--font-default);
-  font-size: 0.9rem; font-weight: 500; cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.artist-header__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
-@media (max-width: 640px) {
-  .artist-header__inner { flex-direction: column; align-items: flex-start; }
-}
-@media (prefers-reduced-motion: reduce) { .artist-header__play:hover { transform: none; } }
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
    METAL ARCHIVE, "THE DARK ROOM" (premium redesign, 2026)
 
    One warm-black field top to bottom; the covers are the only lit things.
@@ -1724,16 +1538,6 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
 }
 .album-card:hover .album-card__cover { filter: brightness(1.12); }
 .album-card__cover--empty { background: var(--surface-2); }
-.album-card__cover--live {
-  display: grid;
-  place-content: center;
-  gap: 0.4rem;
-  padding: 1rem;
-  text-align: center;
-  background: var(--surface-2);
-}
-.live-cover__band { font-family: var(--font-display); font-size: var(--step-body); line-height: 1.1; color: var(--ink); overflow-wrap: anywhere; }
-.live-cover__tag { font-size: var(--step-small); color: var(--muted); }
 .album-card__open {
   position: absolute;
   right: 0.75rem;
@@ -1777,16 +1581,18 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
 .shelf--headless { margin-top: 0; }
 .shelf__head {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 0.5rem 2rem;
+  gap: 1rem 2rem;
   padding-inline: var(--margin);
   margin-bottom: clamp(1.25rem, 2.4vw, 2rem);
 }
 .shelf--headless .shelf__head { justify-content: flex-end; margin-bottom: 1rem; }
-.shelf__title { font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; }
-.shelf__tools { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
+/* One row at every width. A long heading ("More from the band" on a phone) shrinks and
+   wraps inside its own column; "See all" and the buttons keep their place beside it
+   instead of dropping under it. */
+.shelf__title { flex: 0 1 auto; min-width: 0; font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; text-wrap: balance; }
+.shelf__tools { flex: none; display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
 .shelf__more {
   display: inline-flex;
   align-items: center;
@@ -2325,7 +2131,8 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
   overflow-wrap: anywhere;
 }
 .album-head__band a,
-.album-head__facts a {
+.album-head__facts a,
+.page-head__facts a {
   color: var(--ink);
   text-decoration: underline;
   text-decoration-thickness: 0.07em;
@@ -2334,8 +2141,10 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
   transition: text-decoration-color 160ms var(--ease-out);
 }
 .album-head__band a:hover,
-.album-head__facts a:hover { color: var(--ink); text-decoration-color: currentColor; }
-.album-head__facts {
+.album-head__facts a:hover,
+.page-head__facts a:hover { color: var(--ink); text-decoration-color: currentColor; }
+.album-head__facts,
+.page-head__facts {
   /* Separators lead each item and the list clips its own left edge, so a dot is never the
      first or last thing on a wrapped line (the item's -1.1em margin parks its dot out of view). */
   display: flex;
@@ -2349,15 +2158,20 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
-.album-head__facts li { position: relative; margin: 0 1.1em 0 -1.1em; padding-left: 1.1em; }
-.album-head__facts li::before { content: '·'; content: '·' / ''; position: absolute; left: 0.4em; color: var(--muted); }
-.album-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: clamp(1.25rem, 2.4vw, 2rem); }
+.album-head__facts li,
+.page-head__facts li { position: relative; margin: 0 1.1em 0 -1.1em; padding-left: 1.1em; }
+.album-head__facts li::before,
+.page-head__facts li::before { content: '·'; content: '·' / ''; position: absolute; left: 0.4em; color: var(--muted); }
+.album-head__actions,
+.page-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: clamp(1.25rem, 2.4vw, 2rem); }
 .album-head__play { min-width: 8.5em; }  /* the label changes: Play, Pause, Loading */
 .album-head__links { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: -0.6rem; list-style: none; }  /* the 44px target, so the glyph itself lines up with the text above */
 /* On the field, the secondary fill and the hover tone are steps of the bone ink, so they
    read on any album colour (a fixed grey can land on the field's own tone). */
-.album-head .btn--secondary { background: color-mix(in srgb, var(--ink) 14%, var(--field)); }
-.album-head .btn--secondary:hover { background: color-mix(in srgb, var(--ink) 24%, var(--field)); }
+.album-head .btn--secondary,
+.page-head .btn--secondary { background: color-mix(in srgb, var(--ink) 14%, var(--field)); }
+.album-head .btn--secondary:hover,
+.page-head .btn--secondary:hover { background: color-mix(in srgb, var(--ink) 24%, var(--field)); }
 .icon-btn {
   display: grid;
   place-items: center;
@@ -2454,6 +2268,120 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
 @keyframes tl-eq { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
 body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__eq i { animation: tl-eq var(--d, 700ms) ease-in-out infinite alternate; }
 
+/* ─── Band, genre, country and year pages ────────────────────────────────────
+   The header is the album page's, turned round: the same field and hard edge under the top
+   bar, the name left on 6 of 12 columns (7 below 1100px), the lead cover lit on the right
+   (6 columns, so it is a third of a 1440 screen; 5 below 1100px). Whatever the page says
+   about itself goes under the name.
+   Below 700px it is one column: the name, then what the page says, then the cover. Under
+   it, a cover grid: 2 columns on a phone up to 5 on a desktop (.wall). */
+.page-head {
+  position: relative;
+  margin-top: calc(var(--bar-h) * -1);
+  padding: calc(var(--bar-h) + clamp(1.25rem, 2.6vw, 2.5rem)) var(--margin) clamp(2rem, 4vw, 3.5rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.page-head__inner {
+  max-width: 1920px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: end;
+}
+.page-head__text { grid-column: 1 / span 7; min-width: 0; container-type: inline-size; padding-right: clamp(0.5rem, 3vw, 3rem); }
+.page-head__pic { grid-column: 8 / -1; display: block; min-width: 0; color: var(--ink); text-decoration: none; }
+.page-head--bare .page-head__text { grid-column: 1 / -1; }
+@media (min-width: 1100px) {
+  .page-head__text { grid-column: 1 / span 6; }
+  .page-head__pic { grid-column: 7 / -1; }
+  .page-head--bare .page-head__text { grid-column: 1 / -1; }
+}
+
+/* The name is data of any length, so its size is fitted to the column: --cc is how many
+   characters the wider of its two lines holds (set on the column, which is the container),
+   one character takes about 0.56em, so the name fills two lines at 178 container-widths /
+   --cc. The clamp holds short names at display size and the longest at a readable one. */
+.fit {
+  font-size: var(--step-head);
+  font-size: clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display));
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+.page-head__flag { margin-right: 0.28em; font-size: 0.62em; letter-spacing: 0; vertical-align: 0.1em; }
+.page-head__lead {
+  margin-top: clamp(1rem, 2vw, 1.5rem);
+  max-width: 30ch;
+  font-size: var(--step-lead);
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+.page-head__facts { margin-top: clamp(1rem, 2vw, 1.5rem); }
+.page-head__play { min-width: 9.5em; }  /* the label changes: Play latest, Pause, Loading */
+
+/* The lead cover, lit: the left square of the thumbnail (the art), square corners, with the
+   slow drift of the album page. A live set's frame is shown whole. */
+.page-head__art { display: block; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.page-head__art--frame { aspect-ratio: 16 / 9; }
+.page-head__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 0% 50%;
+  transform-origin: 25% 60%;
+  animation: cover-drift 28s ease-in-out infinite alternate;
+  transition: filter 160ms var(--ease-out);
+}
+.page-head__art--frame img { object-position: 50% 50%; }
+.page-head__pic:hover .page-head__art img { filter: brightness(1.1); }
+.page-head__pic:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.page-head__cap { display: grid; gap: 0.15rem; margin-top: 0.9rem; }
+.page-head__cap-kind { font-size: var(--step-body); font-weight: 500; line-height: 1.25; }
+.page-head__pic:hover .page-head__cap-kind { text-decoration: underline; text-underline-offset: 0.22em; }
+.page-head__cap-detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--step-small);
+  line-height: 1.35;
+  color: var(--muted);
+}
+@media (max-width: 699px) {
+  .page-head__inner { display: block; }
+  .page-head__text { padding-right: 0; }
+  .page-head__pic { margin-top: 2rem; }
+  .page-head__play { width: 100%; }
+}
+
+/* The cover grid. Never reveal the grid of a facet page as a whole: a thousand covers are
+   taller than any screen, and the observer waits for 8% of an element to be on it. */
+.wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem var(--col-gap);
+  margin-top: clamp(1.25rem, 2.4vw, 2rem);
+  list-style: none;
+}
+@media (min-width: 560px) { .wall { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 760px) { .wall { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .wall { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .wall { row-gap: 2.5rem; } }
+/* Live sets: whole 16:9 frames, one column fewer than the covers. */
+.wall--frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 760px) { .wall--frames { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .wall--frames { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.album-card--frame .album-card__art { aspect-ratio: 16 / 9; }
+.album-card--frame .album-card__cover { object-position: 50% 50%; }
+/* A live set's tail holds its place and its date: the information of the card, not a note. */
+.album-card--frame .album-card__album { color: var(--ink); }
+.sect-lead { margin: 1rem 0 0; max-width: 36ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+
 /* ─── Reduced motion: keep the finished state, drop the travel ───────────────*/
 @media (prefers-reduced-motion: reduce) {
   .rise { animation: none; }
@@ -2464,7 +2392,10 @@ body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__e
   .played__img { transition: none; }
   #mini-player, #now-playing-bar { transition: none; }
   .tl__eq i { animation: none !important; }
-  .album-head__cover img { animation: none; }
+  .album-head__cover img, .page-head__art img { animation: none; }
+  /* the buffering pulse of the player's progress: the fill stays, the flicker goes */
+  #now-playing-bar:has(.np-toggle[data-state='buffering']) .np-edge,
+  #now-playing-progress.np-loading { animation: none; }
 }
 
 /* Scroll-linked drift of the live pictures (4-12% of their own height) */

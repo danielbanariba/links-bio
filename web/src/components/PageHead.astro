@@ -1,0 +1,111 @@
+---
+// PageHead: the header of a band, genre, country or year page, in the dark room.
+//
+// A band of the page's own colour (`--field`, the dominant colour of the lit cover mixed
+// down into the ground and capped dark, so the bone type always reads) runs up under the
+// top bar to a hard edge. The name sits left in the display face, the lead cover lit on the
+// right, and whatever the page says about itself (a facts line, a sentence, its actions)
+// goes in the slot, under the name.
+//
+// The name is data of any length (a band can be "Necrocannibalistic Vomitorium", a genre
+// "Black Metal (Early)/Black/Death Metal/Metalcore (Later)"), so its size is fitted to the
+// column: `--cc` is how many characters the wider of its two lines holds when the name is
+// split at the best word boundary (a space, or after a slash), and `.fit` (global.css) turns that into a font size that
+// keeps the name on two lines at any width. The same fit sets the album page title.
+interface Lead {
+  href: string;
+  /** The cover as stored (a 16:9 thumbnail; the left square is the art). */
+  cover: string;
+  /** Show the whole 16:9 frame: a live set's thumbnail is a frame of the show, not cover art. */
+  frame?: boolean;
+  /** First caption line, e.g. "Latest release". */
+  kind: string;
+  /** Second caption line, e.g. the album and its year. */
+  detail: string;
+}
+
+interface Props {
+  title: string;
+  /** A country flag, drawn small before the name. */
+  flag?: string;
+  /** Dominant colour of the lead cover (hex); the field is mixed from it. */
+  color?: string;
+  lead?: Lead | null;
+}
+
+const { title, flag = '', color = '', lead = null } = Astro.props;
+
+// ─── Field: the cover's colour mixed down into the ground ────────────────────
+// The album share is capped at 30%, so the field is always a dark, cover-tinted surface and
+// never a mid-tone, and is stepped down further until bone type (#ece6da) reads at >= 8:1.
+const INK: [number, number, number] = [0xec, 0xe6, 0xda];
+const GROUND: [number, number, number] = [0x0e, 0x0d, 0x0c];
+const lin = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+const ratio = (a: number[], b: number[]) => { const [x, y] = lum(a) > lum(b) ? [a, b] : [b, a]; return (lum(x) + 0.05) / (lum(y) + 0.05); };
+const mixRgb = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+const toHex = (c: number[]) => '#' + c.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+function fieldFor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const rgb = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [0xdd, 0xa1, 0x5e];
+  for (let t = 0.3; t >= 0.08; t -= 0.02) {
+    const f = mixRgb(rgb, GROUND, t);
+    if (ratio(INK, f) >= 8 && lum(f) <= 0.024) return toHex(f);
+  }
+  return toHex(mixRgb(rgb, GROUND, 0.08));
+}
+const field = fieldFor(color);
+
+// ─── Title fit ───────────────────────────────────────────────────────────────
+// Erode has no Cyrillic or CJK, so those fall back to a wider face (1.3). Capitals run wider
+// than lowercase (1.2), m and w wider still (1.5), i, l, j and punctuation narrower (0.55);
+// a space counts 0.45.
+const charWeight = (c: string) =>
+  /[^\u0000-ɏ]/.test(c) ? 1.3
+  : /[mwMW]/.test(c) ? (c === c.toUpperCase() ? 1.6 : 1.5)
+  : /[ijl.,'!:;|]/.test(c) ? 0.55
+  : /[tfrI]/.test(c) ? 0.75
+  : /\p{Lu}/u.test(c) ? 1.2 : 1;
+const wordWeight = (w: string) => [...w.normalize('NFD').replace(/\p{M}/gu, '')].reduce((n, c) => n + charWeight(c), 0);
+function lineChars(name: string, extra: number): number {
+  // A line may break at a space or after a slash ("Goregrind/Grindcore" stacks on two lines).
+  const w = name.split(/\s+|(?<=\/)/).filter(Boolean).map(wordWeight);
+  if (w.length < 2) {
+    // One unbreakable word: up to 16 characters it stays on one line; a longer one is cut
+    // mid-word (overflow-wrap) into two, rather than shrunk until it is the size of body text.
+    const one = (w[0] ?? 1) + extra;
+    return one > 16 ? Math.ceil((one / 2) * 1.08 * 10) / 10 : Math.max(1, one);
+  }
+  let best = Infinity;
+  for (let k = 1; k < w.length; k++) {
+    const first = w.slice(0, k).reduce((n, x) => n + x, 0) + 0.45 * (k - 1) + extra;
+    const rest = w.slice(k).reduce((n, x) => n + x, 0) + 0.45 * (w.length - k - 1);
+    best = Math.min(best, Math.max(first, rest));
+  }
+  return Math.ceil(best * 10) / 10;
+}
+// The flag takes about one character's width, and sits on the first line.
+const chars = lineChars(title, flag ? 1.2 : 0);
+// The name is cut after every slash with a <wbr>, so that is where it may break: the browser
+// does not offer a break there by itself, and the fit above counts on it.
+const parts = title.split('/');
+---
+<header class:list={['page-head', !lead && 'page-head--bare']} style={`--field: ${field};`}>
+  <div class="page-head__inner">
+    <div class="page-head__text" style={`--cc:${chars};`}>
+      <h1 class="page-head__title fit rise" style="--i:0">{flag && <span class="page-head__flag" aria-hidden="true">{flag}</span>}{parts.map((part, i) => (i < parts.length - 1 ? <Fragment>{part}/<wbr /></Fragment> : part))}</h1>
+      <slot />
+    </div>
+    {lead && (
+      <a class="page-head__pic rise" style="--i:1" href={lead.href}>
+        <span class:list={['page-head__art', lead.frame && 'page-head__art--frame']}>
+          <img src={lead.cover} alt="" width="1280" height="720" fetchpriority="high" decoding="async" />
+        </span>
+        <span class="page-head__cap">
+          <span class="page-head__cap-kind">{lead.kind}</span>
+          <span class="page-head__cap-detail">{lead.detail}</span>
+        </span>
+      </a>
+    )}
+  </div>
+</header>
