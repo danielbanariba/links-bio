@@ -593,42 +593,34 @@ export function getBandAlbumCount(bandName: string): number {
   return row?.count ?? 0;
 }
 
-// Header stats for the band page ("artist" header): album count, year range,
-// distinct genres and a representative (most-recent) cover. Real data only — no
-// fabricated "monthly listeners". Used by the upcoming band-page redesign.
-export function getBandStats(bandName: string): {
-  albumCount: number;
-  firstYear: number | null;
-  lastYear: number | null;
-  genres: string[];
-  thumb: string;
-} {
+// Total YouTube views of a band's studio albums, for the band page header. Live sets are
+// Daniel's own recordings, not part of the band's catalogue, so they are left out here the
+// same way they are left out of the album count beside it. NULL views count as 0.
+export function getBandViews(bandName: string): number {
+  const row: any = db
+    .prepare(`SELECT COALESCE(SUM(views), 0) AS total FROM albums WHERE band_name = ? AND ${NOT_LIVE}`)
+    .get(bandName);
+  return row?.total ?? 0;
+}
+
+// The lead record of a genre / country / year page: the most viewed studio album of that
+// facet (live sets excluded, albums with no views skipped, id DESC breaks a tie so the pick
+// is stable between builds). A genre page can group several raw spellings, hence a list of
+// values. Null when nothing in the facet has views yet; the page then has no lead record.
+const FACET_COLUMN = { genre: 'genre', country: 'country', year: 'year' } as const;
+export function getFacetLead(
+  kind: keyof typeof FACET_COLUMN,
+  values: Array<string | number>,
+): (Card & { views: number }) | null {
+  const placeholders = values.map(() => '?').join(',');
   const row: any = db
     .prepare(
-      `SELECT COUNT(id) AS c, MIN(year) AS miny, MAX(year) AS maxy
-       FROM albums WHERE band_name = ?`
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE ${FACET_COLUMN[kind]} IN (${placeholders}) AND views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT 1`
     )
-    .get(bandName);
-  const genreRows: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE band_name = ? AND genre IS NOT NULL AND genre != ''
-       GROUP BY genre ORDER BY c DESC`
-    )
-    .all(bandName);
-  const cover: any = db
-    .prepare(
-      `SELECT album_artwork_url FROM albums WHERE band_name = ?
-       ORDER BY upload_date DESC LIMIT 1`
-    )
-    .get(bandName);
-  return {
-    albumCount: row?.c ?? 0,
-    firstYear: row?.miny ?? null,
-    lastYear: row?.maxy ?? null,
-    genres: genreRows.map((g) => g.genre),
-    thumb: thumb(cover?.album_artwork_url),
-  };
+    .get(...values);
+  return row ? { ...toCard(row), views: row.views } : null;
 }
 
 // ─── Browse index ─────────────────────────────────────────────────────────────
