@@ -93,6 +93,20 @@ const PROJECTS = [
     url: 'https://youtu.be/548LqsbFhSw',
   },
 ];
+
+// ─── Websites ─────────────────────────────────────────────────────────────────
+// Same shape as PROJECTS, but rendered as a visit link: no play overlay and an
+// aria-label that says what the click does (the video cards say "Watch ...").
+const WEBSITES = [
+  {
+    title: 'Arsenal de Odio',
+    body: 'Official website for Arsenal de Odio, a thrash metal band from Tegucigalpa, Honduras — design, development, testing and launch.',
+    logo: '/logo_bandas/arsenal-de-odio.webp',
+    logoScale: '50%',
+    image: '/img_web/arsenal-de-odio.jpg',
+    url: 'https://arsenaldeodio.danielbanariba.com',
+  },
+];
 ---
 
 <!doctype html>
@@ -216,6 +230,21 @@ const PROJECTS = [
               <span class="bio-project__play" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
               </span>
+            </a>
+          </article>
+        ))}
+      </div>
+
+      <!-- ─── Websites ────────────────────────────────────────────────────── -->
+      <h2 class="bio-section-title">Websites</h2>
+      <div class="bio-projects">
+        {WEBSITES.map((w) => (
+          <article class="bio-project">
+            <img class="bio-project__logo" src={w.logo} alt={w.title} style={`width:${w.logoScale}`} loading="lazy" />
+            <h3 class="bio-project__title">{w.title}</h3>
+            <p class="bio-project__body">{w.body}</p>
+            <a class="bio-project__thumb" href={w.url} target="_blank" rel="noopener noreferrer" aria-label={`Visit the ${w.title} website`}>
+              <img src={w.image} alt={`Screenshot of the ${w.title} website`} loading="lazy" />
             </a>
           </article>
         ))}
