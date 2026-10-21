@@ -34,6 +34,9 @@ export interface Card {
   year: number | null;
   country: string | null;
   thumb: string;
+  // The artwork URL exactly as stored (YouTube maxresdefault, 1280x720). `thumb`
+  // is the light mqdefault; large surfaces (hero, close-ups) use this one.
+  cover: string;
   youtube_video_id: string | null;
 }
 

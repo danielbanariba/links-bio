@@ -54,6 +54,7 @@ function toCard(row: any): Card {
     year: row.year ?? null,
     country: row.country ?? null,
     thumb: thumb(row.album_artwork_url),
+    cover: row.album_artwork_url ?? '',
     youtube_video_id: row.youtube_video_id ?? null,
   };
 }
@@ -102,16 +103,79 @@ export function getEditorPicks(): Card[] {
   return rows.map(toCard);
 }
 
+// Views under this count make an album a "hidden gem". Exported so the home
+// copy quotes the same number the query filters on.
+export const HIDDEN_GEM_VIEWS = 500;
+
 // Hidden gems — non-featured, low view count, random order. Live recordings excluded.
-export function getHiddenGems(): Card[] {
+// `views` rides along (NULL counts as 0) so a page can quote the real number.
+export function getHiddenGems(): Array<Card & { views: number }> {
   const rows: any[] = db
     .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE featured = 0 AND (views IS NULL OR views < 500) AND ${NOT_LIVE}
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE featured = 0 AND (views IS NULL OR views < ?) AND ${NOT_LIVE}
        ORDER BY RANDOM() LIMIT 8`
     )
-    .all();
+    .all(HIDDEN_GEM_VIEWS);
+  return rows.map((r) => ({ ...toCard(r), views: r.views ?? 0 }));
+}
+
+// ─── Home "dark room" queries (premium redesign) ─────────────────────────────
+
+// Headline numbers for the hero. Live sets are not albums of the archive, so
+// they are excluded from all three counts (same rule as the facet pages).
+export function getArchiveFacts(): { albums: number; bands: number; countries: number } {
+  const row: any = db
+    .prepare(
+      `SELECT COUNT(id) AS albums,
+              COUNT(DISTINCT band_name) AS bands,
+              COUNT(DISTINCT CASE WHEN country != '' THEN country END) AS countries
+       FROM albums WHERE ${NOT_LIVE}`
+    )
+    .get();
+  return { albums: row?.albums ?? 0, bands: row?.bands ?? 0, countries: row?.countries ?? 0 };
+}
+
+// Newest uploads first. id DESC breaks ties between a batch with one upload_date.
+export function getLatestUploads(limit = 14): Card[] {
+  const rows: any[] = db
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE ${NOT_LIVE} ORDER BY upload_date DESC, id DESC LIMIT ?`)
+    .all(limit);
   return rows.map(toCard);
+}
+
+// Most-viewed albums on the channel. Views are the YouTube view count stored by
+// the sync; albums with no views yet are skipped so the ranking is never a tie
+// of zeros. Live sets excluded (they are not part of the catalogue).
+export function getMostPlayed(limit = 8): Array<Card & { views: number }> {
+  const rows: any[] = db
+    .prepare(
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT ?`
+    )
+    .all(limit);
+  return rows.map((r) => ({ ...toCard(r), views: r.views }));
+}
+
+// Daniel's own live sets: how many, and the titles (the recording date lives in
+// the title, e.g. "(Live in Honduras, Tegucigalpa - October 3, 2019)"; the year
+// column is 0 for most of them).
+export function getLiveSetTitles(): string[] {
+  const rows: any[] = db.prepare(`SELECT album_title FROM albums WHERE ${LIVE_MATCH}`).all();
+  return rows.map((r) => r.album_title as string);
+}
+
+// Cover for the footer: the most-viewed album, so it is stable between builds.
+export function getFooterCover(): string {
+  const row: any = db
+    .prepare(
+      `SELECT album_artwork_url FROM albums
+       WHERE album_artwork_url != '' AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT 1`
+    )
+    .get();
+  return row?.album_artwork_url ?? '';
 }
 
 // Live recordings — Daniel's own live sets, surfaced in their own home section.
