@@ -1,14 +1,21 @@
 ---
-// Browse page — static shell that writes browse-index.json at build time,
-// renders an initial server-side grid of the first 24 albums (SEO + no blank
-// page before JS), then mounts the Search island which owns all interactivity.
+// Browse page, "the dark room" (premium redesign, 2026): static shell that writes
+// browse-index.json at build time, renders an initial server-side wall of the newest albums
+// (SEO + no blank page before JS), then mounts the Search island which owns the controls, the
+// count and the result.
+//
+// The head is the shared PageHead (a field of its own colour under the top bar, the name in the
+// display face), bare: Browse is a tool, so there is no lit cover beside the name.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ClientRouter } from 'astro:transitions';
 import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, isLiveRecording } from '../../lib/db.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
-import Search from '../../islands/Search.tsx';
+import ArchiveHead from '../../components/ArchiveHead.astro';
+import PageHead from '../../components/PageHead.astro';
+import Reveal from '../../components/Reveal.astro';
+import Search, { PAGE_SIZE } from '../../islands/Search.tsx';
 import '../../styles/global.css';
 
 // ─── Build-time index ─────────────────────────────────────────────────────────
@@ -45,12 +52,12 @@ for (const target of [
   }
 }
 
-// ─── Initial static grid (first 24, by band_name ASC — same default as index).
-// Live recordings (Daniel's own live sets) are excluded from the DEFAULT browse
-// view so official albums lead; they remain in the full index JSON and stay
-// searchable, just not surfaced as part of the unfiltered default grid.
+// ─── Initial static wall: the newest page of albums, the order the island opens in
+// ("Newest first" sorts by id, higher id = uploaded later).
+// Live recordings (Daniel's own live sets) are left out of this first list so official albums
+// lead; they remain in the full index JSON and stay searchable.
 const officialIndex = index.filter((a) => !isLiveRecording(a.album_title));
-const initial = officialIndex.slice(0, 24);
+const initial = officialIndex.slice().sort((a, b) => b.id - a.id).slice(0, PAGE_SIZE);
 
 // ─── Filter option lists for the dropdowns (passed as props to avoid redundant
 //     JS parsing of the full index just to build option arrays on mount).
@@ -60,10 +67,13 @@ const years = getAllYears().map((f) => String(f.value));
 
 const totalCount = index.length;
 
+// The field of the head: a warm neutral, mixed down into the ground by PageHead.
+const HEAD_COLOR = '#8c8478';
+
 const pageTitle = 'Browse albums | Metal Archive';
 const metaDesc = `Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`;
 const canonical = 'https://danielbanariba.com/metal-archive/browse';
-const ogImage = initial[0]?.thumb || undefined;
+const ogImage = officialIndex[0]?.thumb || undefined;
 ---
 
 <!DOCTYPE html>
@@ -83,16 +93,17 @@ const ogImage = initial[0]?.thumb || undefined;
   <meta name="twitter:description" content={metaDesc} />
   {ogImage && <meta name="twitter:image" content={ogImage} />}
   <link rel="canonical" href={canonical} />
+  <ArchiveHead />
   <ClientRouter />
 </head>
-<body>
+<body class="ma">
+  <Reveal />
   <Navbar />
 
-  <main class="browse-page" id="main" tabindex="-1">
-    <div class="browse-header">
-      <h1 class="browse-title">Browse albums</h1>
-      <p class="browse-subtitle">{totalCount} albums in the archive</p>
-    </div>
+  <main id="main" tabindex="-1">
+    <PageHead title="Browse albums" color={HEAD_COLOR} split>
+      <p class="page-head__lead rise" style="--i:1">Every record in the archive, by band, title, genre or country.</p>
+    </PageHead>
 
     <!--
       Search island owns ALL interactivity.
@@ -111,26 +122,11 @@ const ogImage = initial[0]?.thumb || undefined;
     />
 
     <!--
-      No-JS fallback: a static grid that mirrors what the island will render.
-      Hidden once the island takes over (the island replaces .browse-static).
+      No-JS fallback: the island's server-rendered wall is already on the page; the controls and
+      "Show more" need script (global.css hides them without it), so say so.
     -->
     <noscript>
-      <div class="album-grid browse-static">
-        {initial.map((a) => (
-          <a class="album-card" href={`/metal-archive/album/${a.id}`}>
-            <div class="album-card__art">
-              {a.thumb
-                ? <img class="album-card__cover" src={a.thumb} alt={`${a.band_name} — ${a.album_title}`} loading="lazy" decoding="async" width="400" height="400" />
-                : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-              }
-            </div>
-            <div class="album-card__body">
-              <div class="album-card__band">{a.band_name}</div>
-              <div class="album-card__album">{a.album_title}</div>
-            </div>
-          </a>
-        ))}
-      </div>
+      <p class="finder__nojs">Search and filters need JavaScript. The newest albums are listed above.</p>
     </noscript>
   </main>
 

@@ -31,9 +31,11 @@ interface Props {
   /** Dominant colour of the lead cover (hex); the field is mixed from it. */
   color?: string;
   lead?: Lead | null;
+  /** A bare head only: the slot sits in the right half, level with the name's baseline (from 1100px). */
+  split?: boolean;
 }
 
-const { title, flag = '', color = '', lead = null } = Astro.props;
+const { title, flag = '', color = '', lead = null, split = false } = Astro.props;
 
 // ─── Field: the cover's colour mixed down into the ground ────────────────────
 // The album share is capped at 30%, so the field is always a dark, cover-tinted surface and
@@ -90,7 +92,7 @@ const chars = lineChars(title, flag ? 1.2 : 0);
 // does not offer a break there by itself, and the fit above counts on it.
 const parts = title.split('/');
 ---
-<header class:list={['page-head', !lead && 'page-head--bare']} style={`--field: ${field};`}>
+<header class:list={['page-head', !lead && 'page-head--bare', !lead && split && 'page-head--split']} style={`--field: ${field};`}>
   <div class="page-head__inner">
     <div class="page-head__text" style={`--cc:${chars};`}>
       <h1 class="page-head__title fit rise" style="--i:0">{flag && <span class="page-head__flag" aria-hidden="true">{flag}</span>}{parts.map((part, i) => (i < parts.length - 1 ? <Fragment>{part}/<wbr /></Fragment> : part))}</h1>
