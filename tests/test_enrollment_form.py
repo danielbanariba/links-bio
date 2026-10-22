@@ -164,9 +164,12 @@ def test_valid_request_saves_one_row_and_emails_the_notify_recipient(
     for name in (
         "guardian_name", "relationship", "phone", "email", "community",
         "address", "child_name", "birth_date", "grade", "current_school",
-        "household_size", "monthly_income", "reason",
+        "monthly_income", "reason",
     ):
         assert str(payload[name]) in body, f"{name} is missing from the email body"
+    # A bare "5" also appears in the address, the income range and the date, so the
+    # household size is checked on its own labelled line.
+    assert "Personas que viven en el hogar: 5\n" in body
 
 
 def test_recipient_falls_back_to_gmail_address_when_notify_var_is_unset(
@@ -460,7 +463,7 @@ def test_alembic_upgrade_head_creates_the_enrollment_table_the_model_declares(
 
 
 def _page_form_block() -> str:
-    source = PAGE.read_text()
+    source = PAGE.read_text(encoding="utf-8")
     start = re.search(r'<form\b[^>]*\bid="enrollment-form"[^>]*>', source)
     assert start, 'no <form id="enrollment-form"> in matricula.astro'
     return source[start.end() : source.index("</form>", start.end())]
