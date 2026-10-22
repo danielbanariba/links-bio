@@ -359,6 +359,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   // navigation (with ClientRouter this <script> does not re-execute on swap).
   import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
   import { createFeedback, notSent, readFailure } from '../../components/form-feedback.js';
+  import { nextLinkSlot } from '../../components/link-slots.js';
 
   function initPromoForm() {
     const form       = document.getElementById('promo-form') as HTMLFormElement | null;
@@ -382,23 +383,38 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       if (genreEl.value !== 'Other') customEl.value = '';
     });
 
-    // Dynamic extra link rows (max 5)
-    let linkCount = 0;
+    // Dynamic extra link rows. The API reads extra_link_0 .. extra_link_4, so there are at most
+    // five rows and each takes the lowest free slot; removing a row frees its slot (a counter of
+    // rows ever added would leave "Add another link" dead after a removal).
+    const rows = new Map<number, HTMLElement>();
+    const syncLinks = () => {
+      let n = 0;
+      extraLinks.querySelectorAll<HTMLElement>('.fm-extra__row').forEach((row) => {
+        n++;
+        row.querySelector('input')!.setAttribute('aria-label', `Extra link ${n}`);
+        row.querySelector('.fm-remove')!.setAttribute('aria-label', `Remove link ${n}`);
+      });
+      addLinkBtn.style.display = nextLinkSlot(rows.keys()) === null ? 'none' : '';
+    };
     addLinkBtn.addEventListener('click', () => {
-      if (linkCount >= 5) return;
-      const idx = linkCount++;
+      const slot = nextLinkSlot(rows.keys());
+      if (slot === null) return;
       const row = document.createElement('div');
       row.className = 'fm-extra__row';
       row.innerHTML = `
-        <input type="url" name="extra_link_${idx}" class="fm-input" placeholder="https://…" aria-label="Extra link ${idx + 1}" spellcheck="false" />
-        <button type="button" class="fm-remove" data-idx="${idx}" aria-label="Remove link ${idx + 1}">&times;</button>
+        <input type="url" name="extra_link_${slot}" class="fm-input" placeholder="https://…" spellcheck="false" />
+        <button type="button" class="fm-remove" data-idx="${slot}">&times;</button>
       `;
       row.querySelector('.fm-remove')!.addEventListener('click', () => {
         row.remove();
-        if (linkCount <= 5) addLinkBtn.style.display = '';
+        rows.delete(slot);
+        syncLinks();
+        addLinkBtn.focus();
       });
+      rows.set(slot, row);
       extraLinks.appendChild(row);
-      if (linkCount >= 5) addLinkBtn.style.display = 'none';
+      syncLinks();
+      row.querySelector('input')!.focus();
     });
 
     form.addEventListener('submit', async (e) => {
@@ -445,7 +461,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           success!.style.display = 'flex';
           success!.focus();
         } else {
-          ui.fail(readFailure(res.status, json));
+          ui.fail(readFailure(res.status, json, 'promo'));
         }
       } catch (err) {
         if (isTimeoutError(err)) {
