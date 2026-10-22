@@ -267,7 +267,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           success!.style.display = 'flex';
           success!.focus();
         } else {
-          ui.fail(readFailure(res.status, json));
+          ui.fail(readFailure(res.status, json, 'submit'));
         }
       } catch (err) {
         if (isTimeoutError(err)) {

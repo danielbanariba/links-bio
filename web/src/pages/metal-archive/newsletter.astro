@@ -174,7 +174,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           success!.focus();
         } else {
           // 409 (already subscribed) is a calm note, not an error; see readFailure.
-          ui.fail(readFailure(res.status, json));
+          ui.fail(readFailure(res.status, json, 'newsletter'));
         }
       } catch (err) {
         if (isTimeoutError(err)) {

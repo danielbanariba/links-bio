@@ -1,7 +1,9 @@
 // form-feedback: what the three archive forms (submit, promo, newsletter) say back.
 //
 // readFailure() is pure: it turns a failed answer of the forms API (status + JSON body, or null
-// when there was no JSON) into a title, a sentence and, for a 422, the fields at fault. The
+// when there was no JSON) from one of the three forms into a title, a sentence and, for a 422, the
+// fields at fault. planFailure() is pure too: given the names of the fields the form really has,
+// it decides which fields to mark and what the note says. The
 // pages used to hand `detail` straight to textContent, and a FastAPI 422 carries it as an array
 // of objects, so a visitor read "[object Object]" and no field was marked.
 //
@@ -10,6 +12,9 @@
 // (endpoint, body, timeout) stays in each page's script.
 
 export type FailureKind = 'invalid' | 'rate-limited' | 'duplicate' | 'rejected' | 'server';
+
+/** The archive form a failed answer came from. */
+export type FormName = 'submit' | 'promo' | 'newsletter';
 
 export interface Failure {
   kind: FailureKind;
@@ -39,7 +44,7 @@ const SENTENCE_FIELDS: Record<string, string> = {
   'Add at least one link.': 'youtube_url',
 };
 
-export function readFailure(status: number, body: unknown): Failure {
+export function readFailure(status: number, body: unknown, form: FormName): Failure {
   const detail = body && typeof body === 'object' ? (body as { detail?: unknown }).detail : undefined;
 
   // Not the visitor's mistake: nothing to fix, wait and send again.
@@ -47,8 +52,13 @@ export function readFailure(status: number, body: unknown): Failure {
     return { kind: 'rate-limited', title: 'Too many requests', message: 'Please wait a few minutes and try again.', fields: {} };
   }
 
+  // A 409 is the newsletter's "this email is already subscribed". Another form that got one (the
+  // API does not send it today) is a duplicate of something already received, not a subscription:
+  // its server sentence is not trusted to be about that form, so the neutral one is shown.
   if (status === 409) {
-    return { kind: 'duplicate', title: 'Already on the list', message: sentence(detail) || 'This email is already subscribed.', fields: {} };
+    return form === 'newsletter'
+      ? { kind: 'duplicate', title: 'Already on the list', message: sentence(detail) || 'This email is already subscribed.', fields: {} }
+      : { kind: 'duplicate', title: 'Already received', message: 'We already have this one, so there is no need to send it again.', fields: {} };
   }
 
   if (status === 422 && Array.isArray(detail)) {
@@ -87,6 +97,42 @@ export function readFailure(status: number, body: unknown): Failure {
 /** A request that never got an answer (offline, timed out): the note without a server sentence. */
 export function notSent(message: string): Failure {
   return { kind: 'server', title: 'Not sent', message, fields: {} };
+}
+
+export interface Plan {
+  /** The sentence for the failure note. */
+  text: string;
+  /** Fields of this form to mark, top to bottom: [name, message under the field]. */
+  marks: Array<[string, string]>;
+}
+
+const humanize = (name: string) => {
+  const words = name.replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+const endSentence = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
+
+/** What the failure note says and which fields get a mark, given the names the form really has.
+ *  The server may name a field this form does not have: its reason goes into the note (the
+ *  visitor would never see it otherwise), and "check the fields marked above" is only said when
+ *  at least one field is marked. */
+export function planFailure(failure: Failure, formFields: string[]): Plan {
+  const entries = Object.entries(failure.fields);
+  const marks = entries
+    .filter(([name]) => formFields.includes(name))
+    .sort(([a], [b]) => formFields.indexOf(a) - formFields.indexOf(b));
+  const unknown = entries
+    .filter(([name]) => !formFields.includes(name))
+    .map(([name, message]) => `${humanize(name)}: ${endSentence(message)}`)
+    .join(' ');
+
+  if (marks.length) {
+    return { text: unknown ? `${failure.message} The server also flagged: ${unknown}` : failure.message, marks };
+  }
+  if (unknown) {
+    return { text: `The server did not accept the form. ${unknown} Check what you entered and send it again.`, marks };
+  }
+  return { text: failure.message, marks };
 }
 
 // ─── DOM half ────────────────────────────────────────────────────────────────
@@ -143,26 +189,19 @@ export function createFeedback(form: HTMLFormElement, note: HTMLElement): Feedba
 
   function fail(failure: Failure) {
     const calm = failure.kind === 'rate-limited' || failure.kind === 'duplicate';
+    // Mark only the fields this form really has, top to bottom, and focus the first one.
+    const plan = planFailure(failure, Array.from(form.elements, (el) => (el as HTMLInputElement).name).filter(Boolean));
     note.className = `fm-note ${calm ? 'fm-note--calm' : 'fm-note--error'}`;
     note.textContent = '';
     const title = document.createElement('strong');
     title.textContent = failure.title;
     const text = document.createElement('span');
-    text.textContent = failure.message;
+    text.textContent = plan.text;
     note.append(title, text);
     note.hidden = false;
-    // Mark only the fields this form really has, top to bottom, and focus the first one.
-    const order = Array.from(form.elements, (el) => (el as HTMLInputElement).name);
-    const named = Object.entries(failure.fields)
-      .filter(([name]) => order.includes(name))
-      .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
-    named.forEach(([name, message], i) => fieldError(name, message, { focus: i === 0 }));
-    // The server may name a field this form does not have; do not point at marks that are not there.
-    if (failure.kind === 'invalid' && named.length === 0) {
-      text.textContent = 'The server did not accept the form. Check what you entered and send it again.';
-    }
+    plan.marks.forEach(([name, message], i) => fieldError(name, message, { focus: i === 0 }));
     // With no field to focus, the note itself must be in view (it sits just above the button).
-    if (named.length === 0) {
+    if (plan.marks.length === 0) {
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       note.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
     }
