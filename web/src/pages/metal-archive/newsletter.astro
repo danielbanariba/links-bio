@@ -1,10 +1,26 @@
 ---
 // newsletter.astro — Metal Archive newsletter signup
 // POSTs to /api/metal-archive/newsletter (FastAPI on port 8001, proxied by host)
+//
+// The dark room (premium redesign, 2026): the shared head, then two columns on a desktop, what
+// the letter is about and the archive's real numbers on the left and the one field on the right;
+// on a phone the argument comes first. What the letter reports is on the shelf under it: the
+// latest additions.
 import { ClientRouter } from 'astro:transitions';
+import { getLatestUploads } from '../../lib/db.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
+import ArchiveHead from '../../components/ArchiveHead.astro';
+import PageHead from '../../components/PageHead.astro';
+import Reveal from '../../components/Reveal.astro';
+import Carousel from '../../components/Carousel.astro';
+import FormFacts from '../../components/FormFacts.astro';
 import '../../styles/global.css';
+
+const latest = getLatestUploads(8);
+
+// The field of the head: a warm neutral, mixed down into the ground by PageHead (as Browse).
+const HEAD_COLOR = '#8c8478';
 
 const pageTitle = 'Newsletter | Metal Archive';
 const metaDesc = 'Subscribe for news about new albums, bands and underground metal events.';
@@ -28,65 +44,78 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   <meta name="twitter:description" content={metaDesc} />
   <meta name="twitter:image" content={ogImage} />
   <link rel="canonical" href={canonical} />
+  <ArchiveHead />
   <ClientRouter />
 </head>
-<body class="form-page">
+<body class="ma">
+  <Reveal />
   <Navbar />
 
-  <main class="form-page__main" id="main" tabindex="-1" style="justify-content:center">
-    <!-- Header -->
-    <div class="form-page__header">
-      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-      </svg>
-      <h1 class="form-page__title">Newsletter</h1>
-      <p class="form-page__subtitle">
-        Subscribe for news about new albums, bands and underground metal events.
-      </p>
-    </div>
+  <main id="main" tabindex="-1">
+    <PageHead title="Newsletter" color={HEAD_COLOR} split>
+      <p class="page-head__lead rise" style="--i:1">Subscribe for news about new albums, bands and underground metal events.</p>
+      <a class="btn btn--secondary fm-jump rise" style="--i:2" href="#form-title">Go to the form</a>
+    </PageHead>
 
-    <!-- Form card (narrower for newsletter) -->
-    <div class="form-card" style="max-width:520px">
-      <!-- Success state -->
-      <div class="form-success" id="success-state" style="display:none">
-        <span class="form-success__icon">&#9993;</span>
-        <h2 class="form-success__title">You're subscribed</h2>
-        <p class="form-success__body">
-          Welcome to the archive. We'll let you know when there's news from the underground.
-        </p>
-        <a href="/metal-archive" class="form-success__back">&#8592; Back to the archive</a>
-      </div>
+    <div class="fm">
+      <!-- The argument: what the letter is about, and the archive it reports on -->
+      <section class="fm-aside" data-reveal aria-labelledby="about-title">
+        <h2 class="fm-title rv" id="about-title" style="--i:0">What you'll get</h2>
+        <ul class="fm-list rv" style="--i:1">
+          <li>New albums</li>
+          <li>New bands</li>
+          <li>Underground metal events</li>
+        </ul>
+        <div class="rv" style="--i:2">
+          <FormFacts lead="News from an archive of" />
+        </div>
+      </section>
 
       <!-- The form -->
-      <form id="newsletter-form" class="form-stack" novalidate>
-        <div class="form-field">
-          <label class="form-label" for="email">
-            Your email <span class="form-label__required">*</span>
-          </label>
-          <input
-            id="email" name="email" type="email"
-            class="form-input" placeholder="you@email.com"
-            autocomplete="email" required
-          />
+      <div class="fm-main">
+        <!-- Success state -->
+        <div class="fm-done" id="success-state" style="display:none" tabindex="-1" role="status">
+          <h2 class="fm-done__title">You're subscribed</h2>
+          <p class="fm-done__body">
+            Welcome to the archive. We'll let you know when there's news from the underground.
+          </p>
+          <a href="/metal-archive" class="btn btn--secondary">Back to the archive</a>
         </div>
 
-        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
-             that fills every field fills this one too, so the server can
-             drop the submission silently. Never display:none -- some bots
-             skip fields hidden that way. -->
-        <input
-          type="text" id="website" name="website" class="sr-only"
-          tabindex="-1" autocomplete="off" aria-hidden="true"
-        />
+        <form id="newsletter-form" class="fm-form" novalidate aria-labelledby="form-title">
+          <h2 class="fm-title rise" id="form-title" style="--i:2">Your email</h2>
 
-        <!-- Toast -->
-        <div class="form-toast" id="form-toast" role="alert"></div>
+          <div class="fm-field rise" style="--i:3">
+            <label class="fm-label" for="email">Email address <span class="fm-req" aria-hidden="true">*</span></label>
+            <input
+              id="email" name="email" type="email"
+              class="fm-input" placeholder="you@email.com"
+              autocomplete="email" spellcheck="false" required
+            />
+          </div>
 
-        <button type="submit" class="form-submit" id="submit-btn">
-          Subscribe
-        </button>
-      </form>
+          <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+               that fills every field fills this one too, so the server can
+               drop the submission silently. Never display:none -- some bots
+               skip fields hidden that way. -->
+          <input
+            type="text" id="website" name="website" class="sr-only"
+            tabindex="-1" autocomplete="off" aria-hidden="true"
+          />
+
+          <!-- Failure note -->
+          <div class="fm-note" id="form-toast" role="alert" hidden></div>
+
+          <div class="fm-actions rise" style="--i:4">
+            <button type="submit" class="btn btn--primary fm-submit" id="submit-btn">
+              Subscribe
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+
+    <Carousel id="new" title="Recently added" albums={latest} href="/metal-archive/browse" hrefLabel="See all" />
   </main>
 
   <Footer />
@@ -97,6 +126,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   // Wrapped in astro:page-load so the form handler re-binds after client-side
   // navigation (with ClientRouter this <script> does not re-execute on swap).
   import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
+  import { createFeedback, notSent, readFailure } from '../../components/form-feedback.js';
 
   function initNewsletterForm() {
     const form    = document.getElementById('newsletter-form') as HTMLFormElement | null;
@@ -106,15 +136,12 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
     if (!form || !btn || !toast || !success || (form as any).__bound) return;
     (form as any).__bound = true;
 
-    function showToast(msg: string, isError: boolean) {
-      toast!.textContent = msg;
-      toast!.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
-      toast!.style.display = 'block';
-    }
+    // Failure note, inline field messages and the busy flag live in form-feedback.ts.
+    const ui = createFeedback(form, toast);
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      toast!.style.display = 'none';
+      ui.clear();
 
       const email = (document.getElementById('email') as HTMLInputElement).value.trim();
       // Honeypot: real visitors never see or fill this field; a bot that
@@ -123,12 +150,13 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       const website = (document.getElementById('website') as HTMLInputElement | null)?.value ?? '';
 
       if (!email || !email.includes('@')) {
-        showToast('Please enter a valid email address.', true);
+        ui.fieldError('email', 'Enter a valid email address, like you@email.com.');
         return;
       }
 
       btn!.disabled = true;
       btn!.textContent = 'Subscribing...';
+      ui.busy(true);
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/newsletter`, {
@@ -143,20 +171,21 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
         if (res.ok) {
           form!.style.display = 'none';
           success!.style.display = 'flex';
-        } else if (res.status === 409) {
-          showToast('This email is already subscribed.', false);
+          success!.focus();
         } else {
-          showToast(json.detail ?? 'Could not subscribe. Please try again.', true);
+          // 409 (already subscribed) is a calm note, not an error; see readFailure.
+          ui.fail(readFailure(res.status, json));
         }
       } catch (err) {
         if (isTimeoutError(err)) {
-          showToast(FORM_TIMEOUT_MESSAGE, true);
+          ui.fail(notSent(FORM_TIMEOUT_MESSAGE));
         } else {
-          showToast('Could not connect. Check your internet connection.', true);
+          ui.fail(notSent('Could not connect. Check your internet connection.'));
         }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Subscribe';
+        ui.busy(false);
       }
     });
   }

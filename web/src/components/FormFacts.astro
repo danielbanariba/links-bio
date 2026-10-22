@@ -1,0 +1,23 @@
+---
+// FormFacts: the real numbers of the archive, for the argument column of the forms.
+//
+// A sentence that finishes in the figures ("Your album would join 2,752 albums, 2,415 bands, 79
+// countries"), and the three figures as a list. They are counted from the database at build, with
+// the live sets left out as everywhere else (getArchiveFacts), so they cannot drift from the home.
+import { getArchiveFacts } from '../lib/db.js';
+
+interface Props {
+  /** The words before the figures, e.g. "Your album would join". */
+  lead: string;
+}
+
+const { lead } = Astro.props;
+const facts = getArchiveFacts();
+const n = (v: number) => v.toLocaleString('en-US');
+---
+<p class="fm-facts__lead">{lead}</p>
+<dl class="fm-facts">
+  <div><dt>albums</dt><dd>{n(facts.albums)}</dd></div>
+  <div><dt>bands</dt><dd>{n(facts.bands)}</dd></div>
+  <div><dt>countries</dt><dd>{n(facts.countries)}</dd></div>
+</dl>

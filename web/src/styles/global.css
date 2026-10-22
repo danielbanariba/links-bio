@@ -181,7 +181,7 @@ a:hover {
    near-white brand bone color, which stays well above 3:1 against every
    background the site uses (the dark --bg, --content, and the per-album
    --accent-tinted navbar). :where() gives this rule zero specificity, so any
-   component rule that sets outline (.album-card, .facet-refine,
+   component rule that sets outline (.album-card, .btn,
    and so on) wins outright. The rule declares nothing
    but outline, so it cannot change a component's radius or offset. */
 :where(a, button, summary, [tabindex]):where(:focus-visible) {
@@ -332,96 +332,9 @@ img {
   }
 }
 
-/* ─── 404 buttons (.facet-refine) ───────────────────────────────────────────
-   The genre / country / year pages used to share this pill; they now use .btn. The
-   404 page still does, until it is rebuilt with the forms. */
-.facet-refine {
-  margin-top: 0.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  padding: 0.5em 1.1em;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  color: var(--accent-bright);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.facet-refine:hover,
-.facet-refine:focus-visible {
-  background: color-mix(in srgb, var(--accent) 32%, transparent);
-  border-color: var(--accent);
-}
-@media (prefers-reduced-motion: reduce) {
-  .facet-refine { transition: none; }
-}
-
-/* ─── Form pages (submit / promo / newsletter) ───────────────────────────── */
-
-.form-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.form-page__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2.5rem 1.25rem 4rem;
-  gap: 2rem;
-  max-width: var(--max-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Page header (icon + title + subtitle) */
-.form-page__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: center;
-  padding-top: 0.5rem;
-}
-
-.form-page__icon {
-  color: var(--primary);
-  width: 48px;
-  height: 48px;
-}
-
-.form-page__title {
-  font-size: 2.2em;
-  color: var(--text-header);
-  font-weight: 500;
-}
-
-.form-page__subtitle {
-  color: var(--text-body);
-  font-size: 1.05em;
-  max-width: 550px;
-}
-
-/* Card wrapper */
-.form-card {
-  background: var(--content);
-  border: 1px solid var(--secondary);
-  border-radius: 1em;
-  padding: 1.5em;
-  width: 100%;
-  max-width: 700px;
-}
-
-@media (min-width: 640px) {
-  .form-card {
-    padding: 2em;
-  }
-}
+/* ─── Contact form of the bio (/) ─────────────────────────────────────────────
+   The field rules below are the bio contact form's. The archive forms (submit, promo,
+   newsletter) have their own, `.fm-*`, in the dark-room block further down.   */
 
 /* Field group */
 .form-field {
@@ -444,14 +357,8 @@ img {
   color: var(--primary);
 }
 
-.form-label__hint {
-  color: var(--text-footer);
-  font-weight: 400;
-}
-
-/* Inputs + selects + textarea */
+/* Inputs + textarea */
 .form-input,
-.form-select,
 .form-textarea {
   background: var(--bg);
   border: 1px solid rgba(0, 115, 168, 0.35);
@@ -467,7 +374,6 @@ img {
 }
 
 .form-input:focus,
-.form-select:focus,
 .form-textarea:focus {
   border-color: var(--primary);
 }
@@ -475,11 +381,6 @@ img {
 .form-input::placeholder,
 .form-textarea::placeholder {
   color: var(--text-footer);
-}
-
-.form-select option {
-  background: var(--bg);
-  color: var(--text-body);
 }
 
 .form-textarea {
@@ -565,241 +466,6 @@ img {
   margin-top: 0.25rem;
 }
 
-/* Extra link rows (promo) */
-.extra-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.extra-link-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.extra-link-row .form-input {
-  flex: 1;
-}
-
-.btn-remove-link {
-  background: transparent;
-  border: 1px solid var(--secondary);
-  border-radius: 0.4em;
-  color: var(--text-footer);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0.3em 0.6em;
-  transition: border-color 0.18s, color 0.18s;
-  flex-shrink: 0;
-}
-
-.btn-remove-link:hover {
-  border-color: #dc2626;
-  color: #fca5a5;
-}
-
-.btn-add-link {
-  background: transparent;
-  border: 1px solid var(--secondary);
-  border-radius: 0.5em;
-  color: var(--text-body);
-  cursor: pointer;
-  font-size: 0.88em;
-  padding: 0.45em 1em;
-  transition: border-color 0.18s;
-  align-self: flex-start;
-}
-
-.btn-add-link:hover {
-  border-color: var(--primary);
-}
-
-/* ── Promote packages (static mockup; owner content pending) ───────────────── */
-.promo-packages {
-  width: 100%;
-  max-width: 700px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.promo-packages__title {
-  font-size: 1.3em;
-  color: var(--text-header);
-  text-align: center;
-}
-
-.promo-packages__note {
-  color: var(--text-footer);
-  font-size: 0.85em;
-  text-align: center;
-  margin: 0 auto;
-  max-width: 520px;
-}
-
-.promo-packages__grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-@media (min-width: 720px) {
-  .promo-packages__grid {
-    grid-template-columns: repeat(3, 1fr);
-    align-items: stretch;
-  }
-}
-
-.promo-pkg {
-  position: relative;
-  background: var(--content);
-  border: 1px solid var(--secondary);
-  border-radius: 0.85em;
-  padding: 1.25em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.promo-pkg--featured {
-  border-color: var(--primary);
-}
-
-.promo-pkg__badge {
-  position: absolute;
-  top: -0.7em;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--primary);
-  color: var(--text-header);
-  font-size: 0.7em;
-  font-weight: 600;
-  padding: 0.2em 0.7em;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
-
-.promo-pkg__name {
-  color: var(--text-header);
-  font-size: 1.05em;
-  font-weight: 600;
-}
-
-.promo-pkg__price {
-  color: var(--primary);
-  font-size: 1.15em;
-  font-weight: 600;
-}
-
-.promo-pkg__includes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  flex: 1;
-}
-
-.promo-pkg__include {
-  color: var(--text-body);
-  font-size: 0.85em;
-  padding-left: 1.2em;
-  position: relative;
-}
-
-.promo-pkg__include::before {
-  content: "+";
-  position: absolute;
-  left: 0;
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.promo-pkg__delivery {
-  color: var(--text-footer);
-  font-size: 0.8em;
-  border-top: 1px solid var(--border);
-  padding-top: 0.6rem;
-}
-
-/* Example video placeholder (owner content pending: real embed). */
-.promo-example {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.promo-example__title {
-  color: var(--text-header);
-  font-size: 1.05em;
-  font-weight: 500;
-}
-
-.promo-example__frame {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: var(--bg);
-  border: 1px dashed var(--secondary);
-  border-radius: 0.6em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.promo-example__placeholder {
-  color: var(--text-footer);
-  font-size: 0.9em;
-}
-
-/* Info steps section (submit / promo) */
-.form-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  width: 100%;
-  max-width: 700px;
-}
-
-.form-steps__title {
-  font-size: 1.3em;
-  color: var(--text-header);
-}
-
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.step-item__num {
-  background: var(--primary);
-  border-radius: 50%;
-  color: var(--text-header);
-  font-size: 0.9em;
-  font-weight: 600;
-  flex-shrink: 0;
-  height: 2.4em;
-  width: 2.4em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.step-item__title {
-  color: var(--text-header);
-  font-weight: 500;
-  font-size: 0.95em;
-}
-
-.step-item__desc {
-  color: var(--text-body);
-  font-size: 0.85em;
-}
-
 /* Success state */
 .form-success {
   display: flex;
@@ -818,26 +484,6 @@ img {
 .form-success__title {
   font-size: 1.6em;
   color: var(--text-header);
-}
-
-.form-success__body {
-  color: var(--text-body);
-  max-width: 400px;
-}
-
-.form-success__back {
-  border: 1px solid var(--secondary);
-  border-radius: 0.5em;
-  color: var(--text-body);
-  display: inline-block;
-  font-size: 0.9em;
-  padding: 0.5em 1.2em;
-  text-decoration: none;
-  transition: border-color 0.18s;
-}
-
-.form-success__back:hover {
-  border-color: var(--primary);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -896,6 +542,12 @@ body:has(.ma-footer) {
   --accent: #b3261e;
   --accent-hover: #c62f26;
   --accent-ink: #f6f1e7;
+  /* fields: the 1px edge of an input, 3.7:1 on the ground (a boundary has to be found), and
+     the one error tone (text 10:1 on the ground; the fill under a failure note, ink on it 12:1) */
+  --edge: #736c62;
+  --err: #f4b1a8;
+  --err-edge: #e36b5f;
+  --err-fill: #431a17;
   /* type */
   --font-display: 'Erode', 'Onest', Georgia, serif;
   --font-text: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -1464,6 +1116,8 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
 .js .rv[data-reveal]:not(.is-in) { opacity: 0; transform: translateY(20px); }
 @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 .rise { animation: rise 800ms var(--ease-expo) both; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
+/* A button must not keep the entrance's final transform, or its :active press never shows. */
+.btn.rise { animation-fill-mode: backwards; }
 
 /* 1 · Hero: card over a dim room */
 .hero {
@@ -2139,6 +1793,13 @@ body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__e
   line-height: 1.3;
   text-wrap: pretty;
 }
+@media (min-width: 1100px) {
+  /* A lead and its actions (the 404) go in one box, so the split grid keeps them in the right half. */
+  .page-head--split .page-head__side { padding-bottom: 0.6rem; }
+  .page-head--split .page-head__side .page-head__lead { padding-bottom: 0; }
+}
+.page-head__side .fm-actions { margin-top: clamp(1.25rem, 2.4vw, 2rem); }
+.page-head__side .btn { padding-inline: 1.2em; }
 .page-head__facts { margin-top: clamp(1rem, 2vw, 1.5rem); }
 .page-head__play { min-width: 9.5em; }  /* the label changes: Play latest, Pause, Loading */
 
@@ -2350,6 +2011,177 @@ html:not(.js) .finder__bar, html:not(.js) .finder__more, html:not(.js) .finder__
   .srow { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 16rem) minmax(0, 12rem); }
 }
 
+/* ─── Forms (submit, promo, newsletter) ──────────────────────────────────────
+   Under the shared head, on the ground. Two columns from 1000px: the argument (the steps, the
+   archive's real numbers, sometimes a picture) on 5 of 12 columns, the form on the last 6, a gap
+   column between. Below that the argument comes first, then the form. The form is not boxed;
+   only a field has an edge (a field may keep its line, and the edge has to be found, 3:1), and a
+   label always sits above its field. Never reveal the form as a whole: only the argument's parts
+   rise in (.rv), the heading of the form rises on load. */
+.fm {
+  max-width: 1920px;
+  margin: clamp(2.5rem, 5vw, 4.5rem) auto 0;
+  padding-inline: var(--margin);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: clamp(3rem, 7vw, 4.5rem);
+  align-items: start;
+}
+@media (min-width: 1000px) {
+  .fm { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); }
+  .fm-aside { grid-column: 1 / span 5; }
+  .fm-main { grid-column: 7 / -1; }
+}
+/* Whichever column is the shorter one rides along beside the other instead of leaving the ground
+   under it empty (the taller column has no travel, so for it this does nothing). */
+@media (min-width: 1000px) and (min-height: 760px) {
+  .fm-aside, .fm-main { position: sticky; top: calc(var(--bar-h) + 2rem); }
+}
+.fm-main { min-width: 0; container-type: inline-size; }
+.fm-title { font-size: var(--step-lead); font-weight: 500; line-height: 1.1; letter-spacing: -0.015em; }
+
+/* The argument */
+.fm-steps { margin: 1.5rem 0 0; padding-left: 1.9rem; display: grid; gap: 1.5rem; }
+.fm-steps li::marker { color: var(--muted); font-family: var(--font-text); font-size: var(--step-small); font-weight: 500; font-variant-numeric: tabular-nums; }
+.fm-steps__name { display: block; font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.fm-steps__text { display: block; margin-top: 0.35rem; max-width: 38ch; font-size: var(--step-body); line-height: 1.45; text-wrap: pretty; }
+.fm-list { margin: 1.5rem 0 0; padding: 0; list-style: none; display: grid; gap: 1rem; font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.fm-facts__lead { margin-top: clamp(2.25rem, 4.5vw, 3.5rem); font-size: var(--step-body); line-height: 1.4; }
+.fm-facts { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.75rem clamp(1.5rem, 3.4vw, 3rem); }
+.fm-facts > div { display: flex; flex-direction: column-reverse; }
+.fm-facts dd { font-family: var(--font-display); font-size: var(--step-head); font-weight: 500; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.fm-facts dt { margin-top: 0.4rem; font-size: var(--step-small); color: var(--muted); }
+.fm-frame { margin: clamp(2rem, 4vw, 3rem) 0 0; }
+.fm-frame a { display: block; }
+.fm-frame img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: var(--surface-2); transition: filter 160ms var(--ease-out); }
+.fm-frame a:hover img { filter: brightness(1.1); }
+.fm-frame a:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.fm-frame figcaption { margin-top: 0.75rem; max-width: 52ch; font-size: var(--step-small); line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+
+/* The form */
+.fm-form { display: grid; gap: 1.5rem; }
+.fm-form > .fm-title { margin-bottom: -0.5rem; scroll-margin-top: calc(var(--bar-h) + 1rem); }
+/* Below 1000px the argument comes first, so the head offers a way down to the form. */
+.fm-jump { margin-top: 1.25rem; }
+@media (min-width: 1000px) { .fm-jump { display: none; } }
+.fm-hint, .fm-hint-inline { font-size: var(--step-small); line-height: 1.4; color: var(--muted); }
+.fm-hint-inline { font-weight: 400; }
+.fm-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+@container (min-width: 34rem) {
+  .fm-row { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--col-gap); }
+}
+.fm-field { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+.fm-label { font-size: var(--step-small); font-weight: 500; line-height: 1.3; color: var(--ink); }
+.fm-req { color: var(--muted); }
+
+/* Fields: on the ground, a 1px edge, text at 16px or more, 48px tall (WebKit zooms below 16px). */
+.fm-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-small);
+  line-height: 1.35;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.fm-input::placeholder { color: var(--muted); opacity: 1; }
+.fm-input:hover { border-color: var(--muted); }
+.fm-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-color: var(--ink); }
+.fm-input.is-invalid { border-color: var(--err-edge); }
+.fm-textarea { min-height: 9rem; resize: vertical; }
+.fm-input option { background: var(--surface-2); color: var(--ink); }
+.fm-pick { position: relative; }
+.fm-pick .fm-input { padding-right: 2.75rem; text-overflow: ellipsis; cursor: pointer; }
+.fm-chev { position: absolute; right: 1rem; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.fm-error { font-size: var(--step-small); line-height: 1.4; color: var(--err); }
+
+/* Links group (promo): the legend is a label, the extra rows come from the script */
+.fm-group { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 1.5rem; }
+.fm-group > legend { float: left; width: 100%; padding: 0; margin-bottom: -0.5rem; }
+.fm-group > legend + * { clear: both; }
+.fm-extra { display: grid; gap: 0.75rem; }
+.fm-extra:empty { display: none; }
+.fm-extra__row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 0.5rem; align-items: center; }
+.fm-remove {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.fm-remove:hover { background: var(--surface-3); }
+.fm-add { justify-self: start; }
+
+/* States: a failure note above the button, a spinner while it sends, a plain done panel */
+.fm-note {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--step-small);
+  line-height: 1.45;
+}
+.fm-note[hidden] { display: none; }
+.fm-note strong { font-weight: 600; }
+.fm-note--error { background: var(--err-fill); }
+.fm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+.fm-submit { min-width: min(100%, 15rem); touch-action: manipulation; }
+.fm-submit:disabled { cursor: progress; }
+.fm-submit::before {
+  content: '';
+  display: none;
+  width: 1em;
+  height: 1em;
+  border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+  border-top-color: var(--accent-ink);
+  border-radius: 50%;
+  animation: mp-spin 0.8s linear infinite;
+}
+.fm-form[aria-busy='true'] .fm-submit::before { display: block; }
+@media (max-width: 599px) { .fm-submit { width: 100%; } }
+.fm-done { flex-direction: column; align-items: flex-start; gap: 1.25rem; padding: clamp(1.25rem, 3vw, 2rem); background: var(--surface); }
+/* Focus lands here on purpose, to announce the result; it is not a control, so no ring. */
+.fm-done:focus { outline: none; }
+.fm-done__title { font-size: var(--step-head); line-height: 0.98; }
+.fm-done__body { max-width: 34ch; font-size: var(--step-body); line-height: 1.45; text-wrap: pretty; }
+
+/* Packages (promo, hidden until the owner has real ones): one comparison, a row per package, the
+   same four columns. On a phone each package is a block and every value names itself. */
+.fm-packages { max-width: 1920px; }
+.pkg { width: 100%; margin-top: clamp(1.5rem, 3vw, 2.5rem); border-collapse: collapse; text-align: left; font-size: var(--step-body); }
+.pkg th, .pkg td { padding: 1.25rem 1rem 1.25rem 0; vertical-align: top; }
+.pkg thead th { font-size: var(--step-small); font-weight: 500; color: var(--muted); }
+.pkg tbody tr { border-top: 1px solid var(--surface-3); }  /* a real table: its rows may have a line */
+.pkg__name { font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; }
+.pkg__includes { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35rem; }
+@media (max-width: 759px) {
+  .pkg thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .pkg tr, .pkg th, .pkg td { display: block; }
+  .pkg td { padding: 0.5rem 0 0; }
+  .pkg td::before { content: attr(data-label); display: block; font-size: var(--step-small); color: var(--muted); }
+  .pkg tbody tr { padding-block: 1.25rem; }
+  .pkg th { padding: 0; }
+}
+@media (min-width: 760px) {
+  .pkg td:last-child, .pkg th:last-child { padding-right: 0; }
+}
+
 /* ─── Reduced motion: keep the finished state, drop the travel ───────────────*/
 @media (prefers-reduced-motion: reduce) {
   .rise { animation: none; }
@@ -2358,6 +2190,8 @@ html:not(.js) .finder__bar, html:not(.js) .finder__more, html:not(.js) .finder__
   .js [data-reveal]:not(.is-in) .rv, .js .rv[data-reveal]:not(.is-in) { opacity: 1; transform: none; }
   .hero__img { animation: none; }
   .btn:active, .np-toggle:active { transform: none; }
+  .fm-submit::before { animation: none; }
+  .fm-frame img { transition: none; }
   .played__img { transition: none; }
   #mini-player, #now-playing-bar { transition: none; }
   .tl__eq i { animation: none !important; }

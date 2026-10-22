@@ -1,6 +1,6 @@
 ---
 // Navbar: two headers behind one component.
-//  - Bio (/) and 404 keep the original `.navbar` exactly as it was (brand logo
+//  - Bio (/) keeps the original `.navbar` exactly as it was (brand logo
 //    ported from links_bio/components/metal/metal_navbar.py; colours from the
 //    LogoColor enum in colors.py: { } #f1d700, word #c398f4, ; #bbbbbb; font
 //    DinaRemasterII via --font-logo).
@@ -8,10 +8,18 @@
 //    and one action (search), no fill until the page scrolls. On a phone the
 //    links go and a bottom tab bar takes over. The wordmark keeps the logo font
 //    but is set in bone ink there (see `.ma-bar__brand` in global.css).
+//  - `room` gives a page outside /metal-archive that bar too. The 404 uses it: it is
+//    one page for the whole site and is built in the same room, but it has no player.
 import Player from '../islands/Player.tsx';
 
+interface Props {
+  room?: boolean;
+}
+
+const { room = false } = Astro.props;
 const path = Astro.url.pathname;
-const isMetalArchive = path.startsWith('/metal-archive');
+const inArchive = path.startsWith('/metal-archive');
+const isMetalArchive = inArchive || room;
 const isHome = path === '/metal-archive' || path === '/metal-archive/';
 const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabbar__item');
 ---
@@ -96,9 +104,9 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
   the SAME instance survives client-side navigation via transition:persist, so
   audio keeps playing while the user browses. It is data-driven: each album page
   exposes its album via a #metal-np-data JSON island that the Player reads on
-  astro:page-load. Scoped to the archive (not the bio) via isMetalArchive.
+  astro:page-load. Scoped to the archive (not the bio, not the 404) via inArchive.
 */}
-{isMetalArchive && <Player client:load transition:persist="metal-player" />}
+{inArchive && <Player client:load transition:persist="metal-player" />}
 
 <script>
   // Surprise Me: navigate to a random album. The album id list is inlined on
