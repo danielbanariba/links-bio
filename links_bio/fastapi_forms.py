@@ -9,8 +9,11 @@ Writes to the same reflex.db used by Reflex; reuses _send_email_notification
 from form_state.py.
 """
 import logging
+import os
+import re
 import time
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +25,7 @@ from links_bio.db import engine
 from links_bio.models.submission import Submission
 from links_bio.models.newsletter import NewsletterSubscriber
 from links_bio.models.contact_message import ContactMessage
+from links_bio.models.enrollment import EnrollmentRequest
 from links_bio.notifications import _send_email_notification
 from links_bio.rate_limit import SlidingWindowLimiter, resolve_client_key
 
@@ -29,10 +33,10 @@ logger = logging.getLogger("fastapi_forms")
 logging.basicConfig(level=logging.INFO)
 
 # ─── Rate limiting ───────────────────────────────────────────────────────────
-# One shared budget for /submit, /promo and /contact: all three send a real
-# Gmail SMTP email on every call, so sharing one budget stops a client from
-# dodging a per-endpoint limit by spreading requests across the three
-# endpoints (still 3x the SMTP quota otherwise). /newsletter has its own,
+# One shared budget for /submit, /promo, /contact and /enrollment: all four
+# send a real Gmail SMTP email on every call, so sharing one budget stops a
+# client from dodging a per-endpoint limit by spreading requests across the
+# endpoints (still 4x the SMTP quota otherwise). /newsletter has its own,
 # slightly larger budget: it never sends email, only writes a DB row.
 EMAIL_ENDPOINTS_RATE_LIMIT = 5
 EMAIL_ENDPOINTS_RATE_WINDOW_SECONDS = 600  # 10 minutes
@@ -237,6 +241,116 @@ class ContactRequest(BaseModel):
     @classmethod
     def _no_crlf(cls, v: str) -> str:
         return _reject_crlf(v)
+
+
+# ─── Enrollment form (draft) ────────────────────────────────────────────────
+#
+# The option lists below are the exact strings web/src/pages/matricula.astro
+# offers and the row stores (tests/test_enrollment_form.py pins the two
+# together). They are Spanish on purpose: the foundation reads them in the
+# notification email. The draft options will be corrected by the foundation.
+
+Relationship = Literal["Madre", "Padre", "Abuela o abuelo", "Tía o tío", "Otro"]
+MonthlyIncome = Literal[
+    "Menos de L 5,000",
+    "De L 5,000 a L 10,000",
+    "De L 10,001 a L 15,000",
+    "Más de L 15,000",
+    "Prefiero no decir",
+]
+
+PHONE_MAX_LENGTH = 30
+PHONE_MIN_DIGITS = 8   # a Honduran number; +504 and spacing only add to it
+PHONE_MAX_DIGITS = 15  # E.164 upper bound
+HOUSEHOLD_SIZE_MIN = 1
+HOUSEHOLD_SIZE_MAX = 20
+
+_PHONE_CHARS = re.compile(r"^[0-9+() -]+$")
+_EMAIL_SHAPE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class EnrollmentPayload(BaseModel):
+    """Body of POST /api/metal-archive/enrollment (the model of the saved
+    row is links_bio.models.enrollment.EnrollmentRequest)."""
+
+    # Guardian
+    guardian_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    relationship: Relationship
+    phone: str = Field(..., max_length=PHONE_MAX_LENGTH)
+    email: str = Field(default="", max_length=EMAIL_MAX_LENGTH)
+    community: str = Field(..., max_length=NAME_MAX_LENGTH)
+    address: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    # Child
+    child_name: str = Field(..., max_length=NAME_MAX_LENGTH)
+    birth_date: date
+    grade: str = Field(..., max_length=NAME_MAX_LENGTH)
+    current_school: str = Field(default="", max_length=NAME_MAX_LENGTH)
+    # Household
+    household_size: int = Field(..., ge=HOUSEHOLD_SIZE_MIN, le=HOUSEHOLD_SIZE_MAX)
+    monthly_income: MonthlyIncome
+    reason: str = Field(..., max_length=FREE_TEXT_MAX_LENGTH)
+    consent: bool
+    website: str = Field(default="", max_length=HONEYPOT_MAX_LENGTH)
+
+    @field_validator(
+        "guardian_name", "phone", "email", "community", "address",
+        "child_name", "grade", "current_school", "reason",
+        mode="before",
+    )
+    @classmethod
+    def _strip(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator(
+        "guardian_name", "phone", "community", "child_name", "grade", "reason",
+        mode="after",
+    )
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v:
+            raise ValueError("This field is required.")
+        return v
+
+    # `reason` is genuinely multi-line free text, so it is exempt from the
+    # single-line CR/LF check. `child_name` goes into the email Subject, where
+    # a line break would be header injection.
+    @field_validator(
+        "guardian_name", "phone", "email", "community", "address",
+        "child_name", "grade", "current_school",
+        mode="after",
+    )
+    @classmethod
+    def _no_crlf(cls, v: str) -> str:
+        return _reject_crlf(v)
+
+    @field_validator("phone", mode="after")
+    @classmethod
+    def _phone_shape(cls, v: str) -> str:
+        digits = sum(c.isdigit() for c in v)
+        if not _PHONE_CHARS.match(v) or not PHONE_MIN_DIGITS <= digits <= PHONE_MAX_DIGITS:
+            raise ValueError("Enter a valid phone number.")
+        return v
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _email_shape(cls, v: str) -> str:
+        if v and not _EMAIL_SHAPE.match(v):
+            raise ValueError("Enter a valid email address.")
+        return v
+
+    @field_validator("birth_date", mode="after")
+    @classmethod
+    def _not_in_the_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("The birth date cannot be in the future.")
+        return v
+
+    @field_validator("consent", mode="after")
+    @classmethod
+    def _consent_given(cls, v: bool) -> bool:
+        if v is not True:
+            raise ValueError("Consent is required to submit this request.")
+        return v
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -464,3 +578,83 @@ def contact(req: ContactRequest, request: Request):
         logger.warning(f"Email not sent (non-fatal): {err}")
 
     return {"ok": True, "message": "Message sent! I'll get back to you soon."}
+
+
+def _enrollment_email_body(req: EnrollmentPayload) -> str:
+    """Plain-text body listing every field of the request, in Spanish."""
+    none = "(no indicado)"
+    return (
+        f"Nueva solicitud de matrícula\n"
+        f"{'=' * 50}\n\n"
+        f"PERSONA ENCARGADA\n"
+        f"Nombre: {req.guardian_name}\n"
+        f"Relación con el niño o la niña: {req.relationship}\n"
+        f"Teléfono / WhatsApp: {req.phone}\n"
+        f"Correo electrónico: {req.email or none}\n"
+        f"Colonia, aldea o ciudad: {req.community}\n"
+        f"Dirección: {req.address or none}\n\n"
+        f"NIÑO O NIÑA\n"
+        f"Nombre: {req.child_name}\n"
+        f"Fecha de nacimiento: {req.birth_date.isoformat()}\n"
+        f"Grado que solicita: {req.grade}\n"
+        f"Escuela donde estudia ahora: {req.current_school or none}\n\n"
+        f"HOGAR\n"
+        f"Personas que viven en el hogar: {req.household_size}\n"
+        f"Ingreso mensual del hogar: {req.monthly_income}\n\n"
+        f"Por qué solicita el cupo:\n{req.reason}\n\n"
+        f"Autorización para usar los datos: aceptada\n"
+    )
+
+
+@app.post("/api/metal-archive/enrollment")
+def enrollment(req: EnrollmentPayload, request: Request):
+    """Enrollment request from a family: save the row + email the foundation.
+
+    Lives under /api/metal-archive/ because that is the only prefix the
+    cloudflared ingress routes to this service.
+    """
+    _enforce_rate_limit(_email_limiter, request)
+
+    if req.website:
+        logger.warning("Honeypot field filled on /enrollment; dropping silently")
+        return {"ok": True, "message": "Request received. We will contact you soon."}
+
+    try:
+        with _db_session() as session:
+            session.add(
+                EnrollmentRequest(
+                    guardian_name=req.guardian_name,
+                    relationship=req.relationship,
+                    phone=req.phone,
+                    email=req.email,
+                    community=req.community,
+                    address=req.address,
+                    child_name=req.child_name,
+                    birth_date=req.birth_date,
+                    grade=req.grade,
+                    current_school=req.current_school,
+                    household_size=req.household_size,
+                    monthly_income=req.monthly_income,
+                    reason=req.reason,
+                    consent=req.consent,
+                )
+            )
+            session.commit()
+            logger.info("Enrollment request saved")
+    except Exception as exc:
+        logger.error(f"DB error on enrollment: {exc}")
+        raise HTTPException(status_code=500, detail="Could not save your request. Please try again.")
+
+    # While the form is a draft the mail goes to ENROLLMENT_NOTIFY_TO; unset,
+    # _send_email_notification falls back to GMAIL_ADDRESS. Switching to the
+    # foundation's address later is an .env change, not a code change.
+    notify_to = os.environ.get("ENROLLMENT_NOTIFY_TO", "").strip() or None
+    err = _send_email_notification(
+        subject=f"Matrícula: {req.child_name}",
+        body=_enrollment_email_body(req),
+        to=notify_to,
+    )
+    if err:
+        logger.warning(f"Email not sent (non-fatal): {err}")
+
+    return {"ok": True, "message": "Request received. We will contact you soon."}

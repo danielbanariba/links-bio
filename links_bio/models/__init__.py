@@ -4,3 +4,4 @@ from .similar_band import SimilarBand
 from .submission import Submission
 from .newsletter import NewsletterSubscriber
 from .contact_message import ContactMessage
+from .enrollment import EnrollmentRequest  # noqa: F401 (registers the table for Alembic)
