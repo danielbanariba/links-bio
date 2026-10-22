@@ -54,6 +54,7 @@ function toCard(row: any): Card {
     year: row.year ?? null,
     country: row.country ?? null,
     thumb: thumb(row.album_artwork_url),
+    cover: row.album_artwork_url ?? '',
     youtube_video_id: row.youtube_video_id ?? null,
   };
 }
@@ -102,16 +103,79 @@ export function getEditorPicks(): Card[] {
   return rows.map(toCard);
 }
 
+// Views under this count make an album a "hidden gem". Exported so the home
+// copy quotes the same number the query filters on.
+export const HIDDEN_GEM_VIEWS = 500;
+
 // Hidden gems — non-featured, low view count, random order. Live recordings excluded.
-export function getHiddenGems(): Card[] {
+// `views` rides along (NULL counts as 0) so a page can quote the real number.
+export function getHiddenGems(): Array<Card & { views: number }> {
   const rows: any[] = db
     .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE featured = 0 AND (views IS NULL OR views < 500) AND ${NOT_LIVE}
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE featured = 0 AND (views IS NULL OR views < ?) AND ${NOT_LIVE}
        ORDER BY RANDOM() LIMIT 8`
     )
-    .all();
+    .all(HIDDEN_GEM_VIEWS);
+  return rows.map((r) => ({ ...toCard(r), views: r.views ?? 0 }));
+}
+
+// ─── Home "dark room" queries (premium redesign) ─────────────────────────────
+
+// Headline numbers for the hero. Live sets are not albums of the archive, so
+// they are excluded from all three counts (same rule as the facet pages).
+export function getArchiveFacts(): { albums: number; bands: number; countries: number } {
+  const row: any = db
+    .prepare(
+      `SELECT COUNT(id) AS albums,
+              COUNT(DISTINCT band_name) AS bands,
+              COUNT(DISTINCT CASE WHEN country != '' THEN country END) AS countries
+       FROM albums WHERE ${NOT_LIVE}`
+    )
+    .get();
+  return { albums: row?.albums ?? 0, bands: row?.bands ?? 0, countries: row?.countries ?? 0 };
+}
+
+// Newest uploads first. id DESC breaks ties between a batch with one upload_date.
+export function getLatestUploads(limit = 14): Card[] {
+  const rows: any[] = db
+    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE ${NOT_LIVE} ORDER BY upload_date DESC, id DESC LIMIT ?`)
+    .all(limit);
   return rows.map(toCard);
+}
+
+// Most-viewed albums on the channel. Views are the YouTube view count stored by
+// the sync; albums with no views yet are skipped so the ranking is never a tie
+// of zeros. Live sets excluded (they are not part of the catalogue).
+export function getMostPlayed(limit = 8): Array<Card & { views: number }> {
+  const rows: any[] = db
+    .prepare(
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT ?`
+    )
+    .all(limit);
+  return rows.map((r) => ({ ...toCard(r), views: r.views }));
+}
+
+// Daniel's own live sets: how many, and the titles (the recording date lives in
+// the title, e.g. "(Live in Honduras, Tegucigalpa - October 3, 2019)"; the year
+// column is 0 for most of them).
+export function getLiveSetTitles(): string[] {
+  const rows: any[] = db.prepare(`SELECT album_title FROM albums WHERE ${LIVE_MATCH}`).all();
+  return rows.map((r) => r.album_title as string);
+}
+
+// Cover for the footer: the most-viewed album, so it is stable between builds.
+export function getFooterCover(): string {
+  const row: any = db
+    .prepare(
+      `SELECT album_artwork_url FROM albums
+       WHERE album_artwork_url != '' AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT 1`
+    )
+    .get();
+  return row?.album_artwork_url ?? '';
 }
 
 // Live recordings — Daniel's own live sets, surfaced in their own home section.
@@ -423,6 +487,32 @@ export function getGenreFacetGroups(): FacetGroup[] {
   return groupFacetsBySlug(getAllGenres());
 }
 
+// The most common values of a list, grouped by `key`: raw spellings that share a key are ONE
+// value (a genre page groups its spellings by slug; a country is shown by its English label),
+// their counts add up, and the spelling seen most often stands for the group (the first one
+// seen on a tie). Grouping happens BEFORE the limit, so two spellings of one value never
+// take two of the slots and push a real next value out. Blank values are skipped.
+export function topValues(
+  values: Array<string | null | undefined>,
+  limit: number,
+  key: (raw: string) => string = (raw) => raw,
+): string[] {
+  const counts = new Map<string, number>();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+
+  const groups = new Map<string, { total: number; raw: string; rawCount: number }>();
+  for (const [raw, n] of counts) {
+    const k = key(raw);
+    const g = groups.get(k);
+    if (!g) groups.set(k, { total: n, raw, rawCount: n });
+    else {
+      g.total += n;
+      if (n > g.rawCount) { g.raw = raw; g.rawCount = n; }
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.total - a.total).slice(0, limit).map((g) => g.raw);
+}
+
 export function getAlbumsByGenres(genres: string[]): Card[] {
   if (genres.length === 0) return [];
   const placeholders = genres.map(() => '?').join(',');
@@ -529,42 +619,34 @@ export function getBandAlbumCount(bandName: string): number {
   return row?.count ?? 0;
 }
 
-// Header stats for the band page ("artist" header): album count, year range,
-// distinct genres and a representative (most-recent) cover. Real data only — no
-// fabricated "monthly listeners". Used by the upcoming band-page redesign.
-export function getBandStats(bandName: string): {
-  albumCount: number;
-  firstYear: number | null;
-  lastYear: number | null;
-  genres: string[];
-  thumb: string;
-} {
+// Total YouTube views of a band's studio albums, for the band page header. Live sets are
+// Daniel's own recordings, not part of the band's catalogue, so they are left out here the
+// same way they are left out of the album count beside it. NULL views count as 0.
+export function getBandViews(bandName: string): number {
+  const row: any = db
+    .prepare(`SELECT COALESCE(SUM(views), 0) AS total FROM albums WHERE band_name = ? AND ${NOT_LIVE}`)
+    .get(bandName);
+  return row?.total ?? 0;
+}
+
+// The lead record of a genre / country / year page: the most viewed studio album of that
+// facet (live sets excluded, albums with no views skipped, id DESC breaks a tie so the pick
+// is stable between builds). A genre page can group several raw spellings, hence a list of
+// values. Null when nothing in the facet has views yet; the page then has no lead record.
+const FACET_COLUMN = { genre: 'genre', country: 'country', year: 'year' } as const;
+export function getFacetLead(
+  kind: keyof typeof FACET_COLUMN,
+  values: Array<string | number>,
+): (Card & { views: number }) | null {
+  const placeholders = values.map(() => '?').join(',');
   const row: any = db
     .prepare(
-      `SELECT COUNT(id) AS c, MIN(year) AS miny, MAX(year) AS maxy
-       FROM albums WHERE band_name = ?`
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE ${FACET_COLUMN[kind]} IN (${placeholders}) AND views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT 1`
     )
-    .get(bandName);
-  const genreRows: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE band_name = ? AND genre IS NOT NULL AND genre != ''
-       GROUP BY genre ORDER BY c DESC`
-    )
-    .all(bandName);
-  const cover: any = db
-    .prepare(
-      `SELECT album_artwork_url FROM albums WHERE band_name = ?
-       ORDER BY upload_date DESC LIMIT 1`
-    )
-    .get(bandName);
-  return {
-    albumCount: row?.c ?? 0,
-    firstYear: row?.miny ?? null,
-    lastYear: row?.maxy ?? null,
-    genres: genreRows.map((g) => g.genre),
-    thumb: thumb(cover?.album_artwork_url),
-  };
+    .get(...values);
+  return row ? { ...toCard(row), views: row.views } : null;
 }
 
 // ─── Browse index ─────────────────────────────────────────────────────────────

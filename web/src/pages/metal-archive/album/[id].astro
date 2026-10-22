@@ -1,35 +1,47 @@
 ---
-// Album detail page — one static page per album (1298 total).
-// Faithful port of links_bio/pages/metal_archive/album_detail.py.
+// Album detail page, "the dark room" (premium redesign, 2026). One static page
+// per album (1298 total).
+//
+// A header band in the album's own colour (cover lit on the left, title, band,
+// facts, actions), then the tracklist as a table, then what to play next.
 //
 // Build-time work in the frontmatter:
-//   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getMoreToExplore
-//   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds
-//   - getAlbumColor() extracts the dominant swatch from the thumb (cached) and
-//     bakes --album-color + the hero gradient inline -> zero runtime Vibrant.
+//   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getAlbumsByBand
+//   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds; every album is
+//     ONE long video and a timestamp is where a track STARTS, so a track's length
+//     is the gap to the next start (lib/tracks.ts)
+//   - getAlbumColor() extracts the dominant swatch from the thumb (cached); the
+//     header field is that colour mixed down into the dark ground (see fieldFor)
 //
 // Interactivity lives in the GLOBAL persistent <Player> (rendered from the
 // Navbar, transition:persist). This page only exposes its album as a JSON data
-// island (#metal-np-data) that the Player reads on astro:page-load.
+// island (#metal-np-data) that the Player reads on astro:page-load, and marks the
+// Play button (`data-np-main`, `.js-pp`) and the track rows (`data-track-idx`,
+// `data-seconds`, `[data-track-name]`) the Player's delegated click handler finds.
 import {
   getAllAlbumIds,
   getAlbum,
   getTracks,
   getSimilarBands,
   getSimilarAlbums,
-  getMoreToExplore,
+  getAlbumsByBand,
   getBandAlbumCount,
   getBandPageNameSet,
+  isLiveRecording,
   slugify,
 } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
+import { lengthLabel, trackLengths, tsToSeconds } from '../../../lib/tracks.js';
+import { splitTitle } from '../../../lib/titles.js';
 import { thumb } from '../../../lib/thumb.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import { ClientRouter } from 'astro:transitions';
-import AlbumCard from '../../../components/AlbumCard.astro';
+import Carousel from '../../../components/Carousel.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
+import ArchiveHead from '../../../components/ArchiveHead.astro';
+import Reveal from '../../../components/Reveal.astro';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
@@ -53,11 +65,10 @@ if (!album) {
 const rawTracks = getTracks(id);
 const similarBands = getSimilarBands(id);
 const similarAlbums = getSimilarAlbums(album.genre, id);
-const moreToExplore = getMoreToExplore(id);
 
 // Names of bands that have their own page (2+ albums), built from a single query
-// so each "Similar bands" pill can resolve its destination without an N+1.
-// A pill links to the band page when it exists, else to a Browse text search so
+// so each "Similar bands" chip can resolve its destination without an N+1.
+// A chip links to the band page when it exists, else to a Browse text search so
 // the discovery jump always lands somewhere.
 const bandPageNames = getBandPageNameSet();
 function similarBandHref(name: string): string {
@@ -66,46 +77,56 @@ function similarBandHref(name: string): string {
     : `/metal-archive/browse?q=${encodeURIComponent(name)}`;
 }
 
-// ─── Parse "MM:SS" / "HH:MM:SS" timestamps to seconds (build-time) ───────────
-function tsToSeconds(ts: string | null): number {
-  if (!ts) return 0;
-  const parts = ts.split(':').map((p) => parseInt(p, 10));
-  if (parts.some((n) => Number.isNaN(n))) return 0;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 1) return parts[0];
-  return 0;
-}
-
 const tracks = rawTracks.map((t, i) => ({
   idx: i,
   number: t.track_number ?? i + 1,
   name: t.track_name,
-  timestamp: t.timestamp ?? '',
   seconds: tsToSeconds(t.timestamp),
 }));
 
-// Big "now playing" title defaults to the first track; the Player swaps it to
-// the active track on play. The album NAME lives in the small line below it.
-const heroTitle = tracks.length > 0 ? tracks[0].name : album.album_title;
+// Track lengths (see lib/tracks.ts): the gap to the next start, and for the last track an
+// estimate from the minute-rounded album length, printed as "~6 min" rather than exact m:ss.
+const lengths = trackLengths(tracks.map((t) => t.seconds), (album.duration_minutes ?? 0) * 60);
 
-// ─── Artwork: full cover for the hero (eager), small thumb for the bar/og ────
+// ─── Artwork ─────────────────────────────────────────────────────────────────
 const coverUrl = album.album_artwork_url || '';
 const coverThumb = thumb(album.album_artwork_url);
 
-// ─── Build-time color: bake --album-color + hero gradient inline ─────────────
+// ─── Build-time colour: the header field ─────────────────────────────────────
 // Use the small thumb (mqdefault) — Vibrant decodes every pixel, the thumb is
 // ~16x cheaper than the full cover and yields an identical dominant color.
 // Pass the full cover as a fallback: if the thumb 404s or is an undecodable
-// format, getAlbumColor tries the large image before returning the cyan default
+// format, getAlbumColor tries the large image before returning the default
 // (deathgrind .webp covers in particular need the full-bytes -> sharp path).
 const albumColor = await getAlbumColor(coverThumb || coverUrl, coverUrl);
+
+// Same capped mix as the home hero (index.astro fieldFor): bone type (#ece6da) sits
+// on a flat field tinted by the album's own colour. The album share is capped at 30%,
+// so the field is always a dark, album-tinted surface and never a mid-tone, and is
+// stepped down further until the type reads at >= 8:1.
+const INK: [number, number, number] = [0xec, 0xe6, 0xda];
+const GROUND: [number, number, number] = [0x0e, 0x0d, 0x0c];
+const lin = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+const ratio = (a: number[], b: number[]) => { const [x, y] = lum(a) > lum(b) ? [a, b] : [b, a]; return (lum(x) + 0.05) / (lum(y) + 0.05); };
+const mixRgb = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+const toHex = (c: number[]) => '#' + c.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+function fieldFor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const rgb = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [0xdd, 0xa1, 0x5e];
+  for (let t = 0.3; t >= 0.08; t -= 0.02) {
+    const f = mixRgb(rgb, GROUND, t);
+    if (ratio(INK, f) >= 8 && lum(f) <= 0.024) return toHex(f);
+  }
+  return toHex(mixRgb(rgb, GROUND, 0.08));
+}
+const field = fieldFor(albumColor);
 
 // ─── Streaming / social links ────────────────────────────────────────────────
 // Many descriptions are scraped text that embeds the band's links (Bandcamp,
 // Spotify, Metal Archives, socials…). We pull every URL out of the description
 // AND the dedicated DB columns, classify each by platform, and render them as
-// proper buttons instead of dumping the raw text. Deduped by platform.
+// icon buttons instead of dumping the raw text. Deduped by platform.
 const LINK_PLATFORMS: { test: RegExp; label: string }[] = [
   { test: /bandcamp\.com/i, label: 'Bandcamp' },
   { test: /spotify\.com/i, label: 'Spotify' },
@@ -135,7 +156,7 @@ const seenPlatform = new Set<string>();
 const SELF_DOMAINS = /(danielbanariba\.com|xeroxunderground\.com)/i;
 const platformLinks = allLinkUrls
   .map((url) => ({ label: classifyLink(url), url }))
-  .filter((l) => l.label !== 'YouTube')        // YouTube already has its own button in the hero
+  .filter((l) => l.label !== 'YouTube')        // YouTube already has its own button in the header
   .filter((l) => !SELF_DOMAINS.test(l.url))     // remove our own website (danielbanariba.com)
   .filter((l) => { if (seenPlatform.has(l.label)) return false; seenPlatform.add(l.label); return true; });
 
@@ -143,7 +164,7 @@ const platformLinks = allLinkUrls
 // single-path marks; platforms without a real logo fall back to a globe.
 function platformIcon(label: string): string {
   const wrap = (inner: string, opts = '') =>
-    `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" ${opts}>${inner}</svg>`;
+    `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" ${opts}>${inner}</svg>`;
   switch (label) {
     case 'Spotify':
       return wrap('<path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-1.02-.12-1.14-.6-.12-.48.12-1.02.6-1.14C9.6 9.9 15 10.56 18.72 12.84c.36.18.54.78.24 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/>');
@@ -166,17 +187,77 @@ function platformIcon(label: string): string {
   }
 }
 
-const releaseType = album.release_type && album.release_type.trim() !== '' ? album.release_type : 'Album';
-
 // ─── Discovery links (genre / year / band) ────────────────────────────────────
 const genreSlug = album.genre ? slugify(album.genre) : null;
 const bandAlbumCount = getBandAlbumCount(album.band_name);
 const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
+// #4: bandSlug is only set when this EXACT casing has 2+ albums (getBandAlbumCount is
+// a plain band_name = ?), so a band entered with inconsistent casing across uploads
+// would be dead text with no way to find its other releases. Fall back to the same
+// Browse-search link the "Similar bands" chips use when a band has no page.
+const bandHref = bandSlug ? `/metal-archive/band/${bandSlug}` : similarBandHref(album.band_name);
+
+// Other albums by this band. A live set only sits beside other live sets, and a studio
+// album beside studio albums, the same split the home feeds make (isLiveRecording).
+const bandMore = getAlbumsByBand(album.band_name).filter(
+  (a) => a.id !== album.id && isLiveRecording(a.album_title) === isLiveRecording(album.album_title),
+);
 
 // Country (and one placeholder genre) are stored in Spanish in the DB —
 // translate for display only; slugs and queries still use the raw values.
 const countryName = countryLabel(album.country);
 const genreName = genreLabel(album.genre);
+
+// ─── Title ───────────────────────────────────────────────────────────────────
+// Long tails ("(Live in Honduras, Tegucigalpa - October 3, 2019)", "[Remastered]") sit
+// under the name at a smaller size, inside the same <h1>. The name's size is set from
+// how it wraps (--cc), so it holds on two lines at every width; see .album-head__title.
+// Only trailing bracket groups are a tail (lib/titles.ts), so a bracket mid-title stays in the name.
+const { name: titleMain, tail: titleSub } = splitTitle(album.album_title);
+// How many characters the widest of the two lines holds when the name is split at the best
+// word boundary (one word: the word itself). The CSS turns it into a font size that keeps the
+// name on two lines in any column width. Erode has no Cyrillic or CJK, so those fall back to
+// a wider face (1.3). Capitals run wider than lowercase (1.2), m and w wider still (1.5),
+// i, l, j and punctuation narrower (0.55); a space counts 0.45.
+const charWeight = (c: string) =>
+  /[^\u0000-\u024F]/.test(c) ? 1.3
+  : /[mwMW]/.test(c) ? (c === c.toUpperCase() ? 1.6 : 1.5)
+  : /[ijl.,'!:;|]/.test(c) ? 0.55
+  : /[tfrI]/.test(c) ? 0.75
+  : /\p{Lu}/u.test(c) ? 1.2 : 1;
+const wordWeight = (w: string) => [...w.normalize('NFD').replace(/\p{M}/gu, '')].reduce((n, c) => n + charWeight(c), 0);
+function lineChars(name: string): number {
+  const w = name.split(/\s+/).filter(Boolean).map(wordWeight);
+  if (w.length < 2) return Math.max(1, w[0] ?? 1);
+  let best = Infinity;
+  for (let k = 1; k < w.length; k++) {
+    const first = w.slice(0, k).reduce((n, x) => n + x, 0) + 0.45 * (k - 1);
+    const rest = w.slice(k).reduce((n, x) => n + x, 0) + 0.45 * (w.length - k - 1);
+    best = Math.min(best, Math.max(first, rest));
+  }
+  return Math.ceil(best * 10) / 10;
+}
+const titleChars = lineChars(titleMain);
+
+// ─── Facts line: genre · country · year · tracks · length · views ────────────
+const nf = new Intl.NumberFormat('en-US');
+const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+const releaseType = album.release_type && !/^(full album|album)?$/i.test(album.release_type.trim()) ? album.release_type.trim() : '';
+const lengthText = album.duration_minutes
+  ? (album.duration_minutes >= 60
+      ? `${Math.floor(album.duration_minutes / 60)} h${album.duration_minutes % 60 ? ` ${album.duration_minutes % 60} min` : ''}`
+      : `${album.duration_minutes} min`)
+  : '';
+// year 0 means "unknown"; a bare `0 && ...` would render a literal "0" (see lib/cardMeta.ts).
+const facts: { text: string; href?: string }[] = [
+  releaseType ? { text: releaseType } : null,
+  genreName ? { text: genreName, href: genreSlug ? `/metal-archive/genre/${genreSlug}` : undefined } : null,
+  countryName ? { text: countryName } : null,
+  album.year ? { text: String(album.year), href: `/metal-archive/year/${album.year}` } : null,
+  tracks.length > 0 ? { text: `${nf.format(tracks.length)} ${tracks.length === 1 ? 'track' : 'tracks'}` } : null,
+  lengthText ? { text: lengthText } : null,
+  album.views > 0 ? { text: `${album.views < 1000 ? nf.format(album.views) : compact.format(album.views)} ${album.views === 1 ? 'view' : 'views'}` } : null,
+].filter((f): f is { text: string; href?: string } => f !== null);
 
 const pageTitle = `${album.band_name} — ${album.album_title}`;
 const metaDesc = `${album.band_name} · ${album.album_title}${genreName ? ' · ' + genreName : ''}${album.year ? ' · ' + album.year : ''}. Listen to the full album on the Metal Archive.`;
@@ -227,7 +308,7 @@ const albumJsonLd = safeJsonLd({
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${albumColor};`}>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -244,195 +325,120 @@ const albumJsonLd = safeJsonLd({
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href={canonical} />
     <script type="application/ld+json" set:html={albumJsonLd} />
+    <ArchiveHead />
     <ClientRouter />
   </head>
-  <body class="ma album-detail album-detail-bg">
+  <body class="ma">
+    <Reveal />
     <Navbar />
 
-    <main class="album-detail-main" id="main" tabindex="-1">
-      <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
-      <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
-        <div class="stage__inner">
-          <!-- Square 1:1 cover, the protagonist (REQ-001) -->
-          <div class="stage__cover-wrap">
+    <main id="main" tabindex="-1">
+      <!-- ─── Header band: the cover lit on a field of its own colour ─────────── -->
+      <header class="album-head" style={`--field: ${field}; --album: ${albumColor};`}>
+        <div class="album-head__inner">
+          <div class="album-head__cover">
             {coverUrl
               ? <img
-                  class="stage__cover"
                   src={coverUrl}
-                  srcset={coverThumb ? `${coverThumb} 320w, ${coverUrl} 1280w` : undefined}
-                  sizes="(min-width: 880px) clamp(340px, 42vw, 560px), 100vw"
-                  alt={album.album_title}
-                  loading="eager"
+                  alt={`Cover of ${album.album_title} by ${album.band_name}`}
+                  width="1280"
+                  height="720"
+                  fetchpriority="high"
                   decoding="async"
-                  width="640"
-                  height="640"
                 />
-              : <div class="stage__cover stage__cover--empty" aria-hidden="true"></div>
+              : <div class="album-head__cover-empty" aria-hidden="true"></div>
             }
           </div>
 
-          <div class="stage__panel">
-            <div class="stage__eyebrow">{releaseType}</div>
-            <!-- F6 (Oct 2026 UI audit): the only <h1> on this page used to be
-                 this "now playing" track-name line, not the album — a wrong
-                 page heading for SEO/a11y (and it changed as the Player
-                 advanced tracks). It is now a plain paragraph; the Player
-                 still updates it via the .js-np-title class hook below, which
-                 doesn't care about tag name. The real h1 (band + album title)
-                 follows, keeping the exact same two-line visual split. -->
-            <p class="stage__title js-np-title">{heroTitle}</p>
-            <h1 class="stage__heading">
-              <!-- Band name in the accent color, high contrast (REQ-003) -->
-              <div class="stage__artist">
-                {bandSlug
-                  ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
-                  // #4: bandSlug is only set when this EXACT casing has 2+
-                  // albums (getBandAlbumCount is a plain band_name = ?), so a
-                  // band entered with inconsistent casing across uploads
-                  // rendered as dead text with no way to find its other
-                  // releases. Fall back to the same Browse-search link the
-                  // "Similar bands" pills already use when a band has no page.
-                  : <a href={similarBandHref(album.band_name)} class="stage__artist-link">{album.band_name}</a>
-                }
-              </div>
-              <!-- Album name in the small line (stays put while the big title changes) -->
-              <div class="stage__album">{album.album_title}</div>
+          <div class="album-head__text" style={`--cc:${titleChars};`}>
+            <h1 class="album-head__title rise" id="album-title" style="--i:0">
+              <span class="album-head__name">{titleMain}</span>
+              {titleSub && <>{' '}<span class="album-head__sub">{titleSub}</span></>}
             </h1>
-            <div class="stage__metarow">
-              {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{genreName}</a>}
-              {album.genre && !genreSlug && <span>{genreName}</span>}
-              {/* year 0 means "unknown". The !! is required, since a bare `0 && ...` renders a literal "0" (see lib/cardMeta.ts) */}
-              {!!album.genre && !!album.year && <span class="sep"> · </span>}
-              {!!album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
-              {(!!album.genre || !!album.year) && countryName && <span class="sep"> · </span>}
-              {countryName && <span>{countryName}</span>}
-            </div>
+            <p class="album-head__band rise" style="--i:1"><a href={bandHref}>{album.band_name}</a></p>
+            <ul class="album-head__facts rise" style="--i:2" aria-label="Album details">
+              {facts.map((f) => <li>{f.href ? <a href={f.href}>{f.text}</a> : f.text}</li>)}
+            </ul>
 
-            <!-- Progress (accent fill) -->
-            <div class="stage__progress">
-              <div
-                class="stage__bar js-progressbar"
-                role="progressbar"
-                aria-label="Playback progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="0"
-              >
-                <div class="stage__bar-fill js-progress-fill"></div>
-              </div>
-              <div class="stage__times">
-                <span class="js-time-current">0:00</span>
-                <span class="js-time-total">{album.duration_minutes ? `${album.duration_minutes} min` : ''}</span>
-              </div>
-            </div>
-
-            <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004) -->
-            <div class="stage__transport">
-              <button type="button" class="stage__ctl" aria-label="Previous track" data-np-prev="1">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
-              </button>
-              <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
-                <span class="stage__play-glow" aria-hidden="true"></span>
-                <svg class="ic ic-play" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
-                <span class="ic ic-spinner" aria-hidden="true"></span>
-              </button>
-              <button type="button" class="stage__ctl" aria-label="Next track" data-np-next="1">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
-              </button>
-            </div>
-
-            <!-- Real actions only (no invented features) -->
-            <div class="stage__actions">
+            <div class="album-head__actions rise" style="--i:3">
+              {hasVideo && (
+                <button type="button" class="btn btn--primary album-head__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
+                  <svg class="ic ic-play" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+                  <svg class="ic ic-pause" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
+                  <span class="ic ic-spinner" aria-hidden="true"></span>
+                  <span class="pp-lbl pp-lbl--play">Play</span>
+                  <span class="pp-lbl pp-lbl--pause">Pause</span>
+                  <span class="pp-lbl pp-lbl--wait">Loading</span>
+                </button>
+              )}
               {album.youtube_url && (
-                <a class="stage__action" href={album.youtube_url} target="_blank" rel="noopener noreferrer">
-                  <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
+                <a class="btn btn--secondary" href={album.youtube_url} target="_blank" rel="noopener noreferrer">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
                   <span>YouTube</span>
                 </a>
               )}
-              <button type="button" class="stage__action" data-share="1" aria-label="Share this album">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+              <button type="button" class="btn btn--secondary" data-share="1" aria-label="Share this album">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
                 <span>Share</span>
               </button>
-              {/* Streaming / social links — brand logos, pulled from the description + DB */}
-              {platformLinks.map((l) => (
-                <a class="stage__action" href={l.url} target="_blank" rel="noopener noreferrer">
-                  <span class="stage__action-ico" set:html={platformIcon(l.label)}></span>
-                  <span>{l.label}</span>
-                </a>
-              ))}
+              {/* Streaming / social links: brand logos, pulled from the description + DB */}
+              {platformLinks.length > 0 && (
+                <ul class="album-head__links" aria-label="Also on">
+                  {platformLinks.map((l) => (
+                    <li>
+                      <a class="icon-btn" href={l.url} target="_blank" rel="noopener noreferrer" aria-label={`${l.label} (opens in a new tab)`} title={l.label} set:html={platformIcon(l.label)}></a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      <!-- ─── Body ─────────────────────────────────────────────────────────── -->
-      <div class="album-detail-body">
-        <!-- Tracklist -->
-        {tracks.length > 0 && (
-          <section class="tracklist-section">
-            <div class="track-header">
-              <div style="text-align: center;">#</div>
-              <div>Title</div>
-              <div style="text-align: right;">⏱</div>
-            </div>
-            <div class="track-rows">
-              {tracks.map((t) => (
+      <!-- ─── Tracklist: a real ordered list, one button per row ─────────────── -->
+      {tracks.length > 0 && (
+        <section class="sect tracks" aria-labelledby="tracks-title" data-reveal>
+          <h2 class="sect-title rv" id="tracks-title" style="--i:0">Tracklist</h2>
+          <ol class="tl">
+            {tracks.map((t, i) => (
+              <li class="rv" style={`--i:${Math.min(i, 9) + 1}`}>
                 <button
                   type="button"
-                  class="track-row"
+                  class="tl__row"
                   data-track-idx={String(t.idx)}
                   data-seconds={String(t.seconds)}
                   aria-label={`Play track ${t.number}: ${t.name}`}
+                  disabled={!hasVideo}
                 >
-                  <span class="track-row__index">
-                    <span class="track-number">{t.number}</span>
-                    <span class="track-play-icon">▸</span>
-                    <span class="track-active-icon">▸</span>
-                  </span>
-                  <span class="track-row__title" data-track-name="1">{t.name}</span>
-                  <span class="track-row__time">{t.timestamp}</span>
+                  <span class="tl__n"><span class="tl__num">{t.number}</span><span class="tl__eq" aria-hidden="true"><i></i><i></i><i></i></span></span>
+                  <span class="tl__t" data-track-name="1">{t.name}</span>
+                  <span class="tl__d">{lengthLabel(lengths[i])}</span>
                 </button>
-              ))}
-            </div>
-          </section>
-        )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
-        <!-- Similar bands -->
-        {similarBands.length > 0 && (
-          <section class="similar-bands-section">
-            <h2>Similar bands</h2>
-            <div class="similar-bands">
-              {similarBands.map((b) => (
-                <a class="band-pill" href={similarBandHref(b.band_name)}>{b.band_name}</a>
-              ))}
-            </div>
-          </section>
-        )}
+      <!-- ─── What to play next ──────────────────────────────────────────────── -->
+      {bandMore.length > 0 && (
+        <Carousel id="band-more" title="More from the band" albums={bandMore} href={bandSlug ? bandHref : undefined} hrefLabel="See all" deferred />
+      )}
+      {similarAlbums.length > 0 && (
+        <Carousel id="similar-albums" title="Similar albums" albums={similarAlbums} deferred />
+      )}
 
-        <!-- Similar albums -->
-        {similarAlbums.length > 0 && (
-          <section class="related-section">
-            <h2>If you liked this...</h2>
-            <div class="album-grid">
-              {similarAlbums.map((a) => <AlbumCard album={a} />)}
-            </div>
-          </section>
-        )}
-
-        <!-- More to explore -->
-        {moreToExplore.length > 0 && (
-          <section class="related-section related-section--bordered">
-            <div class="related-section__header">
-              <h2>Keep exploring</h2>
-              <a href="/metal-archive/browse" class="related-section__more">See all →</a>
-            </div>
-            <div class="album-grid">
-              {moreToExplore.map((a) => <AlbumCard album={a} />)}
-            </div>
-          </section>
-        )}
-      </div>
+      {similarBands.length > 0 && (
+        <section class="sect similar" aria-labelledby="similar-title" data-reveal>
+          <h2 class="sect-title rv" id="similar-title" style="--i:0">Similar bands</h2>
+          <ul class="chips rv" style="--i:1">
+            {similarBands.map((b) => (
+              <li><a class="chip" href={similarBandHref(b.band_name)}>{b.band_name}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
 
     <!-- ─── Player data island ─────────────────────────────────────────────── -->
@@ -451,6 +457,6 @@ const albumJsonLd = safeJsonLd({
       />
     )}
 
-    <Footer />
+    <Footer cover={coverUrl || undefined} />
   </body>
 </html>

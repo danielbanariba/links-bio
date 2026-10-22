@@ -1,0 +1,92 @@
+---
+// PageHead: the header of a band, genre, country or year page, in the dark room.
+//
+// A band of the page's own colour (`--field`, the dominant colour of the lit cover mixed
+// down into the ground and capped dark, so the bone type always reads) runs up under the
+// top bar to a hard edge. The name sits left in the display face, the lead cover lit on the
+// right, and whatever the page says about itself (a facts line, a sentence, its actions)
+// goes in the slot, under the name.
+//
+// The name is data of any length (a band can be "Necrocannibalistic Vomitorium", a genre
+// "Black Metal (Early)/Black/Death Metal/Metalcore (Later)"), so its size is fitted to the
+// column: `--cc` is how many characters the wider of its two lines holds when the name is
+// split at the best word boundary (a space, or after a slash), and `.fit` (global.css) turns that into a font size that
+// keeps the name on two lines at any width. The same fit sets the album page title.
+import { breakLongWord, lineChars } from './title-fit.js';
+
+interface Lead {
+  href: string;
+  /** The cover as stored (a 16:9 thumbnail; the left square is the art). */
+  cover: string;
+  /** Show the whole 16:9 frame: a live set's thumbnail is a frame of the show, not cover art. */
+  frame?: boolean;
+  /** First caption line, e.g. "Latest release". */
+  kind: string;
+  /** Second caption line, e.g. the album and its year. */
+  detail: string;
+}
+
+interface Props {
+  title: string;
+  /** A country flag, drawn small before the name. */
+  flag?: string;
+  /** Dominant colour of the lead cover (hex); the field is mixed from it. */
+  color?: string;
+  lead?: Lead | null;
+  /** A bare head only: the slot sits in the right half, level with the name's baseline (from 1100px). */
+  split?: boolean;
+}
+
+const { title, flag = '', color = '', lead = null, split = false } = Astro.props;
+
+// ─── Field: the cover's colour mixed down into the ground ────────────────────
+// The album share is capped at 30%, so the field is always a dark, cover-tinted surface and
+// never a mid-tone, and is stepped down further until bone type (#ece6da) reads at >= 8:1.
+const INK: [number, number, number] = [0xec, 0xe6, 0xda];
+const GROUND: [number, number, number] = [0x0e, 0x0d, 0x0c];
+const lin = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+const ratio = (a: number[], b: number[]) => { const [x, y] = lum(a) > lum(b) ? [a, b] : [b, a]; return (lum(x) + 0.05) / (lum(y) + 0.05); };
+const mixRgb = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+const toHex = (c: number[]) => '#' + c.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+function fieldFor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const rgb = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [0xdd, 0xa1, 0x5e];
+  for (let t = 0.3; t >= 0.08; t -= 0.02) {
+    const f = mixRgb(rgb, GROUND, t);
+    if (ratio(INK, f) >= 8 && lum(f) <= 0.024) return toHex(f);
+  }
+  return toHex(mixRgb(rgb, GROUND, 0.08));
+}
+const field = fieldFor(color);
+
+// ─── Title fit ───────────────────────────────────────────────────────────────
+// lineChars() and breakLongWord() live in title-fit.ts (tested): a name that is one long word
+// is offered one soft hyphen at its middle, so a phone breaks it in two balanced lines with a
+// hyphen instead of cutting it wherever the line runs out.
+// The flag takes about one character's width, and sits on the first line.
+const flagWidth = flag ? 1.2 : 0;
+const chars = lineChars(title, flagWidth);
+// The name is cut after every slash with a <wbr>, so that is where it may break: the browser
+// does not offer a break there by itself, and the fit above counts on it.
+const parts = breakLongWord(title, flagWidth).split('/');
+---
+<header class:list={['page-head', !lead && 'page-head--bare', !lead && split && 'page-head--split']} style={`--field: ${field};`}>
+  <div class="page-head__inner">
+    <div class="page-head__text" style={`--cc:${chars};`}>
+      <h1 class="page-head__title fit rise" style="--i:0">{flag && <span class="page-head__flag" aria-hidden="true">{flag}</span>}{parts.map((part, i) => (i < parts.length - 1 ? <Fragment>{part}/<wbr /></Fragment> : part))}</h1>
+      <slot />
+    </div>
+    {lead && (
+      <a class="page-head__pic rise" style="--i:1" href={lead.href}>
+        <span class:list={['page-head__art', lead.frame && 'page-head__art--frame']}>
+          <img src={lead.cover} alt="" width="1280" height="720" fetchpriority="high" decoding="async" />
+        </span>
+        <span class="page-head__cap">
+          <span class="page-head__cap-kind">{lead.kind}</span>
+          <span class="page-head__cap-detail">{lead.detail}</span>
+        </span>
+      </a>
+    )}
+  </div>
+</header>

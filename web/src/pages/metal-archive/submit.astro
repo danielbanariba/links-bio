@@ -1,9 +1,19 @@
 ---
 // submit.astro — Submit a band to the Metal Archive
 // POSTs to /api/metal-archive/submit (FastAPI on port 8001, proxied by host)
+//
+// The dark room (premium redesign, 2026): the shared head, then two columns on a desktop, the
+// argument and the archive's real numbers on the left and the form on the right; on a phone the
+// argument comes first. Fields sit on the ground with a 1px edge, labels are always visible.
 import { ClientRouter } from 'astro:transitions';
+import { getLatestUploads } from '../../lib/db.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
+import ArchiveHead from '../../components/ArchiveHead.astro';
+import PageHead from '../../components/PageHead.astro';
+import Reveal from '../../components/Reveal.astro';
+import Carousel from '../../components/Carousel.astro';
+import FormFacts from '../../components/FormFacts.astro';
 import '../../styles/global.css';
 
 const GENRES = [
@@ -13,6 +23,11 @@ const GENRES = [
   "Folk Metal", "Symphonic Metal", "Sludge Metal", "Stoner Metal",
   "Speed Metal", "Brutal Death Metal",
 ];
+
+const latest = getLatestUploads(8);
+
+// The field of the head: a warm neutral, mixed down into the ground by PageHead (as Browse).
+const HEAD_COLOR = '#8c8478';
 
 const pageTitle = 'Submit your band | Metal Archive';
 const metaDesc = 'Submit your band or album for review and free inclusion in the archive.';
@@ -36,170 +51,164 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   <meta name="twitter:description" content={metaDesc} />
   <meta name="twitter:image" content={ogImage} />
   <link rel="canonical" href={canonical} />
+  <ArchiveHead />
   <ClientRouter />
 </head>
-<body class="form-page">
+<body class="ma">
+  <Reveal />
   <Navbar />
 
-  <main class="form-page__main" id="main" tabindex="-1">
-    <!-- Header -->
-    <div class="form-page__header">
-      <svg class="form-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
-      </svg>
-      <h1 class="form-page__title">Submit your band</h1>
-      <p class="form-page__subtitle">
-        Submit your band or album for review and free inclusion in the archive.
-      </p>
-    </div>
+  <main id="main" tabindex="-1">
+    <PageHead title="Submit your band" color={HEAD_COLOR} split>
+      <p class="page-head__lead rise" style="--i:1">Submit your band or album for review and free inclusion in the archive.</p>
+      <a class="btn btn--secondary fm-jump rise" style="--i:2" href="#form-title">Go to the form</a>
+    </PageHead>
 
-    <!-- Form card -->
-    <div class="form-card" id="form-card">
-      <!-- Success state (hidden by default, shown via JS) -->
-      <div class="form-success" id="success-state" style="display:none">
-        <span class="form-success__icon">&#10004;</span>
-        <h2 class="form-success__title">Band submitted</h2>
-        <p class="form-success__body">
-          We'll review your submission and get back to you soon. Keep an eye on your inbox.
-        </p>
-        <a href="/metal-archive" class="form-success__back">&#8592; Back to the archive</a>
-      </div>
+    <div class="fm">
+      <!-- The argument: what happens next, and what the archive already holds -->
+      <section class="fm-aside" data-reveal aria-labelledby="next-title">
+        <h2 class="fm-title rv" id="next-title" style="--i:0">What happens next</h2>
+        <ol class="fm-steps rv" style="--i:1">
+          <li>
+            <strong class="fm-steps__name">We review your submission</strong>
+            <span class="fm-steps__text">We listen to your music and verify the details.</span>
+          </li>
+          <li>
+            <strong class="fm-steps__name">We get in touch</strong>
+            <span class="fm-steps__text">If your band is selected, we'll contact you to arrange the next steps.</span>
+          </li>
+          <li>
+            <strong class="fm-steps__name">We publish your album</strong>
+            <span class="fm-steps__text">Your album goes live in the archive with all its details.</span>
+          </li>
+        </ol>
+        <div class="rv" style="--i:2">
+          <FormFacts lead="Your album would join" />
+        </div>
+      </section>
 
       <!-- The form -->
-      <form id="submit-form" class="form-stack" novalidate>
-        <!-- Band name + email -->
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label" for="band_name">
-              Band name <span class="form-label__required">*</span>
-            </label>
-            <input
-              id="band_name" name="band_name" type="text"
-              class="form-input" placeholder="e.g. Blasfemia" required
-            />
-          </div>
-          <div class="form-field">
-            <label class="form-label" for="contact_email">
-              Contact email <span class="form-label__required">*</span>
-            </label>
-            <input
-              id="contact_email" name="contact_email" type="email"
-              class="form-input" placeholder="band@email.com" required
-            />
-          </div>
+      <div class="fm-main">
+        <!-- Success state (hidden by default, shown via JS) -->
+        <div class="fm-done" id="success-state" style="display:none" tabindex="-1" role="status">
+          <h2 class="fm-done__title">Band submitted</h2>
+          <p class="fm-done__body">
+            We'll review your submission and get back to you soon. Keep an eye on your inbox.
+          </p>
+          <a href="/metal-archive" class="btn btn--secondary">Back to the archive</a>
         </div>
 
-        <!-- Genre + Country -->
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label" for="genre">
-              Genre <span class="form-label__required">*</span>
-            </label>
-            <select id="genre" name="genre" class="form-select" required>
-              <option value="">Pick a genre</option>
-              {GENRES.map(g => <option value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div class="form-field">
-            <label class="form-label" for="country">
-              Country <span class="form-label__required">*</span>
-            </label>
-            <input
-              id="country" name="country" type="text"
-              class="form-input" placeholder="e.g. Honduras" required
-            />
-          </div>
-        </div>
+        <form id="submit-form" class="fm-form" novalidate aria-labelledby="form-title">
+          <h2 class="fm-title rise" id="form-title" style="--i:2">About your band</h2>
+          <p class="fm-hint rise" style="--i:3">Fields marked * are required.</p>
 
-        <!-- Album title + Year -->
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label" for="album_title">Album title</label>
-            <input
-              id="album_title" name="album_title" type="text"
-              class="form-input" placeholder="e.g. Inmaculada Concepcion"
-            />
+          <!-- Band name + email -->
+          <div class="fm-row rise" style="--i:4">
+            <div class="fm-field">
+              <label class="fm-label" for="band_name">Band name <span class="fm-req" aria-hidden="true">*</span></label>
+              <input
+                id="band_name" name="band_name" type="text"
+                class="fm-input" placeholder="e.g. Blasfemia…" required
+              />
+            </div>
+            <div class="fm-field">
+              <label class="fm-label" for="contact_email">Contact email <span class="fm-req" aria-hidden="true">*</span></label>
+              <input
+                id="contact_email" name="contact_email" type="email"
+                class="fm-input" placeholder="band@email.com" autocomplete="email" spellcheck="false" required
+              />
+            </div>
           </div>
-          <div class="form-field">
-            <label class="form-label" for="year">Release year</label>
-            <input
-              id="year" name="year" type="number"
-              class="form-input" placeholder="e.g. 2024" min="1960" max="2030"
-            />
+
+          <!-- Genre + Country -->
+          <div class="fm-row rise" style="--i:5">
+            <div class="fm-field">
+              <label class="fm-label" for="genre">Genre <span class="fm-req" aria-hidden="true">*</span></label>
+              <div class="fm-pick">
+                <select id="genre" name="genre" class="fm-input" required>
+                  <option value="">Pick a genre</option>
+                  {GENRES.map(g => <option value={g}>{g}</option>)}
+                </select>
+                <svg class="fm-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </div>
+            </div>
+            <div class="fm-field">
+              <label class="fm-label" for="country">Country <span class="fm-req" aria-hidden="true">*</span></label>
+              <input
+                id="country" name="country" type="text"
+                class="fm-input" placeholder="e.g. Honduras…" required
+              />
+            </div>
           </div>
-        </div>
 
-        <!-- YouTube + Bandcamp -->
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label" for="youtube_url">YouTube URL</label>
-            <input
-              id="youtube_url" name="youtube_url" type="url"
-              class="form-input" placeholder="https://youtu.be/..."
-            />
+          <!-- Album title + Year -->
+          <div class="fm-row rise" style="--i:6">
+            <div class="fm-field">
+              <label class="fm-label" for="album_title">Album title</label>
+              <input
+                id="album_title" name="album_title" type="text"
+                class="fm-input" placeholder="e.g. Inmaculada Concepcion…"
+              />
+            </div>
+            <div class="fm-field">
+              <label class="fm-label" for="year">Release year</label>
+              <input
+                id="year" name="year" type="number" inputmode="numeric"
+                class="fm-input" placeholder="e.g. 2024…" min="1960" max="2030"
+              />
+            </div>
           </div>
-          <div class="form-field">
-            <label class="form-label" for="bandcamp_url">Bandcamp URL</label>
-            <input
-              id="bandcamp_url" name="bandcamp_url" type="url"
-              class="form-input" placeholder="https://band.bandcamp.com"
-            />
+
+          <!-- YouTube + Bandcamp -->
+          <div class="fm-row rise" style="--i:7">
+            <div class="fm-field">
+              <label class="fm-label" for="youtube_url">YouTube URL</label>
+              <input
+                id="youtube_url" name="youtube_url" type="url"
+                class="fm-input" placeholder="https://youtu.be/…" spellcheck="false"
+              />
+            </div>
+            <div class="fm-field">
+              <label class="fm-label" for="bandcamp_url">Bandcamp URL</label>
+              <input
+                id="bandcamp_url" name="bandcamp_url" type="url"
+                class="fm-input" placeholder="https://band.bandcamp.com" spellcheck="false"
+              />
+            </div>
           </div>
-        </div>
 
-        <!-- Description -->
-        <div class="form-field">
-          <label class="form-label" for="description">Description</label>
-          <textarea
-            id="description" name="description"
-            class="form-textarea" placeholder="Tell us about your band..."
-            rows="4"
-          ></textarea>
-        </div>
+          <!-- Description -->
+          <div class="fm-field rise" style="--i:8">
+            <label class="fm-label" for="description">Description</label>
+            <textarea
+              id="description" name="description"
+              class="fm-input fm-textarea" placeholder="Tell us about your band…"
+              rows="5"
+            ></textarea>
+          </div>
 
-        <!-- Honeypot: invisible and unreachable for a real visitor. A bot
-             that fills every field fills this one too, so the server can
-             drop the submission silently. Never display:none -- some bots
-             skip fields hidden that way. -->
-        <input
-          type="text" id="website" name="website" class="sr-only"
-          tabindex="-1" autocomplete="off" aria-hidden="true"
-        />
+          <!-- Honeypot: invisible and unreachable for a real visitor. A bot
+               that fills every field fills this one too, so the server can
+               drop the submission silently. Never display:none -- some bots
+               skip fields hidden that way. -->
+          <input
+            type="text" id="website" name="website" class="sr-only"
+            tabindex="-1" autocomplete="off" aria-hidden="true"
+          />
 
-        <!-- Toast -->
-        <div class="form-toast" id="form-toast" role="alert"></div>
+          <!-- Failure note -->
+          <div class="fm-note" id="form-toast" role="alert" hidden></div>
 
-        <button type="submit" class="form-submit" id="submit-btn">
-          Submit band
-        </button>
-      </form>
+          <div class="fm-actions rise" style="--i:9">
+            <button type="submit" class="btn btn--primary fm-submit" id="submit-btn">
+              Submit band
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
-    <!-- What happens next -->
-    <section class="form-steps">
-      <h2 class="form-steps__title">What happens next?</h2>
-      <div class="step-item">
-        <span class="step-item__num">1</span>
-        <div>
-          <p class="step-item__title">We review your submission</p>
-          <p class="step-item__desc">We listen to your music and verify the details.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <span class="step-item__num">2</span>
-        <div>
-          <p class="step-item__title">We get in touch</p>
-          <p class="step-item__desc">If your band is selected, we'll contact you to arrange the next steps.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <span class="step-item__num">3</span>
-        <div>
-          <p class="step-item__title">We publish your album</p>
-          <p class="step-item__desc">Your album goes live in the archive with all its details.</p>
-        </div>
-      </div>
-    </section>
+    <Carousel id="new" title="Recently added" albums={latest} href="/metal-archive/browse" hrefLabel="See all" />
   </main>
 
   <Footer />
@@ -211,6 +220,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   // navigation (with ClientRouter this <script> does not re-execute on swap).
   // A per-form flag prevents double-binding.
   import { API_BASE, FORM_FETCH_TIMEOUT_MS, FORM_TIMEOUT_MESSAGE, isTimeoutError, timeoutSignal } from '../../lib/api.js';
+  import { createFeedback, notSent, readFailure } from '../../components/form-feedback.js';
 
   function initSubmitForm() {
     const form     = document.getElementById('submit-form') as HTMLFormElement | null;
@@ -220,47 +230,12 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
     if (!form || !btn || !toast || !success || (form as any).__bound) return;
     (form as any).__bound = true;
 
-    function showToast(msg: string, isError: boolean) {
-      toast!.textContent = msg;
-      toast!.className = `form-toast ${isError ? 'form-toast--error' : 'form-toast--success'}`;
-      toast!.style.display = 'block';
-    }
-
-    // Per-field validation: mark the offending input and show a message next to
-    // it. Errors are cleared on every submit attempt. No extra hydration — this
-    // runs inside the form's existing submit handler.
-    function clearFieldErrors() {
-      form!.querySelectorAll('.form-input--error').forEach((el) => {
-        el.classList.remove('form-input--error');
-        el.removeAttribute('aria-invalid');
-        el.removeAttribute('aria-describedby');
-      });
-      form!.querySelectorAll('.form-field__error').forEach((el) => el.remove());
-    }
-
-    function markFieldError(name: string, message: string) {
-      const input = form!.querySelector(`[name="${name}"]`) as HTMLElement | null;
-      if (!input) return;
-      input.classList.add('form-input--error');
-      const msgId = `${name}-error`;
-      const msg = document.createElement('span');
-      msg.className = 'form-field__error';
-      msg.id = msgId;
-      msg.textContent = message;
-      input.insertAdjacentElement('afterend', msg);
-      // #13: the visual red border + adjacent message were invisible to
-      // screen readers -- nothing tied the input to its error text or
-      // flagged it as invalid.
-      input.setAttribute('aria-invalid', 'true');
-      input.setAttribute('aria-describedby', msgId);
-      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      (input as HTMLInputElement).focus({ preventScroll: true });
-    }
+    // Failure note, inline field messages and the busy flag live in form-feedback.ts.
+    const ui = createFeedback(form, toast);
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      toast!.style.display = 'none';
-      clearFieldErrors();
+      ui.clear();
 
       const data = Object.fromEntries(new FormData(form!));
 
@@ -268,13 +243,14 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       const required = ['band_name', 'contact_email', 'genre', 'country'];
       for (const field of required) {
         if (!String(data[field] ?? '').trim()) {
-          markFieldError(field, 'This field is required.');
+          ui.fieldError(field, 'This field is required.');
           return;
         }
       }
 
       btn!.disabled = true;
       btn!.textContent = 'Submitting...';
+      ui.busy(true);
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/submit`, {
@@ -289,18 +265,20 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
         if (res.ok) {
           form!.style.display = 'none';
           success!.style.display = 'flex';
+          success!.focus();
         } else {
-          showToast(json.detail ?? 'Something went wrong. Please try again.', true);
+          ui.fail(readFailure(res.status, json, 'submit'));
         }
       } catch (err) {
         if (isTimeoutError(err)) {
-          showToast(FORM_TIMEOUT_MESSAGE, true);
+          ui.fail(notSent(FORM_TIMEOUT_MESSAGE));
         } else {
-          showToast('Could not connect. Check your internet connection.', true);
+          ui.fail(notSent('Could not connect. Check your internet connection.'));
         }
       } finally {
         btn!.disabled = false;
         btn!.textContent = 'Submit band';
+        ui.busy(false);
       }
     });
   }

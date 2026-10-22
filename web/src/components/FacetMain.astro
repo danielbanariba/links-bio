@@ -1,0 +1,73 @@
+---
+// FacetMain: the <main> of a genre, country or year page. The three pages differ only in
+// what they call themselves and which albums they list, so the markup lives here once.
+//
+// A header band (PageHead) with the facet's name, one sentence with its real count, a link
+// into Browse with the facet already applied, and the facet's most played record lit on the
+// right; then the album grid: 2 columns on a phone up to 5 on a desktop, newest upload first.
+//
+// Only the heading and the first two rows of the grid reveal (`data-reveal`, each card on its
+// own): a grid of a thousand covers is taller than any viewport, so a reveal on the grid
+// itself would wait for 8% of it, and a reveal on every card would leave blank ground behind
+// a fast scroll.
+import type { Card } from '../lib/types.js';
+import AlbumCard from './AlbumCard.astro';
+import PageHead from './PageHead.astro';
+
+interface Props {
+  title: string;
+  flag?: string;
+  /** The sentence under the name; it carries the count. */
+  sentence: string;
+  /** Browse with this facet applied. */
+  browseHref: string;
+  albums: Card[];
+  /** The most played album of the facet, if any has views. */
+  lead?: (Card & { views: number }) | null;
+  /** Caption of the lead picture, e.g. "Most played of 2018". */
+  leadKind: string;
+  /** Dominant colour (hex) of the lead cover, or of the newest album when there is no lead. */
+  color?: string;
+  empty: string;
+}
+
+const { title, flag, sentence, browseHref, albums, lead = null, leadKind, color = '', empty } = Astro.props;
+
+const REVEALED = 10;
+const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+const leadPic = lead && lead.cover
+  ? {
+      href: `/metal-archive/album/${lead.id}`,
+      cover: lead.cover,
+      kind: leadKind,
+      detail: `${lead.band_name}, ${lead.album_title} · ${compact.format(lead.views)} ${lead.views === 1 ? 'view' : 'views'}`,
+    }
+  : null;
+---
+<main id="main" tabindex="-1">
+  <PageHead title={title} flag={flag} color={color} lead={leadPic}>
+    <p class="page-head__lead rise" style="--i:1">{sentence}</p>
+    {albums.length > 0 && (
+      <div class="page-head__actions rise" style="--i:2">
+        <a class="btn btn--secondary" href={browseHref}>
+          Refine in Browse
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
+      </div>
+    )}
+  </PageHead>
+
+  <section class="sect" aria-labelledby="albums-title">
+    <div data-reveal>
+      <h2 class="sect-title rv" id="albums-title" style="--i:0">Albums</h2>
+    </div>
+    {albums.length > 0
+      ? <ul class="wall">{albums.map((album, i) => (
+          <li class:list={[i < REVEALED && 'rv']} data-reveal={i < REVEALED ? '' : undefined} style={i < REVEALED ? `--i:${i % 5}` : undefined}>
+            <AlbumCard album={album} />
+          </li>
+        ))}</ul>
+      : <p class="sect-lead">{empty}</p>
+    }
+  </section>
+</main>

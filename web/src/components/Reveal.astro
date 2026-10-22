@@ -1,0 +1,68 @@
+---
+// Reveal: the entrance for `[data-reveal]` sections on the archive pages that
+// have no script of their own for it (the home keeps its own copy).
+//
+// A section rises 20px and fades in once, its parts (`.rv`) staggered by their
+// `--i`. The hidden starting state exists only under `html.js`, so the content
+// is visible without JavaScript; reduced motion drops the travel (global.css).
+//
+// Place <Reveal /> as the FIRST child of <body>: the inline half then runs
+// before any section is parsed, so `html.js` is set before the first paint and
+// nothing is seen visible, then hidden, then faded in. The inline half also
+// reruns after every ClientRouter swap. On a swap the incoming <html> has no
+// `js` class until that rerun, so the bundled half adds it to the incoming
+// document before the swap (`astro:before-swap`) and again after it, and drops
+// the observer that watched the outgoing page. If the bundled half never runs,
+// a timer reveals everything so nothing stays hidden.
+---
+<script is:inline data-astro-rerun>
+  (function () {
+    document.documentElement.classList.add('js');
+    setTimeout(function () {
+      if (window.__revealReady) return;
+      document.querySelectorAll('[data-reveal]').forEach(function (e) { e.classList.add('is-in'); });
+    }, 4000);
+  })();
+</script>
+
+<script>
+  let io: IntersectionObserver | null = null;
+  let boundBody: HTMLElement | null = null;
+
+  function stopReveal() {
+    io?.disconnect();
+    io = null;
+    boundBody = null;
+    (window as any).__revealReady = false;
+  }
+
+  // Module evaluation and astro:page-load both call this on the first load, and the page
+  // is the same one: a body that is already bound is left alone, so there is one observer.
+  function initReveal() {
+    if (boundBody === document.body) return;
+    io?.disconnect();
+    boundBody = document.body;
+    (window as any).__revealReady = true;
+    const els = document.querySelectorAll<HTMLElement>('[data-reveal]:not(.is-in)');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!('IntersectionObserver' in window) || reduced) {
+      els.forEach((e) => e.classList.add('is-in'));
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) { en.target.classList.add('is-in'); observer.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+    io = observer;
+    els.forEach((e) => observer.observe(e));
+  }
+
+  initReveal();
+  document.addEventListener('astro:page-load', initReveal);
+  document.addEventListener('astro:before-swap', (e) => {
+    stopReveal();
+    (e as any).newDocument?.documentElement.classList.add('js');
+  });
+  document.addEventListener('astro:after-swap', () => document.documentElement.classList.add('js'));
+</script>

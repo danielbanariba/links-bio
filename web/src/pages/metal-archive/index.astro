@@ -1,18 +1,29 @@
 ---
-// Metal Archive home — redesign (2026).
-// Greeting + themed hero carousel (each slide tinted by its own album cover via
-// vibrant.ts -> --slide-color) over the neutral base, then discovery sections.
+// Metal Archive home, "the dark room" (premium redesign, 2026).
+//
+// One warm-black field top to bottom; the only light comes from the covers.
+// Every number on the page is computed here at build time from reflex.db; the
+// copy never types one in. Sections, in the order of the argument:
+//   1 hero (card over a dim room)   2 find a record     3 new in the archive
+//   4 most played (sticky cover)    5 by genre (tabs)   6 hidden gems (close-ups)
+//   7 live in Tegucigalpa           8 bands             9 countries and years
+//  10 two questions, each with its action        11 footer
 import {
   getEditorPicks,
   getHiddenGems,
+  HIDDEN_GEM_VIEWS,
   getGenreShowcases,
-  getCountryRotation,
-  getLiveRecordings,
   getAllCountries,
   getAllYears,
   getGenreFacetGroups,
-  getAllAlbumIds,
   getTopBands,
+  getLatestUploads,
+  getMostPlayed,
+  getArchiveFacts,
+  getLiveRecordings,
+  getLiveSetTitles,
+  getAlbum,
+  getTracks,
   slugify,
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
@@ -21,55 +32,120 @@ import { getAlbumColor } from '../../lib/vibrant.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import Carousel from '../../components/Carousel.astro';
-import AlbumCard from '../../components/AlbumCard.astro';
+import ArchiveHead from '../../components/ArchiveHead.astro';
 import '../../styles/global.css';
 
-// ─── Data queries (all build-time) ───────────────────────────────────────────
-const editorPicks     = getEditorPicks();
-const hiddenGems      = getHiddenGems();
-const genreShowcases  = getGenreShowcases(5);    // top 5 genres by album count
-const countryRotation = getCountryRotation(6);   // 6 random countries + a sample album
-const liveRecordings  = getLiveRecordings(12);   // Daniel's own live sets — own section
-const allCountries    = getAllCountries();        // all distinct countries + counts
-const allYears        = getAllYears();            // all distinct years + counts
-// #20: grouped (not getAllGenres()) so a raw-value slug collision (e.g.
-// "Black Death Metal" vs "Black/Death Metal") can't silently produce two
-// cards for the same /metal-archive/genre/<slug> page -- the same defect
-// class the sitemap/getStaticPaths() fix for country already covers via
-// groupFacetsBySlug(), just not yet applied to this section.
-//
-// R3-009: getGenreFacetGroups() returns every group (sitemap.xml.ts and
-// genre/[genre].astro's getStaticPaths() both need the FULL list to build
-// every page, so the cap below is this page's own display concern, applied
-// after the full list, never inside getGenreFacetGroups() itself). The home
-// section used to render all ~292 groups; cap it to the top N by album
-// count, the same "top N by count" pattern already used for this page's
-// other home sections (getGenreShowcases(5), getTopBands(12)) -- 24 keeps
-// it the same order of magnitude as the ~78 real countries the "Browse by
-// country" grid below renders, and divides evenly into the grid's
-// 5-column desktop breakpoint.
-const GENRE_HOME_CAP  = 24;
-const genreGroups     = getGenreFacetGroups()     // all genres, grouped by slug
-  .slice()
+// ─── Build-time data ─────────────────────────────────────────────────────────
+const facts = getArchiveFacts();
+const latest = getLatestUploads(14);
+const mostPlayed = getMostPlayed(8);
+const genreShowcases = getGenreShowcases(5);       // 5 biggest genres, 8 albums each
+const liveSets = getLiveRecordings(40);
+const liveTitles = getLiveSetTitles();
+const allCountries = getAllCountries();
+const allYears = getAllYears().filter((y) => Number(y.value) > 0); // year 0 = "unknown", not a year
+const topBands = getTopBands(12);
+const GENRE_CHIPS = 10;
+const genreChips = getGenreFacetGroups()           // grouped by slug: two raw values that
+  .slice()                                         // slugify the same must not give two chips
   .sort((a, b) => b.count - a.count)
-  .slice(0, GENRE_HOME_CAP);
-const allAlbumIds     = getAllAlbumIds();         // for Surprise Me random pick
-const topBands        = getTopBands(12);          // home "Bands" circular row
+  .slice(0, GENRE_CHIPS);
 
-// ─── Hero carousel — featured albums (fallback: hidden gems), each tinted by
-// its own cover's dominant color (cached by vibrant.ts -> zero runtime work). ──
-const heroSource = (editorPicks.length ? editorPicks : hiddenGems).slice(0, 5);
-const heroAlbums = await Promise.all(
-  heroSource.map(async (album) => ({ album, color: await getAlbumColor(album.thumb) })),
+const nf = new Intl.NumberFormat('en-US');
+const views = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+// ─── Hero: five editor picks, one chosen per visit (client side) ─────────────
+// Contrast: bone type (#ece6da) sits on a flat panel tinted by the album's own
+// colour. The album share is capped at 30%, so the panel is always a dark,
+// album-tinted surface and never a mid-tone; it is stepped down further until
+// the type reads at >= 8:1 and the oxblood Play button stays distinguishable.
+const INK: [number, number, number] = [0xec, 0xe6, 0xda];
+const GROUND: [number, number, number] = [0x0e, 0x0d, 0x0c];
+const lin = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+const ratio = (a: number[], b: number[]) => { const [x, y] = lum(a) > lum(b) ? [a, b] : [b, a]; return (lum(x) + 0.05) / (lum(y) + 0.05); };
+const mixRgb = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+const toHex = (c: number[]) => '#' + c.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+function fieldFor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const album = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [0xdd, 0xa1, 0x5e];
+  for (let t = 0.3; t >= 0.08; t -= 0.02) {
+    const f = mixRgb(album, GROUND, t);
+    if (ratio(INK, f) >= 8 && lum(f) <= 0.024) return toHex(f);
+  }
+  return toHex(mixRgb(album, GROUND, 0.08));
+}
+
+function tsToSeconds(ts: string | null): number {
+  if (!ts) return 0;
+  const parts = ts.split(':').map((p) => parseInt(p, 10));
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] ?? 0;
+}
+
+const picksSource = (getEditorPicks().length ? getEditorPicks() : getHiddenGems()).filter((a) => a.youtube_video_id).slice(0, 5);
+const picks = await Promise.all(
+  picksSource.map(async (card) => {
+    const full = getAlbum(card.id);
+    const color = await getAlbumColor(card.thumb, card.cover);
+    const tracks = getTracks(card.id).map((t, i) => ({ idx: i, name: t.track_name, seconds: tsToSeconds(t.timestamp) }));
+    return {
+      id: card.id,
+      band: card.band_name,
+      title: card.album_title,
+      meta: [genreLabel(card.genre), countryLabel(card.country), card.year || ''].filter(Boolean).join(' · '),
+      href: `/metal-archive/album/${card.id}`,
+      cover: card.cover || card.thumb,
+      field: fieldFor(color),
+      firstTrack: tracks[0]?.name || card.album_title,
+      // Exactly the shape the Player island reads from #metal-np-data.
+      np: {
+        videoId: card.youtube_video_id,
+        youtubeUrl: full?.youtube_url || '',
+        albumColor: color,
+        albumTitle: card.album_title,
+        bandName: card.band_name,
+        coverThumb: card.thumb || card.cover,
+        tracks,
+      },
+    };
+  }),
 );
+const hero = picks[0];
 
-// Country flags + English labels come from lib/labels.ts — the single source
-// of truth. This file used to carry its own copy of the flag map (duplicated in
-// country/[country].astro), both keyed on the Spanish database names.
+// Hidden gems: three albums under the view bound. Each frame sits on a dark field of
+// the album's own colour until its (lazy) close-up arrives, so no frame is ever blank.
+const gems = await Promise.all(
+  getHiddenGems()
+    .filter((g) => g.cover)
+    .slice(0, 3)
+    .map(async (g) => ({ ...g, field: fieldFor(await getAlbumColor(g.thumb, g.cover)) })),
+);
+// "</" inside JSON in an inline script would end the tag: neutralise "<".
+const safeJson = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 
-// JSON for Surprise Me — inline so no extra fetch is needed.
-const albumIdsJson = JSON.stringify(allAlbumIds);
-const ogImage = heroSource[0]?.thumb;
+// ─── Live sets ───────────────────────────────────────────────────────────────
+// The year column is 0 for most live sets; the recording date is in the title
+// ("... Tegucigalpa - October 3, 2019"), so the span is read from there.
+const liveYears = liveTitles.flatMap((t) => (t.match(/\b(20\d{2})\b/g) ?? []).map(Number));
+const liveFrom = liveYears.length ? Math.min(...liveYears) : null;
+const liveTo = liveYears.length ? Math.max(...liveYears) : null;
+const seenThumb = new Set<string>();
+const livePics = liveSets
+  .filter((a) => a.thumb && !seenThumb.has(a.thumb) && (seenThumb.add(a.thumb), true))
+  .slice(0, 7);
+
+// ─── Lists ───────────────────────────────────────────────────────────────────
+const COUNTRIES_SHOWN = 24;
+const countriesFirst = allCountries.slice(0, COUNTRIES_SHOWN);
+const countriesRest = allCountries.slice(COUNTRIES_SHOWN);
+const YEARS_SHOWN = 16;                              // 8 rows x 2 columns, like the 8 rows of the countries
+const yearsFirst = allYears.slice(0, YEARS_SHOWN);
+const yearsRest = allYears.slice(YEARS_SHOWN);
+
+const ogImage = hero?.cover;
 ---
 
 <!doctype html>
@@ -78,8 +154,7 @@ const ogImage = heroSource[0]?.thumb;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Metal Archive — Underground metal catalog</title>
-    <meta name="description" content="The underground metal archive: death metal, brutal death, grindcore and more. Discover bands from all over the world." />
-    <!-- OG / social meta -->
+    <meta name="description" content={`The underground metal archive: ${nf.format(facts.albums)} full albums from ${facts.countries} countries, streamed from one YouTube channel. Death metal, brutal death, grindcore and more.`} />
     <meta property="og:title" content="Metal Archive — Underground metal catalog" />
     <meta property="og:description" content="Underground metal catalog: death metal, brutal death, grindcore and more." />
     <meta property="og:type" content="website" />
@@ -90,373 +165,441 @@ const ogImage = heroSource[0]?.thumb;
     <meta name="twitter:description" content="Underground metal archive." />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href="https://danielbanariba.com/metal-archive" />
+    <ArchiveHead />
     <ClientRouter />
   </head>
   <body class="ma">
     <Navbar />
 
     <main id="main" tabindex="-1">
-      <!-- A real, descriptive h1 for the document outline. The time-of-day
-           greeting below ("Hello" / "Good morning") describes nothing about
-           the page and used to be the page's ONLY h1 — visually hidden so the
-           greeting keeps its current look as the visible heading-shaped text. -->
-      <h1 class="sr-only">Metal Archive — Underground metal catalog</h1>
-      <div class="wrap">
-        <!-- ─── Greeting (time-of-day set client-side; SSG can't know the
-             visitor's local hour) ──────────────────────────────────────────── -->
-        <header class="home-greeting">
-          <div>
-            <p class="home-greeting__hello" id="greeting">Hello</p>
-            <p class="home-greeting__sub">Underground metal catalog</p>
+      <!-- ─── 1. Hero: card over a dim room ─────────────────────────────────── -->
+      {hero && (
+        <section class="hero" aria-labelledby="hero-title" style={`--field: ${hero.field};`}>
+          <div class="hero__bg" aria-hidden="true">
+            <img class="hero__img" id="hero-img" src={hero.cover} alt="" width="1280" height="720" fetchpriority="high" decoding="async" />
           </div>
-          <div class="home-greeting__actions">
-            <a class="home-greeting__icon" href="/metal-archive/newsletter" aria-label="Newsletter">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </a>
-          </div>
-        </header>
-
-        <!-- ─── Hero carousel — each slide tinted by its own cover color ─────── -->
-        {heroAlbums.length > 0 && (
-          <section class="hero-carousel" aria-label="Featured albums">
-            <div class="hero-track" id="hero-track">
-              {heroAlbums.map((h, i) => (
-                <a
-                  class="hero-slide"
-                  style={`--slide-color: ${h.color};`}
-                  href={`/metal-archive/album/${h.album.id}`}
-                >
-                  {h.album.thumb
-                    ? <img class="hero-slide__bg" src={h.album.thumb} alt="" loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />
-                    : <div class="hero-slide__bg" style="background: var(--content);" aria-hidden="true"></div>
-                  }
-                  <div class="hero-slide__inner">
-                    <span class="hero-slide__eyebrow">✦ Featured</span>
-                    <span class="hero-slide__band">{h.album.band_name}</span>
-                    <span class="hero-slide__album">{h.album.album_title}</span>
-                    <span class="hero-slide__meta">
-                      {[genreLabel(h.album.genre), countryLabel(h.album.country), h.album.year].filter(Boolean).join(' · ')}
-                    </span>
-                    <span class="hero-slide__cta">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                      Play
-                    </span>
-                  </div>
-                </a>
-              ))}
+          <div class="hero__card" id="hero-card">
+            <div class="hero__head">
+              <h1 class="hero__title rise" id="hero-title" style="--i:0">
+                <span>Underground</span>{' '}<span>Metal</span>{' '}<span>Archive</span>
+              </h1>
+              <p class="hero__lead rise" style="--i:1">Death, black and grind metal, played in full from one channel in Tegucigalpa.</p>
             </div>
-            {heroAlbums.length > 1 && (
-              <div class="hero-dots" id="hero-dots">
-                {heroAlbums.map((_, i) => (
-                  <button class="hero-dot" type="button" aria-label={`Go to featured album ${i + 1}`}></button>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-      </div>
-
-      <div class="wrap home-sections">
-        <!-- Search — discovery entry point; submits to browse (?q=) ─────────── -->
-        <section class="home-search">
-          <form class="home-search__form" action="/metal-archive/browse" method="get" role="search">
-            <svg class="home-search__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              class="home-search__input"
-              type="search"
-              name="q"
-              placeholder="Search bands, albums, genres..."
-              aria-label="Search bands, albums, genres"
-              autocomplete="off"
-            />
-            <button class="home-search__btn" type="submit">Search</button>
-          </form>
+            <div class="hero__body rise" style="--i:2">
+              <a class="hero__credit" id="hero-credit" href={hero.href}>
+                <img class="hero__cover" id="hero-cover" src={hero.cover} alt="" width="144" height="144" decoding="async" />
+                <span class="hero__credit-text">
+                  <span class="hero__credit-band" id="hero-band">{hero.band}</span>
+                  <span class="hero__credit-album" id="hero-album">{hero.title}</span>
+                </span>
+              </a>
+              <ul class="hero__facts">
+                <li><strong>{nf.format(facts.albums)}</strong> full albums</li>
+                <li><strong>{nf.format(facts.bands)}</strong> bands</li>
+                <li><strong>{facts.countries}</strong> countries</li>
+              </ul>
+            </div>
+            <div class="hero__foot rise" style="--i:3">
+              <a class="btn btn--primary hero__play" id="hero-play" href={hero.href} data-play-album>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+                Play
+              </a>
+              <a class="hero__surprise" id="hero-surprise" href="/metal-archive/browse">Surprise me</a>
+            </div>
+          </div>
         </section>
+      )}
 
-        <!-- Visually-hidden section heading: everything from "Bands" through
-             the country rotation below is the curated discovery block. Keeps
-             the h3 section titles (Bands, Hidden Gems, per-genre, per-country)
-             properly nested under an h2 instead of jumping straight to h3. -->
-        <h2 class="sr-only">Discover</h2>
+      <!-- Player data island for the featured album (the Player cues it on load, so
+           the first tap on Play can start playback synchronously) + a hidden first
+           "track row" so the bar can name what is playing. Both are swapped by the
+           inline script below when a different pick is dealt. -->
+      {hero && <script type="application/json" id="metal-np-data" set:html={safeJson(hero.np)} />}
+      {hero && <span hidden id="hero-row" data-track-idx="0" data-seconds="0"><span data-track-name>{hero.firstTrack}</span></span>}
 
-        <!-- Bands — circular avatars (representative cover as the avatar) ──────── -->
-        {topBands.length > 0 && (
-          <section class="carousel-deferred">
-            <div class="section-header">
-              <h3>Bands</h3>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="bands-row">
-              {topBands.map((b) => (
-                <a class="band-avatar" href={`/metal-archive/band/${slugify(b.band_name)}`}>
-                  <span class="band-avatar__img-wrap">
-                    {b.thumb
-                      ? <img class="band-avatar__img" src={b.thumb} alt={b.band_name} loading="lazy" decoding="async" />
-                      : <span class="band-avatar__img band-avatar__img--empty" aria-hidden="true"></span>
-                    }
-                  </span>
-                  <span class="band-avatar__name">{b.band_name}</span>
-                  <span class="band-avatar__count">{b.count} {b.count === 1 ? 'album' : 'albums'}</span>
-                </a>
+      <!-- Must run before the Player island hydrates, hence is:inline (classic, synchronous).
+           data-astro-rerun: it also has to run again when ClientRouter swaps the home page in. -->
+      <script is:inline data-astro-rerun define:vars={{ picksJson: safeJson(picks) }}>
+        (function () {
+          var root = document.documentElement;
+          root.classList.add('js');
+          // Safety net: the bundled script below sets __revealReady. If it never did,
+          // do not leave below-the-fold content hidden.
+          setTimeout(function () {
+            if (window.__revealReady) return;
+            document.querySelectorAll('[data-reveal]').forEach(function (e) { e.classList.add('is-in'); });
+          }, 4000);
+
+          // Deal one of the five picks for this visit. The first pick is already in the
+          // markup (no-JS and search engines see it), so index 0 changes nothing.
+          var picks;
+          try { picks = JSON.parse(picksJson); } catch (e) { return; }
+          if (!picks || picks.length < 2) return;
+          var i = Math.floor(Math.random() * picks.length);
+          var p = picks[i];
+          var hero = document.querySelector('.hero');
+          if (!p || !hero || i === 0) return;
+          hero.style.setProperty('--field', p.field);
+          var img = document.getElementById('hero-img');
+          if (img) img.src = p.cover;
+          var cover = document.getElementById('hero-cover');
+          if (cover) cover.src = p.cover;
+          var credit = document.getElementById('hero-credit');
+          if (credit) credit.href = p.href;
+          var band = document.getElementById('hero-band');
+          if (band) band.textContent = p.band;
+          var album = document.getElementById('hero-album');
+          if (album) album.textContent = p.title;
+          var play = document.getElementById('hero-play');
+          if (play) play.href = p.href;
+          var np = document.getElementById('metal-np-data');
+          if (np) np.textContent = JSON.stringify(p.np);
+          var row = document.querySelector('#hero-row [data-track-name]');
+          if (row) row.textContent = p.firstTrack;
+        })();
+      </script>
+
+      <!-- ─── 2. Find a record ──────────────────────────────────────────────── -->
+      <section class="find sect" aria-labelledby="find-title" data-reveal>
+        <div class="find__intro rv" style="--i:0">
+          <h2 class="sect-title" id="find-title">Find a record</h2>
+          <p class="find__lead">Search {nf.format(facts.albums)} albums by band, title, genre or country.</p>
+        </div>
+        <div class="find__tools rv" style="--i:1">
+          <form class="find__form" action="/metal-archive/browse" method="get" role="search">
+            <label class="sr-only" for="find-q">Search bands, albums, genres or countries</label>
+            <input class="find__input" id="find-q" type="search" name="q" placeholder="Band, title or genre" autocomplete="off" />
+            <button class="btn btn--primary" type="submit">Search</button>
+          </form>
+          <ul class="chips" aria-label="Biggest genres">
+            {genreChips.map((g) => (
+              <li><a class="chip" href={`/metal-archive/genre/${g.slug}`}>{genreLabel(g.label)} <span class="chip__n">{nf.format(g.count)}</span></a></li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─── 3. New in the archive ─────────────────────────────────────────── -->
+      <Carousel id="new" title="New in the archive" albums={latest} href="/metal-archive/browse" hrefLabel="See all" />
+
+      <!-- ─── 4. Most played: sticky cover, active list ─────────────────────── -->
+      {mostPlayed.length > 0 && (
+        <section class="played sect" aria-labelledby="played-title">
+          <div class="played__stage" aria-hidden="true">
+            <div class="played__cover">
+              {mostPlayed.map((a, i) => (
+                <img class:list={['played__img', i === 0 && 'is-active']} data-i={i} src={a.cover || a.thumb} alt="" width="1280" height="720" loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />
               ))}
             </div>
-          </section>
-        )}
-
-        <!-- Hidden Gems — horizontal scroll row ─────────────────────────────── -->
-        {hiddenGems.length > 0 && (
-          <Carousel
-            title="Hidden Gems"
-            albums={hiddenGems}
-            href="/metal-archive/browse"
-            layout="scroll"
-            deferred={false}
-          />
-        )}
-
-        <!-- Genre showcases — one cover row per top genre ──────────────────── -->
-        {genreShowcases.map((showcase) => (
-          <Carousel
-            title={genreLabel(showcase.genre)}
-            albums={showcase.albums}
-            href={`/metal-archive/genre/${slugify(showcase.genre)}`}
-            layout="scroll"
-            deferred={true}
-          />
-        ))}
-
-        <!-- Country rotation "Explore {country}" ───────────────────────────── -->
-        {countryRotation.length > 0 && (
-          <Carousel
-            title={`Explore ${countryLabel(countryRotation[0]?.country) || 'the world'}`}
-            albums={countryRotation.map((c) => c.album)}
-            layout="scroll"
-            deferred={true}
-          />
-        )}
-
-        <!-- Live Recordings — Daniel's OWN live sets, visually separate ─────── -->
-        {liveRecordings.length > 0 && (
-          <section class="section carousel-deferred live-section">
-            <div class="section-header">
-              <div class="live-section__heading">
-                <h2>Live Recordings</h2>
-                <span class="live-section__badge">Live sets</span>
-              </div>
-            </div>
-            <p class="live-section__note">
-              Personal live recordings — kept separate from the official album catalog.
-            </p>
-            <div class="carousel-row">
-              {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
-            </div>
-          </section>
-        )}
-
-        <!-- Browse-by sections ─────────────────────────────────────────────── -->
-        <hr class="home-divider" />
-
-        {genreGroups.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by genre</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="genre-grid">
-              {genreGroups.map((group) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/genre/${group.slug}`}
-                  title={`${group.count} ${group.count === 1 ? 'album' : 'albums'} in ${genreLabel(group.label)}`}
-                >
-                  <span class="facet-card__name">{genreLabel(group.label)}</span>
-                  <span class="facet-card__count">
-                    {group.count} {group.count === 1 ? 'album' : 'albums'}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {allCountries.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by country</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="country-grid">
-              {/* The href still slugifies the RAW database value, so existing
-                  country URLs keep working; only the visible label is English. */}
-              {allCountries.map((facet) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/country/${slugify(facet.value)}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albums'} from ${countryLabel(facet.value)}`}
-                >
-                  {countryFlag(facet.value) && (
-                    <span class="facet-card__flag" aria-hidden="true">
-                      {countryFlag(facet.value)}
+          </div>
+          <div class="played__main" data-reveal>
+            <h2 class="sect-title rv" id="played-title" style="--i:0">Most played</h2>
+            <p class="played__lead rv" style="--i:1">The {mostPlayed.length} albums with the most views on the channel, most viewed first.</p>
+            <ol class="played__list rv" style="--i:2">
+              {mostPlayed.map((a, i) => (
+                <li class:list={['played__row', i === 0 && 'is-active']} data-i={i}>
+                  <a href={`/metal-archive/album/${a.id}`}>
+                    <span class="played__name">
+                      <span class="played__band">{a.band_name}</span>
+                      <span class="played__album">{a.album_title}</span>
                     </span>
-                  )}
-                  <span class="facet-card__name">{countryLabel(facet.value)}</span>
-                  <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
-                  </span>
-                </a>
+                    <span class="played__views">{views.format(a.views)} views</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
+
+      <!-- ─── 5. By genre: one shelf, five tabs ─────────────────────────────── -->
+      {genreShowcases.length > 0 && (
+        <section class="genre sect" aria-labelledby="genre-title" data-reveal>
+          <div class="genre__head rv" style="--i:0">
+            <h2 class="shelf__title" id="genre-title">By genre</h2>
+            <div class="genre__tabs" id="genre-tabs" aria-label="Genres">
+              {genreShowcases.map((s, i) => (
+                <a class:list={['chip', i === 0 && 'is-active']} href={`/metal-archive/genre/${slugify(s.genre)}`} data-tab={i}>{genreLabel(s.genre)}</a>
               ))}
             </div>
-          </section>
-        )}
+          </div>
+          <div class="genre__panels rv" style="--i:1">
+            {genreShowcases.map((s, i) => (
+              <div class="genre__panel" id={`genre-panel-${i}`} data-panel={i} hidden={i > 0 ? true : undefined}>
+                <Carousel headless title={genreLabel(s.genre)} albums={s.albums} />
+                <a class="genre__all" href={`/metal-archive/genre/${slugify(s.genre)}`}>See all {nf.format(s.count)} {genreLabel(s.genre)} albums</a>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-        {allYears.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by year</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="year-grid">
-              {allYears.map((facet) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/year/${facet.value}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albums'} from ${facet.value}`}
-                >
-                  <span class="facet-card__name">{facet.value}</span>
-                  <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
-                  </span>
+      <!-- ─── 6. Hidden gems: three close-ups, one card per frame ───────────── -->
+      {gems.length > 0 && (
+        <section class="gems" aria-labelledby="gems-title">
+          {gems.map((g, i) => (
+            <article class:list={['gem', i === 0 && 'gem--first']} style={`--col:${i + 2}; --field:${g.field};`}>
+              <div class="gem__bg" aria-hidden="true">
+                <img class="gem__img" src={g.cover} alt="" width="1280" height="720" loading="lazy" decoding="async" />
+              </div>
+              {i === 0 && (
+                <div class="gem__intro">
+                  <h2 class="gem__title" id="gems-title">Hidden gems</h2>
+                  <p class="gem__lead">Full albums with fewer than {nf.format(HIDDEN_GEM_VIEWS)} views each.</p>
+                </div>
+              )}
+              <p class="gem__figure">
+                <span class="gem__n">{nf.format(g.views)}</span>
+                <span class="gem__unit">{g.views === 1 ? 'view' : 'views'} on YouTube</span>
+              </p>
+              <div class="gem__card rv" style="--i:0" data-reveal>
+                <div class="gem__art"><img src={g.thumb} alt="" width="320" height="180" loading="lazy" decoding="async" /></div>
+                <p class="gem__album">{g.album_title}</p>
+                <p class="gem__band">{g.band_name}</p>
+                <p class="gem__meta">{[g.year || '', genreLabel(g.genre), countryLabel(g.country)].filter(Boolean).join(' · ')}</p>
+                <a class="btn btn--primary" href={`/metal-archive/album/${g.id}`}>
+                  Listen<span class="sr-only">: {g.album_title} by {g.band_name}</span>
                 </a>
-              ))}
-            </div>
-          </section>
-        )}
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
 
-        <!-- Surprise Me ────────────────────────────────────────────────────── -->
-        <div class="home-cta-row">
-          <button id="btn-random" class="btn-sorprendeme" type="button">
-            Surprise me
-          </button>
+      <!-- ─── 7. Live in Tegucigalpa: pictures gathered round a heading ─────── -->
+      {livePics.length > 0 && (
+        <section class="live sect" aria-labelledby="live-title" data-reveal>
+          <div class="live__center rv" style="--i:0">
+            <h2 class="live__title" id="live-title">Live in Tegucigalpa</h2>
+            <p class="live__lead">
+              {liveTitles.length} live sets from Honduran stages{liveFrom && liveTo ? (liveFrom === liveTo ? `, recorded in ${liveFrom}` : `, recorded between ${liveFrom} and ${liveTo}`) : ''}. They stay apart from the studio albums.
+            </p>
+            <a class="live__more" href="/metal-archive/browse?q=live%20in">Browse the live sets</a>
+          </div>
+          <ul class="live__pics">
+            {livePics.map((a, i) => (
+              <li class={`live__pic live__pic--${i + 1}`}>
+                <a href={`/metal-archive/album/${a.id}`}>
+                  <img src={a.thumb} alt={`${a.band_name}, ${a.album_title}`} width="320" height="180" loading="lazy" decoding="async" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <!-- ─── 8. Bands ──────────────────────────────────────────────────────── -->
+      {topBands.length > 0 && (
+        <section class="bands sect" aria-labelledby="bands-title" data-reveal>
+          <div class="bands__intro rv" style="--i:0">
+            <h2 class="sect-title" id="bands-title">Bands</h2>
+            <p class="bands__lead">The {topBands.length} bands with the most albums in the archive.</p>
+          </div>
+          <ul class="bands__grid rv" style="--i:1">
+            {topBands.map((b) => (
+              <li>
+                <a class="avatar" href={`/metal-archive/band/${slugify(b.band_name)}`}>
+                  <span class="avatar__img">
+                    {b.thumb
+                      ? <img src={b.thumb} alt="" width="320" height="180" loading="lazy" decoding="async" />
+                      : <span class="avatar__empty" aria-hidden="true"></span>}
+                  </span>
+                  <span class="avatar__name">{b.band_name}</span>
+                  <span class="avatar__count">{b.count} albums</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <!-- ─── 9. Countries and years ────────────────────────────────────────── -->
+      <section class="lists sect" aria-label="Browse by country and year" data-reveal>
+        <div class="lists__col lists__col--countries rv" style="--i:0">
+          <h2 class="sect-title" id="countries-title">Countries</h2>
+          <ul class="plain" aria-labelledby="countries-title">
+            {countriesFirst.map((c) => (
+              <li>
+                <a href={`/metal-archive/country/${slugify(c.value)}`}>
+                  {countryFlag(c.value) && <span class="plain__flag" aria-hidden="true">{countryFlag(c.value)}</span>}
+                  <span class="plain__name">{countryLabel(c.value)}</span>
+                  <span class="plain__n">{nf.format(c.count)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          {countriesRest.length > 0 && (
+            <details class="more">
+              <summary>Show the other {countriesRest.length} countries</summary>
+              <ul class="plain">
+                {countriesRest.map((c) => (
+                  <li>
+                    <a href={`/metal-archive/country/${slugify(c.value)}`}>
+                      {countryFlag(c.value) && <span class="plain__flag" aria-hidden="true">{countryFlag(c.value)}</span>}
+                      <span class="plain__name">{countryLabel(c.value)}</span>
+                      <span class="plain__n">{nf.format(c.count)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
-
-        <script define:vars={{ albumIdsJson }} data-astro-rerun>
-          // define:vars forces this script inline (non-bundled), so it would NOT
-          // run when ClientRouter swaps the home page in from another page.
-          // data-astro-rerun makes it re-execute after every view transition that
-          // lands on a page containing it — so it runs on first load AND whenever
-          // we navigate (back) to home. The __bound guard avoids duplicate
-          // listeners; window.__albumIds is (re)published for the navbar Surprise Me.
-          (function () {
-            var ids = JSON.parse(albumIdsJson);
-            window.__albumIds = ids;
-            var btn = document.getElementById('btn-random');
-            if (!btn || btn.__bound) return;
-            btn.__bound = true;
-            btn.addEventListener('click', function () {
-              if (!ids.length) return;
-              var id = ids[Math.floor(Math.random() * ids.length)];
-              window.location.href = '/metal-archive/album/' + id;
-            });
-          })();
-        </script>
-
-        <!-- YouTube CTA ────────────────────────────────────────────────────── -->
-        <div class="home-cta-row home-cta-row--tight">
-          <a
-            class="btn-youtube"
-            href="https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q?sub_confirmation=1"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Subscribe on YouTube
-          </a>
+        <div class="lists__col lists__col--years rv" style="--i:1">
+          <h2 class="sect-title" id="years-title">Years</h2>
+          <ul class="plain plain--years" aria-labelledby="years-title">
+            {yearsFirst.map((y) => (
+              <li>
+                <a href={`/metal-archive/year/${y.value}`}>
+                  <span class="plain__name">{y.value}</span>
+                  <span class="plain__n">{nf.format(y.count)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          {yearsRest.length > 0 && (
+            <details class="more">
+              <summary>Show the other {yearsRest.length} years</summary>
+              <ul class="plain plain--years">
+                {yearsRest.map((y) => (
+                  <li>
+                    <a href={`/metal-archive/year/${y.value}`}>
+                      <span class="plain__name">{y.value}</span>
+                      <span class="plain__n">{nf.format(y.count)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
-      </div><!-- /.wrap -->
+      </section>
+
+      <!-- ─── 10. Two questions, each with its own action, at opposite edges ─── -->
+      <section class="ask" aria-label="Submit a band or get the newsletter">
+        <div class="ask__block">
+          <h2 class="ask__q">Got a record?</h2>
+          <p class="ask__note">Submit your band or album for review and free inclusion in the archive.</p>
+          <a class="btn btn--primary" href="/metal-archive/submit">Submit your band</a>
+        </div>
+        <div class="ask__block ask__block--end">
+          <h2 class="ask__q">Want the next one?</h2>
+          <p class="ask__note">New albums, bands and underground metal events, by email.</p>
+          <a class="btn btn--secondary" href="/metal-archive/newsletter">Get the newsletter</a>
+        </div>
+      </section>
     </main>
 
-    <Footer />
+    <Footer cover={hero?.cover} />
 
-    <!-- Time-of-day greeting + hero carousel dot sync (vanilla, no framework) -->
     <script>
-      // With ClientRouter this <script> does not re-execute on navigation, and
-      // the home markup (greeting, carousel) is fresh after every swap — so we
-      // run the whole init on astro:page-load (fires on first load too). A
-      // per-element guard avoids re-binding dot clicks / re-observing slides if
-      // the same DOM is revisited without a swap.
-      (function () {
-        function initHome() {
-          var g = document.getElementById('greeting');
-          if (g) {
-            var h = new Date().getHours();
-            g.textContent =
-              h < 6 ? 'Good evening' : h < 12 ? 'Good morning' : h < 19 ? 'Good afternoon' : 'Good evening';
-          }
+      // Everything below re-binds on astro:page-load: with ClientRouter the markup
+      // is fresh after every swap and this module only executes once. Each binding
+      // is guarded per element, so a revisited DOM is never bound twice.
+      const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-          var track = document.getElementById('hero-track');
-          var dotsWrap = document.getElementById('hero-dots');
-          if (!track || !dotsWrap || (track as any).__bound) return;
-          (track as any).__bound = true;
-          var slides = Array.prototype.slice.call(track.querySelectorAll('.hero-slide'));
-          var dots = Array.prototype.slice.call(dotsWrap.querySelectorAll('.hero-dot'));
-          if (!slides.length || !dots.length) return;
-
-          function setActive(i) {
-            for (var j = 0; j < dots.length; j++) dots[j].classList.toggle('is-active', j === i);
-          }
-          setActive(0);
-
-          dots.forEach(function (d, i) {
-            d.addEventListener('click', function () {
-              slides[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            });
+      // Entrances: each [data-reveal] section rises into place once, its parts
+      // (.rv) staggered by their --i. Content is visible without JS: the hidden
+      // state only exists under html.js.
+      function initReveal() {
+        (window as any).__revealReady = true;
+        const els = document.querySelectorAll<HTMLElement>('[data-reveal]:not(.is-in)');
+        if (!('IntersectionObserver' in window) || reduced()) {
+          els.forEach((e) => e.classList.add('is-in'));
+          return;
+        }
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((en) => {
+            if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
           });
+        }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+        els.forEach((e) => io.observe(e));
+      }
 
-          if ('IntersectionObserver' in window) {
-            var io = new IntersectionObserver(
-              function (entries) {
-                entries.forEach(function (e) {
-                  if (e.isIntersecting) {
-                    var idx = slides.indexOf(e.target);
-                    if (idx >= 0) setActive(idx);
-                  }
-                });
-              },
-              { root: track, threshold: 0.6 },
-            );
-            slides.forEach(function (s) { io.observe(s); });
-          }
+      // Hero: Play keeps its album-page href without JS. With JS the Player's own
+      // capture-phase handler starts playback (synchronously, inside this click),
+      // so the default navigation is cancelled here. Surprise me: a random album.
+      function initHero() {
+        const play = document.getElementById('hero-play');
+        if (play && !(play as any).__bound) {
+          (play as any).__bound = true;
+          play.addEventListener('click', (e) => { if ((window as any).YT?.Player) e.preventDefault(); });
         }
-        document.addEventListener('astro:page-load', initHome);
-
-        // R3-003: the right-edge fade on .carousel-row/.bands-row used to be
-        // permanent CSS, so it stayed visible even once a row had no more
-        // content to scroll to (and dimmed the last card's focus ring the
-        // whole time). .has-scroll-fade is only added while scrolling
-        // further right would actually reveal more content.
-        function updateRowFade(row: Element) {
-          var hasMore = row.scrollWidth - row.scrollLeft - row.clientWidth > 1;
-          row.classList.toggle('has-scroll-fade', hasMore);
-        }
-        function initScrollFade() {
-          var rows = document.querySelectorAll('.carousel-row, .bands-row');
-          rows.forEach(function (row) {
-            updateRowFade(row);
-            if ((row as any).__fadeBound) return;
-            (row as any).__fadeBound = true;
-            row.addEventListener('scroll', function () { updateRowFade(row); }, { passive: true });
+        const sur = document.getElementById('hero-surprise');
+        if (sur && !(sur as any).__bound) {
+          (sur as any).__bound = true;
+          sur.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              const data = await (await fetch('/browse-index.json')).json();
+              if (Array.isArray(data) && data.length) {
+                window.location.href = '/metal-archive/album/' + data[Math.floor(Math.random() * data.length)].id;
+                return;
+              }
+            } catch { /* fall through */ }
+            window.location.href = '/metal-archive/browse';
           });
         }
-        window.addEventListener('resize', function () {
-          document.querySelectorAll('.carousel-row, .bands-row').forEach(updateRowFade);
+      }
+
+      // Most played: the row nearest the middle of the screen (or hovered / focused)
+      // is active; its cover crossfades in. Without JS the first row stays active.
+      function initPlayed() {
+        const section = document.querySelector<HTMLElement>('.played');
+        if (!section || (section as any).__bound) return;
+        (section as any).__bound = true;
+        const rows = Array.from(section.querySelectorAll<HTMLElement>('.played__row'));
+        const imgs = Array.from(section.querySelectorAll<HTMLElement>('.played__img'));
+        const setActive = (i: number) => {
+          rows.forEach((r, j) => r.classList.toggle('is-active', j === i));
+          imgs.forEach((m, j) => m.classList.toggle('is-active', j === i));
+        };
+        rows.forEach((r, i) => {
+          r.addEventListener('mouseenter', () => setActive(i));
+          r.addEventListener('focusin', () => setActive(i));
         });
-        document.addEventListener('astro:page-load', initScrollFade);
-      })();
+        if ('IntersectionObserver' in window) {
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((en) => { if (en.isIntersecting) setActive(rows.indexOf(en.target as HTMLElement)); });
+          }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+          rows.forEach((r) => io.observe(r));
+        }
+      }
+
+      // By genre: the tab links are real links to each genre page (no JS: first
+      // shelf + links). With JS they become tabs that swap the shelf in place.
+      function initGenres() {
+        const tabs = document.getElementById('genre-tabs');
+        if (!tabs || (tabs as any).__bound) return;
+        (tabs as any).__bound = true;
+        const links = Array.from(tabs.querySelectorAll<HTMLAnchorElement>('[data-tab]'));
+        const panels = Array.from(document.querySelectorAll<HTMLElement>('.genre__panel'));
+        tabs.setAttribute('role', 'tablist');
+        const select = (i: number, focus = false) => {
+          links.forEach((l, j) => {
+            const on = j === i;
+            l.classList.toggle('is-active', on);
+            l.setAttribute('aria-selected', String(on));
+            l.tabIndex = on ? 0 : -1;
+            if (on && focus) l.focus();
+          });
+          panels.forEach((p, j) => { p.hidden = j !== i; });
+        };
+        links.forEach((l, i) => {
+          l.setAttribute('role', 'tab');
+          l.setAttribute('aria-controls', `genre-panel-${i}`);
+          panels[i]?.setAttribute('role', 'tabpanel');
+          l.addEventListener('click', (e) => { e.preventDefault(); select(i); });
+          l.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') { e.preventDefault(); select((i + 1) % links.length, true); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); select((i - 1 + links.length) % links.length, true); }
+          });
+        });
+        select(0);
+      }
+
+      function initHome() { initReveal(); initHero(); initPlayed(); initGenres(); }
+      document.addEventListener('astro:page-load', initHome);
     </script>
   </body>
 </html>

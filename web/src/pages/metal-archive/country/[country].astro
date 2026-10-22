@@ -8,11 +8,14 @@
 // replaced the ~95-entry flag map that used to be duplicated here and on the
 // archive home page.
 import { ClientRouter } from 'astro:transitions';
-import { getAllCountries, getAlbumsByCountry, slugify } from '../../../lib/db.js';
+import { getAllCountries, getAlbumsByCountry, getFacetLead, slugify } from '../../../lib/db.js';
 import { countryFlag, countryLabel } from '../../../lib/labels.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
+import { getAlbumColor } from '../../../lib/vibrant.js';
+import FacetMain from '../../../components/FacetMain.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
+import ArchiveHead from '../../../components/ArchiveHead.astro';
+import Reveal from '../../../components/Reveal.astro';
 import '../../../styles/global.css';
 
 // slugify is imported from db.ts — single source of truth shared with the pages
@@ -36,6 +39,14 @@ const albums = getAlbumsByCountry(realCountry);
 const count = albums.length;
 const flag = countryFlag(realCountry);
 const label = countryLabel(realCountry);
+
+// The page leads with the country's most played record; its cover sets the header colour.
+// With no views anywhere in the country the newest upload stands in.
+const lead = getFacetLead('country', [realCountry]);
+const repCover = lead ?? albums[0] ?? null;
+const countryColor = repCover ? await getAlbumColor(repCover.thumb, repCover.cover) : '';
+const nf = new Intl.NumberFormat('en-US');
+const sentence = `${nf.format(count)} ${count === 1 ? 'album' : 'albums'} from ${label}, newest upload first.`;
 
 // Chain to Browse with this country pre-applied. Search restores from the exact
 // value (e.country === country), so the URL carries the REAL country, not the slug.
@@ -64,32 +75,25 @@ const ogImage = albums[0]?.thumb || undefined;
     <meta name="twitter:description" content={metaDesc} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href={canonical} />
+    <ArchiveHead />
     <ClientRouter />
   </head>
-  <body>
+  <body class="ma">
+    <Reveal />
     <Navbar />
 
-    <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
-      <header class="facet-hero">
-        <h1 class="facet-hero__title">
-          {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{label}
-        </h1>
-        <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albums'}
-        </p>
-        {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
-        )}
-      </header>
+    <FacetMain
+      title={label}
+      flag={flag}
+      sentence={sentence}
+      browseHref={browseHref}
+      albums={albums}
+      lead={lead}
+      leadKind={`Most played from ${label}`}
+      color={countryColor}
+      empty="No albums from this country yet."
+    />
 
-      {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
-        : <p style="color: var(--text-footer);">No albums from this country yet.</p>
-      }
-    </main>
-
-    <Footer />
+    <Footer cover={(lead ?? albums[0])?.cover || undefined} />
   </body>
 </html>

@@ -2,10 +2,13 @@
 // Year values are integers — no slug transform needed.
 // year param is a string in the URL; convert to number for DB query.
 import { ClientRouter } from 'astro:transitions';
-import { getAllYears, getAlbumsByYear } from '../../../lib/db.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
+import { getAllYears, getAlbumsByYear, getFacetLead } from '../../../lib/db.js';
+import { getAlbumColor } from '../../../lib/vibrant.js';
+import FacetMain from '../../../components/FacetMain.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
+import ArchiveHead from '../../../components/ArchiveHead.astro';
+import Reveal from '../../../components/Reveal.astro';
 import '../../../styles/global.css';
 
 export function getStaticPaths() {
@@ -25,6 +28,17 @@ const { year } = Astro.props;
 // so the header number and the grid agree (comparable to Browse).
 const albums = getAlbumsByYear(year);
 const count = albums.length;
+
+// The page leads with the year's most played record; its cover sets the header colour. With
+// no views anywhere in the year the newest upload stands in. Year 0 is the DB's "unknown".
+const lead = getFacetLead('year', [year]);
+const repCover = lead ?? albums[0] ?? null;
+const yearColor = repCover ? await getAlbumColor(repCover.thumb, repCover.cover) : '';
+const nf = new Intl.NumberFormat('en-US');
+const title = year ? String(year) : 'Year unknown';
+const sentence = year
+  ? `${nf.format(count)} ${count === 1 ? 'album' : 'albums'} released in ${year}, newest upload first.`
+  : `${nf.format(count)} ${count === 1 ? 'album' : 'albums'} with no release year on record, newest upload first.`;
 
 // Chain to Browse with this year pre-applied. Search restores from the exact
 // value (String(e.year) === year), so the URL carries the REAL year.
@@ -53,30 +67,24 @@ const ogImage = albums[0]?.thumb || undefined;
     <meta name="twitter:description" content={metaDesc} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="canonical" href={canonical} />
+    <ArchiveHead />
     <ClientRouter />
   </head>
-  <body>
+  <body class="ma">
+    <Reveal />
     <Navbar />
 
-    <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
-      <header class="facet-hero">
-        <h1 class="facet-hero__title">{year}</h1>
-        <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albums'}
-        </p>
-        {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
-        )}
-      </header>
+    <FacetMain
+      title={title}
+      sentence={sentence}
+      browseHref={browseHref}
+      albums={albums}
+      lead={lead}
+      leadKind={year ? `Most played of ${year}` : 'Most played'}
+      color={yearColor}
+      empty="No albums from this year yet."
+    />
 
-      {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
-        : <p style="color: var(--text-footer);">No albums from this year yet.</p>
-      }
-    </main>
-
-    <Footer />
+    <Footer cover={(lead ?? albums[0])?.cover || undefined} />
   </body>
 </html>

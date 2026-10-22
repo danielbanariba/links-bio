@@ -1,12 +1,69 @@
 ---
-// Footer: Xerox Underground brand + minimal copyright.
-// The domain shown here used to be "xeroxunderground.com", which does not
-// resolve — visitors who typed it landed nowhere. It now shows the real one.
+// Footer: "the name across the last photograph". The photograph is one of the
+// archive's own covers (the most-viewed album, so it does not change between
+// builds), darkened; the links sit top-left, the contact top-right, and the
+// words "Metal Archive" run the full width along the bottom, fitted to the
+// measured width by the script below (never a font size guessed for one face).
+import { getFooterCover } from '../lib/db.js';
+
+interface Props {
+  /** Cover to use as the photograph. Defaults to the archive's most-viewed one. */
+  cover?: string;
+}
+
+const cover = Astro.props.cover ?? getFooterCover();
+const year = new Date().getFullYear();
+const EMAIL = 'danielbanariba@protonmail.com';
 ---
-<footer class="footer">
-  <span class="footer__brand">METAL ARCHIVE</span>
-  &nbsp;·&nbsp;
-  Underground metal catalog
-  &nbsp;·&nbsp;
-  <a href="/" style="color: var(--text-footer);">danielbanariba.com</a>
+<footer class="ma-footer">
+  {cover && (
+    <div class="ma-footer__photo" aria-hidden="true">
+      <img src={cover} alt="" loading="lazy" decoding="async" width="1280" height="720" />
+    </div>
+  )}
+  <div class="ma-footer__top">
+    <nav class="ma-footer__links" aria-label="Footer">
+      <a href="/metal-archive">Archive</a>
+      <a href="/metal-archive/browse">Browse</a>
+      <a href="/metal-archive/submit">Submit your band</a>
+      <a href="/metal-archive/promo">Promote</a>
+      <a href="/metal-archive/newsletter">Newsletter</a>
+      <a href="/">Daniel Banariba</a>
+    </nav>
+    <div class="ma-footer__contact">
+      <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+      <a href="https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q" target="_blank" rel="noopener noreferrer">YouTube channel</a>
+      <a href="https://www.instagram.com/danielbanariba/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    </div>
+  </div>
+  <div class="ma-footer__bottom">
+    <p class="ma-footer__name" data-fit-text>Metal Archive</p>
+    <p class="ma-footer__legal">
+      © {year} Daniel Banariba. Albums are streamed from the YouTube channel they were uploaded to; the music belongs to the bands.
+    </p>
+  </div>
 </footer>
+
+<script>
+  // Fit the wordmark to the footer's content width. Measured, not guessed: set
+  // a reference size, read the rendered width, scale. Re-run when the fonts
+  // finish loading (Erode arrives late) and on resize.
+  function fitFooterName() {
+    document.querySelectorAll<HTMLElement>('[data-fit-text]').forEach((el) => {
+      const box = el.parentElement;
+      if (!box) return;
+      const cs = getComputedStyle(box);
+      const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (avail <= 0) return;
+      el.style.fontSize = '100px';
+      el.style.width = 'max-content';
+      const natural = el.getBoundingClientRect().width;
+      el.style.width = '';
+      if (natural > 0) el.style.fontSize = (100 * avail) / natural + 'px';
+    });
+  }
+  fitFooterName();
+  window.addEventListener('resize', fitFooterName);
+  document.addEventListener('astro:page-load', fitFooterName);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitFooterName);
+</script>

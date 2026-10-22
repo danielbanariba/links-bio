@@ -18,10 +18,10 @@
 // Kiwi]). So this only passes once db.ts actually orders by id DESC as the
 // tiebreak, not by accident of SQLite's scan order.
 //
-// R3-008: each test removes its own scratch dir and restores REFLEX_DB in
-// an `after` hook, instead of leaking a temp directory and a mutated
-// process-global env var past the end of the test.
-import test from 'node:test';
+// R3-008: the scratch dirs are removed and REFLEX_DB is restored in an `after`
+// hook, instead of leaking a temp directory and a mutated process-global env var
+// past the end of the file.
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -67,14 +67,26 @@ function buildScratchDb(): { dbPath: string; dir: string } {
   return { dbPath, dir };
 }
 
-test('getAlbumsByCountry orders by upload_date DESC, id DESC, matching the genre facet convention', async (t) => {
-  const prevReflexDb = process.env.REFLEX_DB;
+// db.ts reads REFLEX_DB once, when it is imported, so each load points the variable at its
+// own scratch DB before importing. The caller's value is saved and the scratch dirs are
+// removed once, after the whole file. Assigning an unset value back (`= undefined`) would
+// leave the string 'undefined' in the environment, so an unset variable is deleted instead.
+const savedReflexDb = process.env.REFLEX_DB;
+const scratchDirs: string[] = [];
+after(() => {
+  if (savedReflexDb === undefined) delete process.env.REFLEX_DB;
+  else process.env.REFLEX_DB = savedReflexDb;
+  for (const dir of scratchDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+function useScratchDb(): void {
   const { dbPath, dir } = buildScratchDb();
+  scratchDirs.push(dir);
   process.env.REFLEX_DB = dbPath;
-  t.after(() => {
-    process.env.REFLEX_DB = prevReflexDb;
-    rmSync(dir, { recursive: true, force: true });
-  });
+}
+
+test('getAlbumsByCountry orders by upload_date DESC, id DESC, matching the genre facet convention', async () => {
+  useScratchDb();
 
   const { getAlbumsByCountry } = await import(`../src/lib/db.ts?scratch=country-${Date.now()}`);
   const cards = getAlbumsByCountry('Testlandia');
@@ -83,14 +95,8 @@ test('getAlbumsByCountry orders by upload_date DESC, id DESC, matching the genre
   assert.deepEqual(cards.map((c: any) => c.band_name), ['Lychee', 'Kiwi', 'Mango', 'Zebra', 'Apple']);
 });
 
-test('getAlbumsByYear orders by upload_date DESC, id DESC, matching the genre facet convention', async (t) => {
-  const prevReflexDb = process.env.REFLEX_DB;
-  const { dbPath, dir } = buildScratchDb();
-  process.env.REFLEX_DB = dbPath;
-  t.after(() => {
-    process.env.REFLEX_DB = prevReflexDb;
-    rmSync(dir, { recursive: true, force: true });
-  });
+test('getAlbumsByYear orders by upload_date DESC, id DESC, matching the genre facet convention', async () => {
+  useScratchDb();
 
   const { getAlbumsByYear } = await import(`../src/lib/db.ts?scratch=year-${Date.now()}`);
   const cards = getAlbumsByYear(2020);

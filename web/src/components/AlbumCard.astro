@@ -1,61 +1,65 @@
 ---
-// AlbumCard: zero-JS, cover-first gallery card (Bandcamp-style).
-// The artwork is the protagonist: a large square cover that scales and reveals
-// an "open" affordance on hover; band/album text sits cleanly below.
-// `accent` (optional) tints the hover ring/glow with the album's dominant color;
-// defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
-// `livePlaceholder` (optional) — when true, renders a branded placeholder instead
-// of the API-sourced thumbnail (used for Live Recordings cards on the home page).
+// AlbumCard: zero-JS, cover-first card. The whole card is one real link to the
+// album page (a single tab stop, named by its band and album text). The cover
+// is the square left part of the YouTube thumbnail (see `.album-card__cover`);
+// on hover the cover brightens and a round accent play mark appears on it. The
+// mark is part of the link, not a second control: the card cannot play in
+// place (the Player reads the album page's data island), so it opens the album.
+//
+// Two options for the band page, where the cards are all one band's:
+//   - `ofBand` leads with the album, not the band: the title in the display face, then
+//     the tail of the title (a live set's "(Live in ...)", "[Remastered]") and, for a studio
+//     album, the year.
+//   - `frame` shows the whole 16:9 thumbnail instead of its left square. A live set's
+//     thumbnail is a frame of the show, not cover art, so cropping it would cut it at random.
 import type { Card } from '../lib/types.js';
+import { splitTitle } from '../lib/titles.js';
 
 interface Props {
   album: Card;
   loading?: 'lazy' | 'eager';
-  accent?: string;
-  livePlaceholder?: boolean;
+  ofBand?: boolean;
+  frame?: boolean;
 }
 
-const { album, loading = 'lazy', accent, livePlaceholder = false } = Astro.props;
+const { album, loading = 'lazy', ofBand = false, frame = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
-// Inline custom property only when an accent is passed; the CSS falls back to
-// the cyan brand otherwise.
-const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
+
+// "Name (tail)" or "Name [tail]": the name leads, the tail follows in the muted line (see
+// lib/titles.ts). A live set's year column is mostly 0 or the year of its songs; its date is in
+// the tail, so no year.
+const { name, tail } = splitTitle(album.album_title);
+const sub = ofBand ? [tail, !frame && album.year ? String(album.year) : ''].filter(Boolean).join(' · ') : '';
 ---
 
-<a class="album-card" href={href} style={accentStyle}>
+<a class:list={['album-card', frame && 'album-card--frame']} href={href}>
   <div class="album-card__art">
-    {livePlaceholder
-      ? (
-        <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-          <span class="live-cover__band">{album.band_name}</span>
-          <span class="live-cover__badge">LIVE</span>
-        </div>
-      )
-      : album.thumb
-        ? <img
-            class="album-card__cover"
-            src={album.thumb}
-            alt={`${album.band_name} — ${album.album_title}`}
-            loading={loading}
-            decoding="async"
-            width="400"
-            height="400"
-          />
-        : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+    {album.thumb
+      ? <img
+          class="album-card__cover"
+          src={album.thumb}
+          alt=""
+          loading={loading}
+          decoding="async"
+          width="320"
+          height="180"
+        />
+      : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
     }
-    <!-- Hover affordance: "open" arrow in the album accent, revealed bottom-right.
-         NOT a play button — the card is a zero-JS link to the album page, where
-         the global Player takes over; an "open" arrow avoids promising in-situ
-         playback the card cannot deliver. -->
     <span class="album-card__open" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 17 17 7" />
-        <path d="M8 7h9v9" />
-      </svg>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
     </span>
   </div>
   <div class="album-card__body">
-    <div class="album-card__band">{album.band_name}</div>
-    <div class="album-card__album">{album.album_title}</div>
+    {ofBand
+      ? <>
+          <div class="album-card__band">{name}</div>
+          {sub && <div class="album-card__album">{sub}</div>}
+        </>
+      : <>
+          <div class="album-card__band">{album.band_name}</div>
+          <div class="album-card__album">{album.album_title}</div>
+        </>
+    }
   </div>
 </a>

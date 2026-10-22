@@ -181,8 +181,8 @@ a:hover {
    near-white brand bone color, which stays well above 3:1 against every
    background the site uses (the dark --bg, --content, and the per-album
    --accent-tinted navbar). :where() gives this rule zero specificity, so any
-   component rule that sets outline (.album-card, .facet-refine,
-   a.band-pill, .stage__* etc.) wins outright. The rule declares nothing
+   component rule that sets outline (.album-card, .btn,
+   and so on) wins outright. The rule declares nothing
    but outline, so it cannot change a component's radius or offset. */
 :where(a, button, summary, [tabindex]):where(:focus-visible) {
   outline: 2px solid var(--text-header);
@@ -193,297 +193,10 @@ img {
   max-width: 100%;
 }
 
-/* ─── Layout utilities ───────────────────────────────────────────────────────
-   Wide container + fluid side padding so content spans the screen instead of a
-   narrow centered column. --gutter scales from 1rem (phones) to 3rem (desktop). */
-.wrap {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-.wrap--detail {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-/* ─── Carousel utilities (horizontal cover rows) ─────────────────────────────
-   Bigger thumbnails + more gap than the old tight carousel for a gallery feel. */
-.carousel-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(200px, 24vw, 260px);
-  gap: 1.75rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.75rem;
-  /* Hide scrollbar but keep scroll functionality */
-  scrollbar-width: none;
-}
-.carousel-row::-webkit-scrollbar {
-  display: none;
-}
-
-/* #16/R3-003: a right-edge fade signals there is more to scroll to -- these
-   rows hid 73-87% of their content with no affordance at all otherwise.
-   .has-scroll-fade is toggled by the home page's script (metal-archive/
-   index.astro) based on actual scroll position, so the fade is only present
-   while scrolling further right would reveal more content -- never at rest
-   with no overflow, and never once scrolled to the end, where a permanent
-   mask would otherwise keep the last card's focus ring dimmed. */
-.carousel-row.has-scroll-fade {
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-}
-
-.carousel-row > * {
-  scroll-snap-align: start;
-}
-
-/* ─── Gallery grid (Bandcamp-style cover wall) ───────────────────────────────
-   auto-fill + minmax keeps every row completely full (no awkward end gaps) and
-   reflows fluidly: ~2 cols on phones up to 6+ on wide desktops. The min track
-   shrinks on narrow viewports so two covers always fit on a phone. */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 220px), 1fr));
-  gap: 1.75rem 1.5rem;
-}
-
-@media (min-width: 1200px) {
-  .gallery-grid { gap: 2.25rem 1.75rem; }
-}
-
 /* Below-fold carousels: defer rendering until near viewport */
 .carousel-deferred {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
-}
-
-/* ─── Album card (cover-first gallery unit) ──────────────────────────────────
-   The cover is the protagonist: large, square, crisp. Text sits below in clean
-   minimal type. On hover the cover lifts/scales, brightens, gains an accent ring
-   and a play affordance fades in. --card-accent (optional, set inline per card)
-   tints the ring/glow; falls back to the cyan brand.                          */
-.album-card {
-  --card-accent: var(--accent);
-  display: block;
-  width: 100%;
-  background: transparent;
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.album-card:focus-visible {
-  outline: none;
-}
-.album-card:focus-visible .album-card__art {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
-}
-
-/* The framed cover. Its own element so the lift/glow stay scoped to the art. */
-.album-card__art {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.6em;
-  overflow: hidden;
-  background: var(--content);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
-              box-shadow 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
-}
-
-.album-card:hover .album-card__art {
-  /* Lift + glow only — NO scale (scaling the framed cover clipped the artwork
-     on hover, and the brand guide bans scale on cards anyway). */
-  transform: translateY(-6px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55),
-              0 0 0 1px color-mix(in srgb, var(--card-accent) 55%, transparent),
-              0 0 28px color-mix(in srgb, var(--card-accent) 40%, transparent);
-}
-
-.album-card__cover {
-  /* Strict uniform square: every cover renders identically regardless of the
-     source image's intrinsic dimensions. aspect-ratio guards against any image
-     whose natural ratio would otherwise leak through. */
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
-  background: var(--content);
-  transition: filter 0.28s ease;
-}
-
-.album-card:hover .album-card__cover {
-  filter: brightness(1.08) saturate(1.05);
-}
-
-.album-card__cover--empty {
-  background: linear-gradient(135deg, var(--content), var(--secondary));
-}
-
-/* Live Recordings placeholder — brand-colored square with band name + LIVE badge.
-   Replaces the API-sourced YouTube thumbnails (red overlays, inconsistent frames)
-   with an intentional, on-brand treatment. */
-.album-card__cover--live {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(0, 115, 168, 0.18) 0%, transparent 70%),
-    var(--content);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.8rem;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Subtle noise / scan-line texture behind the text */
-.album-card__cover--live::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
-  opacity: 0.055;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
-
-/* Thin cyan top border accent line */
-.album-card__cover--live::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--primary);
-  opacity: 0.7;
-}
-
-.live-cover__band {
-  position: relative;
-  font-family: var(--font-default);
-  font-size: clamp(0.62rem, 1.8vw, 0.78rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: 0.04em;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  max-width: 90%;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-.live-cover__badge {
-  position: relative;
-  font-family: var(--font-default);
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: 2px;
-  padding: 0.15em 0.5em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* "Open" affordance: cyan/accent circle, bottom-right, fades + slides in on
-   hover. An arrow (not a play triangle) — the card links to the album page, it
-   does not play in place, so it must not imply in-situ playback. */
-.album-card__open {
-  position: absolute;
-  right: 0.6rem;
-  bottom: 0.6rem;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-header);
-  background: var(--card-accent);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(8px) scale(0.85);
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
-  pointer-events: none;
-}
-
-.album-card:hover .album-card__open,
-.album-card:focus-visible .album-card__open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.album-card__body {
-  padding: 0.7rem 0.15rem 0;
-}
-
-.album-card__band {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-header);
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.album-card__album {
-  color: var(--text-footer);
-  font-size: 0.82rem;
-  margin-top: 0.1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Kept for the browse page markup, which still renders a genre line. */
-.album-card__genre {
-  color: var(--primary);
-  font-size: 0.72rem;
-  margin-top: 0.3rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .album-card__art,
-  .album-card__cover,
-  .album-card__open {
-    transition: opacity 0.2s ease;
-  }
-  .album-card:hover .album-card__art { transform: none; }
-}
-
-/* ─── Album grid (genre / country / year / browse / album pages) ──────────────
-   Gallery wall: large covers, generous gap, matches .gallery-grid rhythm.
-   auto-fill + minmax fills every row completely (no holes) and reflows from
-   ~2 cols on phones to 6+ on wide desktops.                                   */
-.album-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 220px), 1fr));
-  gap: 1.75rem 1.5rem;
-}
-
-@media (min-width: 1200px) {
-  .album-grid { gap: 2.25rem 1.75rem; }
 }
 
 /* ─── Skeleton fade animation ────────────────────────────────────────────────*/
@@ -493,11 +206,6 @@ img {
 }
 .animate-skeleton {
   animation: skeleton-fade 1.5s ease-in-out infinite;
-}
-
-/* ─── Track active state (set by Player island via JS) ───────────────────────*/
-.track-active {
-  background: rgba(0, 115, 168, 0.13);
 }
 
 /* ─── Noise texture overlay helper ──────────────────────────────────────────
@@ -524,14 +232,6 @@ img {
   position: sticky;
   top: 0;
   z-index: 10;
-}
-
-/* Metal-archive navbar takes the album color (REQ-004 global flood). On album
-   pages --accent = the cover color; on home/browse it = the amber base. The bio
-   uses plain .navbar (no --ma), so it keeps var(--content) and is untouched. */
-.navbar--ma {
-  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
-  border-bottom-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .navbar__brand {
@@ -632,1417 +332,9 @@ img {
   }
 }
 
-/* ─── Footer ─────────────────────────────────────────────────────────────────*/
-.footer {
-  color: var(--text-footer);
-  text-align: center;
-  padding: 2rem;
-  font-size: 0.8rem;
-  border-top: 1px solid var(--border);
-  margin-top: 2rem;
-}
-
-.footer__brand {
-  font-family: var(--font-logo);
-  color: var(--primary);
-}
-
-/* ─── Section headers ────────────────────────────────────────────────────────*/
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.section-header h2,
-.section-header h3 {
-  font-size: clamp(1.45rem, 3vw, 1.9rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-header);
-}
-
-.section-header__link {
-  color: var(--text-footer);
-  font-size: 0.88rem;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: color 0.15s;
-}
-
-.section-header__link:hover {
-  color: var(--primary);
-}
-
-/* ─── Home: vertical rhythm between sections (generous, breathing) ────────────*/
-.home-sections {
-  padding-top: clamp(2.5rem, 5vw, 4rem);
-  padding-bottom: 3rem;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3rem, 6vw, 5rem);
-}
-
-/* Carousel/Gallery <section> wrappers reset their own bottom margins — the
-   parent flex `gap` owns the rhythm now. */
-.home-sections > .section,
-.home-sections > .home-browse-by { margin-bottom: 0; }
-
-.home-browse-by { margin-bottom: 0; }
-
-/* ─── Home: section divider ──────────────────────────────────────────────────*/
-.home-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0;
-}
-
-/* ─── Home: Live Recordings section ──────────────────────────────────────────
-   Daniel's own live sets, visually set apart from the official-album feeds:
-   a left accent rule, a "Live sets" badge, and a short clarifying note.       */
-.live-section {
-  border-left: 3px solid var(--primary);
-  padding-left: clamp(0.8rem, 2vw, 1.4rem);
-}
-
-.live-section__heading {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-.live-section__badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: 2px;
-  padding: 0.18em 0.5em;
-  white-space: nowrap;
-}
-
-.live-section__note {
-  color: var(--text-footer);
-  font-size: 0.85rem;
-  margin: -0.8rem 0 1.4rem;
-}
-
-/* ─── Home: centered CTA rows (Surprise Me / YouTube) ────────────────────────*/
-.home-cta-row {
-  display: flex;
-  justify-content: center;
-}
-.home-cta-row--tight { margin-top: -2rem; }
-
-/* ─── Home: browse-by-country grid ──────────────────────────────────────────*/
-.country-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-@media (min-width: 480px) {
-  .country-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .country-grid { grid-template-columns: repeat(5, 1fr); }
-}
-
-/* ─── Home: browse-by-genre grid (#20) — same breakpoints as country-grid,
-   genre labels run a similar short-to-medium length. ───────────────────────*/
-.genre-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-@media (min-width: 480px) {
-  .genre-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .genre-grid { grid-template-columns: repeat(5, 1fr); }
-}
-
-/* ─── Home: browse-by-year grid ──────────────────────────────────────────────*/
-.year-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.65rem;
-}
-
-@media (min-width: 480px) {
-  .year-grid { grid-template-columns: repeat(4, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .year-grid { grid-template-columns: repeat(6, 1fr); }
-}
-
-/* ─── Home: facet card (country/year tile) ───────────────────────────────────*/
-.facet-card {
-  background: var(--content);
-  border: 1px solid transparent;
-  border-radius: 0.7em;
-  padding: 1rem 0.6rem;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  transition: background 0.18s, transform 0.18s, border-color 0.18s;
-  text-decoration: none;
-  color: inherit;
-}
-
-.facet-card:hover {
-  background: var(--secondary);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  transform: translateY(-2px);
-  color: var(--text-header);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .facet-card:hover { transform: none; }
-}
-
-.facet-card__flag {
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.facet-card__name {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-header);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.facet-card__count {
-  font-size: 0.72rem;
-  color: var(--text-footer);
-}
-
-/* ─── Facet pages: mini-hero + chain-to-Browse refine button ─────────────────*/
-/* Genre pages set --album-color on <html> (inherited from the representative
-   cover via vibrant cache), so --accent tints the hero there; country/year keep
-   the resting fallback. */
-.facet-hero {
-  margin-bottom: 1.5rem;
-  padding: 1.4rem 1.2rem;
-  border-radius: 0.9em;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--accent) 16%, transparent),
-      transparent 70%),
-    var(--content);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: flex-start;
-}
-.facet-hero__title {
-  font-size: clamp(1.6rem, 5vw, 2.5rem);
-  color: var(--text-header);
-  line-height: 1.1;
-}
-.facet-hero__count {
-  color: var(--text-footer);
-  font-size: 0.9rem;
-}
-.facet-refine {
-  margin-top: 0.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  padding: 0.5em 1.1em;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  color: var(--accent-bright);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.facet-refine:hover,
-.facet-refine:focus-visible {
-  background: color-mix(in srgb, var(--accent) 32%, transparent);
-  border-color: var(--accent);
-}
-@media (prefers-reduced-motion: reduce) {
-  .facet-refine { transition: none; }
-}
-
-/* ─── Home: Sorpréndeme button ───────────────────────────────────────────────*/
-.btn-sorprendeme {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  background: var(--content);
-  color: var(--text-header);
-  border: 2px solid var(--primary);
-  padding: 0.7em 1.8em;
-  border-radius: 999px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  font-family: var(--font-default);
-}
-
-.btn-sorprendeme:hover {
-  background: var(--primary);
-  color: var(--text-header);
-}
-
-/* ─── Home: YouTube CTA ──────────────────────────────────────────────────────*/
-.btn-youtube {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  background: #ff0000;
-  color: #fff;
-  padding: 0.75em 2em;
-  border-radius: 0.5em;
-  font-size: 1.05em;
-  font-weight: 600;
-  text-decoration: none;
-  transition: opacity 0.15s;
-}
-
-.btn-youtube:hover {
-  opacity: 0.88;
-  color: #fff;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ALBUM DETAIL PAGE  (ported from _ALBUM_DETAIL_CSS + the hero/track/player
-   style dicts in links_bio/styles/styles.py). The --album-color variable is
-   baked per-page at BUILD time on the <html> element (see vibrant.ts), so the
-   halo + active-track tint are correct on first paint with zero client JS.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Reserve space for the fixed now-playing bar (72px + breathing room). */
-body.album-detail { padding-bottom: 80px; }
-
-/* Album-color halo on the page background. --album-color falls back to the
-   cyan brand if Vibrant produced nothing. */
-.album-detail-bg {
-  /* Global accent wash (REQ-004/008): the per-album color floods the whole page
-     from the top and fades into the neutral base — recolors per album page.
-     Richer / more opaque gradient (client feedback: more gradient opacity). */
-  background:
-    radial-gradient(140% 90% at 50% -15%,
-      color-mix(in srgb, var(--accent) 70%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 30%, transparent) 38%,
-      transparent 72%),
-    var(--bg);
-  background-attachment: fixed;
-}
-
-.album-detail-main {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-.album-detail-body {
-  padding: 1.8em clamp(1.2em, 4vw, 3em) 2em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   NOW PLAYING SCREEN (REQ-001..008)
-   Mobile: full-bleed square cover up top, controls panel below.
-   Desktop/tablet (≥768px): large square cover left, controls right.
-   Everything tinted by --accent (= per-album --album-color, amber fallback).
-   ═══════════════════════════════════════════════════════════════════════════ */
-.stage {
-  position: relative;
-  /* F10 (Oct 2026 UI audit): plain 100vw overflows the real viewport by the
-     vertical scrollbar's width (vw includes it, clientWidth doesn't) — an
-     8px overflow measured on both desktop and mobile. --scrollbar-w is
-     measured in JS (Navbar.astro) and defaults to 0px before that runs or if
-     JS is disabled, at which point this is identical to the old rule. */
-  width: calc(100vw - var(--scrollbar-w, 0px));
-  margin-left: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  margin-right: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  padding: 0 0 clamp(1.5rem, 4vw, 2.5rem);
-  isolation: isolate;
-}
-
-.stage__inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1.1rem, 3vw, 1.6rem);
-}
-
-/* ─── Cover: square 1:1 (REQ-001) ─── */
-.stage__cover-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
-  /* #18: object-fit:contain below never crops a non-square cover (16:9
-     YouTube thumbs are common), which used to leave a big flat gap of
-     --content above/below it. A gradient seeded from the already-computed
-     per-album --accent token fills that gap -- it's the container's own
-     background, so it paints behind the <img> with no z-index/pseudo-element
-     stacking to get wrong, and it never reaches the text in the sibling
-     .stage__panel, so contrast there is unaffected. */
-  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 38%, var(--content)) 0%, var(--content) 75%);
-}
-.stage__cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;   /* fit the WHOLE cover inside the reserved 1:1 box — never crop (covers may be 16:9 YouTube thumbs) */
-}
-.stage__cover--empty {
-  aspect-ratio: 1 / 1;   /* only the empty placeholder is forced square */
-  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
-}
-/* On mobile the cover is full-bleed; fade its bottom edge into the page. */
-.stage__cover-wrap::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 34%;
-  background: linear-gradient(to top, var(--bg) 2%, transparent 100%);
-  pointer-events: none;
-}
-
-/* ─── Controls panel ─── */
-.stage__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0 clamp(1.2rem, 5vw, 2rem);
-}
-
-.stage__eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent-bright);
-}
-
-.stage__title {
-  margin: 0;
-  font-size: clamp(1.9rem, 7vw, 3rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--title-white);          /* REQ-002: pure white */
-  overflow-wrap: anywhere;
-}
-
-/* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
-   .stage__album (see album/[id].astro). Reset the browser's default h1 box
-   (margin, font-size, font-weight) so the two children keep their own
-   explicit styling below and the visual result is unchanged. */
-.stage__heading {
-  margin: 0;
-  font: inherit;
-}
-
-.stage__artist {
-  font-size: clamp(1rem, 3vw, 1.25rem);
-  font-weight: 600;
-  color: var(--accent-bright);        /* REQ-003: high-contrast accent */
-}
-.stage__artist-link {
-  color: inherit;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.15s ease;
-}
-.stage__artist-link:hover { color: var(--accent-bright); border-bottom-color: currentColor; }
-
-/* Album name — small line under the band; stays put while the big title (the
-   now-playing track) changes. */
-.stage__album {
-  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
-  font-weight: 600;
-  color: var(--text-header);
-}
-
-.stage__metarow {
-  color: var(--text-body);
-  font-size: 0.88rem;
-  font-weight: 300;
-}
-.stage__metarow .sep { color: var(--text-footer); }
-.stage__metarow .meta-link {
-  color: var(--text-body);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-.stage__metarow .meta-link:hover { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
-
-/* ─── Progress ─── */
-.stage__progress {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.stage__bar {
-  height: 5px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, #fff 13%, transparent);
-  overflow: hidden;
-}
-.stage__bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bright);
-  transition: width 0.4s linear;
-}
-.stage__times {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
-  color: var(--text-footer);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ─── Transport ─── */
-.stage__transport {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.4rem, 7vw, 2.4rem);
-  margin-top: 0.7rem;
-}
-.stage__ctl {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border: none;
-  background: none;
-  border-radius: var(--radius-pill);
-  color: var(--text-header);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-.stage__ctl:hover { color: var(--accent-bright); background: color-mix(in srgb, #fff 7%, transparent); }
-.stage__ctl:active { transform: scale(0.92); }
-
-.stage__play {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 76px;
-  height: 76px;
-  border: none;
-  border-radius: var(--radius-pill);
-  /* Lightened accent fill so the dark glyph reads on ANY album hue. */
-  background: color-mix(in srgb, var(--accent) 86%, #fff);
-  color: var(--on-accent);
-  cursor: pointer;
-  box-shadow: 0 12px 34px var(--accent-glow);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.stage__play:hover { transform: scale(1.05); }
-.stage__play:active { transform: scale(0.97); }
-.stage__play .ic-play { margin-left: 3px; }       /* optically centre the triangle */
-
-/* Radial gradient behind the play button (REQ-005) + subtle pulse (REQ-006). */
-.stage__play-glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 240%;
-  height: 240%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 68%);
-  z-index: -1;
-  pointer-events: none;
-  animation: stage-pulse 4.5s ease-in-out infinite;
-}
-@keyframes stage-pulse {
-  0%, 100% { opacity: 0.5;  transform: translate(-50%, -50%) scale(0.9); }
-  50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.08); }
-}
-
-/* SVG play/pause/buffering swap driven by data-state — shared by EVERY .js-pp
-   control (the Now Playing hero button and the bottom-bar toggle). */
-.js-pp .ic { position: absolute; }
-.js-pp .ic-pause,
-.js-pp .ic-spinner { display: none; }
-.js-pp[data-state="playing"] .ic-play { display: none; }
-.js-pp[data-state="playing"] .ic-pause { display: block; }
-.js-pp[data-state="buffering"] .ic-play,
-.js-pp[data-state="buffering"] .ic-pause { display: none; }
-.js-pp[data-state="buffering"] .ic-spinner { display: block; }
-/* #9: onError used to only show the corner overlay -- the clicked control
-   itself (e.g. the big hero play button) kept its normal idle look. Reuse
-   the project's existing error red (.form-input--error, .form-toast--error)
-   so every .js-pp control visibly reflects the failure too. */
-.js-pp[data-state="error"] {
-  background: rgba(220, 38, 38, 0.15);
-  box-shadow: inset 0 0 0 2px #dc2626;
-}
-.js-pp .ic-spinner {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--on-accent) 28%, transparent);
-  border-top-color: var(--on-accent);
-  animation: mp-spin 0.8s linear infinite;
-}
-.stage__play .ic-spinner { width: 26px; height: 26px; border-width: 3px; }
-
-/* ─── Secondary actions (glass pills) ─── */
-.stage__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-.stage__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  padding: 0.6em 1.15em;
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.stage__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
-.stage__action-ico { display: inline-flex; align-items: center; }
-.stage__action svg,
-.stage__action-ico svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* Visible keyboard focus on every interactive control (a11y — CRITICAL). */
-.stage__play:focus-visible,
-.stage__ctl:focus-visible,
-.stage__action:focus-visible,
-.stage__artist-link:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 3px;
-}
-
-/* ─── Desktop / tablet: cover left, controls right ─── */
-@media (min-width: 768px) {
-  .stage { padding-top: clamp(1.5rem, 4vw, 3rem); }
-  .stage__inner {
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(2rem, 5vw, 4rem);
-    padding-inline: clamp(1.5rem, 5vw, 3rem);
-  }
-  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42vw, 560px); }  /* REQ-001 ~35-45% */
-  .stage__cover {
-    border-radius: var(--radius-lg);
-    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 60px var(--accent-glow);
-  }
-  .stage__cover-wrap::after { display: none; }
-  .stage__panel { flex: 1 1 0; min-width: 0; padding: 0; }
-  .stage__title { font-size: clamp(2.4rem, 4.2vw, 3.8rem); }
-  .stage__transport { justify-content: flex-start; }
-  .stage__actions { justify-content: flex-start; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stage__play-glow { animation: none; }
-  .stage__play:hover,
-  .stage__ctl:active,
-  .stage__play:active { transform: none; }
-  .stage__bar-fill { transition: none; }
-}
-
-/* ─── Band page ──────────────────────────────────────────────────────────────*/
-.band-page {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 var(--gutter) 4rem;
-}
-
-.band-section-title {
-  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: -0.01em;
-  margin-bottom: 1.25rem;
-}
-
-.band-section + .band-section {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
-}
-
-/* ─── Tracklist ──────────────────────────────────────────────────────────────*/
-.tracklist-section {
-  width: 100%;
-  padding: 0 0.4em;
-}
-
-.track-header {
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.55em 0.9em;
-  border-bottom: 1px solid rgba(0, 115, 168, 0.33);
-  color: var(--text-footer);
-  font-size: 0.72em;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 500;
-  align-items: center;
-}
-
-.track-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1em;
-  margin-top: 0.3em;
-}
-
-.track-row {
-  /* track-row is a real <button> for keyboard operability: reset the native
-     button chrome but keep the 3-column grid (#/title/time). The native click
-     that Enter/Space emit is what the delegated Player handler intercepts, so
-     the synchronous autoplay path is preserved. */
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: none;
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.65em 0.9em;
-  border-radius: 2px;
-  cursor: pointer;
-  align-items: center;
-  transition: background 0.12s ease, color 0.12s ease;
-  color: var(--text-header);
-}
-.track-row:hover { background: rgba(2, 43, 68, 0.3); }
-
-.track-row__index {
-  text-align: center;
-  font-size: 0.95em;
-}
-.track-number { color: var(--text-footer); }
-
-/* CSS-only ▸ toggle: number by default; ▸ on hover; ▸ (accent) when active. */
-.track-play-icon,
-.track-active-icon { display: none; font-size: 0.85em; }
-.track-row:hover .track-number { display: none; }
-.track-row:hover .track-play-icon { display: inline; color: var(--text-header); }
-
-.track-row__title {
-  color: var(--text-header);
-  font-size: 0.95em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.track-row__time {
-  color: var(--text-footer);
-  font-size: 0.85em;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Active row (set by the Player island). Tint uses --album-color. */
-.track-row.track-active {
-  background: color-mix(in srgb, var(--accent) 13%, transparent) !important;
-  border-left: 2px solid var(--accent) !important;
-}
-.track-row.track-active .track-row__title {
-  color: var(--accent);
-  font-weight: 500;
-}
-.track-row.track-active .track-number { display: none; }
-.track-row.track-active .track-play-icon { display: none; }
-.track-row.track-active .track-active-icon { display: inline; color: var(--accent) !important; }
-
-/* ─── Similar bands pills ─────────────────────────────────────────────────────*/
-.similar-bands-section { width: 100%; padding-top: 1em; }
-.similar-bands-section h2 {
-  font-size: 1.3em;
-  color: var(--text-header);
-  margin-bottom: 0.6em;
-}
-.similar-bands {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-}
-.band-pill {
-  display: inline-block;
-  background: var(--content);
-  color: var(--text-body);
-  padding: 0.4em 0.9em;
-  border-radius: 999px;
-  font-size: 0.85em;
-  border: 1px solid var(--secondary);
-  text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-a.band-pill:hover,
-a.band-pill:focus-visible {
-  color: var(--accent-bright);
-  border-color: var(--accent);
-  background: var(--secondary);
-}
-@media (prefers-reduced-motion: reduce) {
-  .band-pill { transition: none; }
-}
-
-/* ─── Related album sections (similar / more to explore) ─────────────────────*/
-.related-section { width: 100%; padding-top: 1.5em; }
-.related-section h2 {
-  font-size: clamp(1.3em, 3vw, 1.6em);
-  color: var(--text-header);
-  margin-bottom: 0.8em;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.related-section--bordered {
-  padding-top: 2em;
-  padding-bottom: 1em;
-  border-top: 1px solid var(--secondary);
-  margin-top: 2em;
-}
-.related-section__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.8em;
-}
-.related-section__header h2 { margin-bottom: 0; }
-.related-section__more {
-  color: var(--primary);
-  font-size: 0.9em;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-/* ═══ Now-playing bar (ported from now_playing_bar.py) ═══════════════════════ */
-/* The bar is now GLOBAL + persistent across the whole metal-archive section
-   (rendered from the Navbar, transition:persist), so every archive page must
-   reserve space for it — not just the album detail page. :has() scopes the
-   padding to pages that actually render the bar (the bio never does), so the bio
-   is untouched. The mobile override (134px = tab bar + bar) lives in the
-   max-width media query below. */
-body:has(#now-playing-bar) { padding-bottom: 80px; }
-
-#now-playing-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 72px;
-  background: color-mix(in srgb, var(--accent) 22%, var(--glass-bg));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  border-top: 1px solid var(--glass-border);
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--accent-soft);
-  display: flex;
-  align-items: center;
-  padding: 0 1.5em;
-  z-index: 100;
-}
-
-.np-left {
-  display: flex;
-  align-items: center;
-  gap: 0.8em;
-  flex: 1 1 0;
-  min-width: 0;
-}
-.np-cover {
-  width: 48px;
-  height: 48px;
-  border-radius: 2px;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 1px solid var(--accent-soft);
-}
-.np-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-.np-name {
-  color: var(--text-header);
-  font-size: 0.9em;
-  font-weight: 500;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-.np-artist {
-  color: var(--text-footer);
-  font-size: 0.75em;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-
-.np-center {
-  flex: 2 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-.np-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-}
-.np-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: transparent;
-  color: var(--text-body);
-  border: none;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.np-icon-btn:hover {
-  color: var(--text-header);
-  background: color-mix(in srgb, #fff 8%, transparent);
-}
-.np-toggle {
-  position: relative;
-  background: var(--accent);
-  color: var(--on-accent);
-  border: none;
-  cursor: pointer;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow: 0 4px 14px var(--accent-glow);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.np-toggle:hover { transform: scale(1.08); }
-.np-toggle .ic-play { margin-left: 2px; }
-
-.np-progress {
-  width: 100%;
-  max-width: 360px;
-  height: 4px;
-  background: color-mix(in srgb, #fff 12%, transparent);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 0.4em;
-}
-.np-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--accent-bright);
-  border-radius: 999px;
-  transition: width 0.4s linear;
-}
-@keyframes mp-progress-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-#now-playing-progress.np-loading { animation: mp-progress-pulse 1s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  #now-playing-progress.np-loading { animation: none; }
-}
-
-.np-right {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
-}
-.np-yt-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  color: var(--text-footer);
-  font-size: 0.8em;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.np-yt-link:hover { color: var(--text-header); }
-/* Desktop shows the text label; the icon is reserved for the compact mobile
-   icon-button (revealed in the ≤767px media query). */
-.np-yt-icon { display: none; }
-
-/* ═══ Mini-player (ported from mini_player.py) ═══════════════════════════════ */
-#mini-player {
-  position: fixed;
-  bottom: 96px;
-  left: 20px;
-  width: 240px;
-  height: 135px;
-  border-radius: 2px;
-  border: 1px solid var(--accent);
-  overflow: hidden;
-  z-index: 50;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
-  background: #000;
-  transition: width 0.3s ease, height 0.3s ease;
-}
-#mini-player.expanded { width: 480px; height: 270px; }
-#mini-player iframe { border: 0; pointer-events: none; }
-
-@keyframes mp-spin { to { transform: rotate(360deg); } }
-.mp-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: mp-spin 0.8s linear infinite;
-}
-.mp-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
-
-.mp-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0.6em;
-  background: #000;
-  z-index: 2;
-}
-
-/* ─── Mobile: keep the player reachable (YouTube out + collapsible video) ─────*/
-@media (max-width: 767px) {
-  #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
-  #now-playing-bar .np-cover { width: 40px; height: 40px; }
-  #now-playing-progress { max-width: 100%; }
-
-  /* #11: prev/play/next measured 38-40px here (below the 44px minimum the
-     bar already applies to .np-yt-link below), matching the treatment the
-     YouTube link gets a few lines down. */
-  .np-icon-btn { width: 44px; height: 44px; }
-  .np-toggle { width: 44px; height: 44px; }
-
-  /* The right-side YouTube link stays visible on mobile (it used to be hidden,
-     leaving no path out to the video). Collapse it to a compact icon-button
-     with a ≥44px tap target so it is always reachable in the bar. */
-  .now-playing-right { flex: 0 0 auto; }
-  .np-yt-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-pill);
-    color: var(--text-header);
-    gap: 0;
-  }
-  .np-yt-link:active { background: color-mix(in srgb, #fff 8%, transparent); }
-  .np-yt-icon { display: block; }
-  .np-yt-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
-  /* The mini-player (video iframe) becomes an on-demand bottom-sheet instead of
-     being hidden outright. It is shown by the Player (inline display:'' once an
-     album is cued) — so we no longer force display:none. Collapsed by default:
-     a slim strip docked above the bottom bar that, when tapped (the whole
-     #mini-player is data-mini-toggle), expands to a 16:9 video via .expanded.
-     Tapping it toggles toggleMiniSize() -> .expanded. */
-  #mini-player {
-    left: 0.6em;
-    right: 0.6em;
-    width: auto;
-    bottom: calc(58px + 72px + 0.5em);   /* above the now-playing bar + tab bar */
-    height: 40px;
-    transition: height 0.3s ease;
-  }
-  /* Collapsed affordance label ("Watch video") shown over the slim strip. */
-  #mini-player::after {
-    content: 'Watch video';
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-header);
-    font-size: 0.78em;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    background: color-mix(in srgb, var(--accent) 28%, #000);
-    pointer-events: none;   /* the parent #mini-player is the toggle target */
-    z-index: 1;             /* below mp-overlay (z-index:2) so loader/error/retry win */
-  }
-  #mini-player.expanded {
-    width: auto;
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-  #mini-player.expanded::after { content: none; }   /* hide the label when open */
-}
-@media (max-width: 480px) {
-  #now-playing-name, #now-playing-artist { max-width: 140px; }
-}
-
-/* ─── Browse page ────────────────────────────────────────────────────────────*/
-.browse-page {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 2rem var(--gutter) 4rem;
-}
-
-.browse-header {
-  margin-bottom: 1.5rem;
-}
-
-.browse-title {
-  font-size: clamp(2rem, 4vw, 2.6rem);
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0 0 0.25rem;
-}
-
-.browse-subtitle {
-  color: var(--text-body);
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-/* ─── Home search bar (prominent discovery entry point) ──────────────────────*/
-.home-search {
-  width: 100%;
-  padding: 2rem 0 0.5rem;
-}
-
-.home-search__form {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  /* Cap the search width so it stays comfortable on the now-wide container,
-     while the gallery grids below still span the full viewport. */
-  max-width: 900px;
-  margin-inline: auto;
-  background: var(--content);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-  border-radius: 0.8em;
-  padding: 0.5rem 0.6rem 0.5rem 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.home-search__form:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-.home-search__icon {
-  color: var(--text-footer);
-  flex-shrink: 0;
-}
-
-.home-search__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-size: 1.05rem;
-  padding: 0.45rem 0;
-}
-
-.home-search__input::placeholder {
-  color: var(--text-footer);
-}
-
-.home-search__btn {
-  flex-shrink: 0;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 0.6em;
-  padding: 0.6rem 1.4rem;
-  font-family: var(--font-default);
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: filter 0.18s ease;
-}
-
-.home-search__btn:hover {
-  filter: brightness(1.15);
-}
-
-@media (max-width: 560px) {
-  .home-search__btn { padding: 0.6rem 1rem; }
-  /* Stay at >=16px even here: WebKit auto-zooms on any focused input under
-     16px (#1) -- this override used to drop it to 0.95rem (15.2px). */
-  .home-search__input { font-size: 1rem; }
-}
-
-/* ─── Search island controls ─────────────────────────────────────────────────*/
-.search-island {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.search-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.search-input-wrap {
-  width: 100%;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.65rem 1rem;
-  background: var(--content);
-  border: 1px solid rgba(0, 115, 168, 0.3);
-  border-radius: 0.6em;
-  color: var(--text-header);
-  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
-  font-size: 1rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.search-input:focus {
-  border-color: var(--primary);
-}
-
-.search-input::placeholder {
-  color: var(--text-footer);
-}
-
-.search-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  background: rgba(10, 18, 31, 0.55);
-  border: 1px solid var(--border);
-  border-radius: 0.7em;
-}
-
-.search-select {
-  flex: 1 1 140px;
-  /* F4 (Oct 2026 UI audit): without min-width:0, a flex item's automatic
-     minimum size is its content's intrinsic width — for a <select> that can
-     be wider than its longest <option> text, which overflowed the mobile
-     layout (382px measured at a 375px viewport) despite flex-wrap on the
-     parent .search-filters row. */
-  min-width: 0;
-  padding: 0.55rem 0.75rem;
-  background: var(--content);
-  border: 1px solid rgba(0, 115, 168, 0.3);
-  border-radius: 0.5em;
-  color: var(--text-body);
-  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
-  font-size: 1rem;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.search-select:hover {
-  border-color: rgba(0, 115, 168, 0.6);
-}
-
-.search-select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(0, 115, 168, 0.18);
-}
-
-.search-result-count {
-  color: var(--text-footer);
-  font-size: 0.82rem;
-  margin: 0;
-}
-
-.search-empty {
-  color: var(--text-body);
-  text-align: center;
-  padding: 3rem 0;
-  font-size: 0.95rem;
-}
-
-/* extra meta row on search cards (year + country) */
-.album-card__meta {
-  color: var(--text-footer);
-  font-size: 0.72rem;
-  margin-top: 0.2rem;
-}
-
-/* Load more button */
-.search-load-more {
-  display: flex;
-  justify-content: center;
-  padding-top: 0.5rem;
-}
-
-.btn-load-more {
-  background: transparent;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  /* #17: 0.6rem vertical padding measured ~37px tall -- below the 44px tap
-     target minimum applied elsewhere on mobile, and Load More is the sole
-     pagination control on Browse. */
-  padding: 0.85rem 1.75rem;
-  border-radius: 2em;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-
-.btn-load-more:hover {
-  background: var(--primary);
-  color: var(--text-header);
-}
-
-@media (min-width: 640px) {
-  .search-controls {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .search-input-wrap {
-    flex: 1 1 280px;
-  }
-
-  .search-filters {
-    flex: 2 1 auto;
-  }
-}
-
-/* ─── Form pages (submit / promo / newsletter) ───────────────────────────── */
-
-.form-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.form-page__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2.5rem 1.25rem 4rem;
-  gap: 2rem;
-  max-width: var(--max-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Page header (icon + title + subtitle) */
-.form-page__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: center;
-  padding-top: 0.5rem;
-}
-
-.form-page__icon {
-  color: var(--primary);
-  width: 48px;
-  height: 48px;
-}
-
-.form-page__title {
-  font-size: 2.2em;
-  color: var(--text-header);
-  font-weight: 500;
-}
-
-.form-page__subtitle {
-  color: var(--text-body);
-  font-size: 1.05em;
-  max-width: 550px;
-}
-
-/* Card wrapper */
-.form-card {
-  background: var(--content);
-  border: 1px solid var(--secondary);
-  border-radius: 1em;
-  padding: 1.5em;
-  width: 100%;
-  max-width: 700px;
-}
-
-@media (min-width: 640px) {
-  .form-card {
-    padding: 2em;
-  }
-}
+/* ─── Contact form of the bio (/) ─────────────────────────────────────────────
+   The field rules below are the bio contact form's. The archive forms (submit, promo,
+   newsletter) have their own, `.fm-*`, in the dark-room block further down.   */
 
 /* Field group */
 .form-field {
@@ -2065,14 +357,8 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   color: var(--primary);
 }
 
-.form-label__hint {
-  color: var(--text-footer);
-  font-weight: 400;
-}
-
-/* Inputs + selects + textarea */
+/* Inputs + textarea */
 .form-input,
-.form-select,
 .form-textarea {
   background: var(--bg);
   border: 1px solid rgba(0, 115, 168, 0.35);
@@ -2088,7 +374,6 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 }
 
 .form-input:focus,
-.form-select:focus,
 .form-textarea:focus {
   border-color: var(--primary);
 }
@@ -2096,11 +381,6 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 .form-input::placeholder,
 .form-textarea::placeholder {
   color: var(--text-footer);
-}
-
-.form-select option {
-  background: var(--bg);
-  color: var(--text-body);
 }
 
 .form-textarea {
@@ -2186,241 +466,6 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   margin-top: 0.25rem;
 }
 
-/* Extra link rows (promo) */
-.extra-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.extra-link-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.extra-link-row .form-input {
-  flex: 1;
-}
-
-.btn-remove-link {
-  background: transparent;
-  border: 1px solid var(--secondary);
-  border-radius: 0.4em;
-  color: var(--text-footer);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0.3em 0.6em;
-  transition: border-color 0.18s, color 0.18s;
-  flex-shrink: 0;
-}
-
-.btn-remove-link:hover {
-  border-color: #dc2626;
-  color: #fca5a5;
-}
-
-.btn-add-link {
-  background: transparent;
-  border: 1px solid var(--secondary);
-  border-radius: 0.5em;
-  color: var(--text-body);
-  cursor: pointer;
-  font-size: 0.88em;
-  padding: 0.45em 1em;
-  transition: border-color 0.18s;
-  align-self: flex-start;
-}
-
-.btn-add-link:hover {
-  border-color: var(--primary);
-}
-
-/* ── Promote packages (static mockup; owner content pending) ───────────────── */
-.promo-packages {
-  width: 100%;
-  max-width: 700px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.promo-packages__title {
-  font-size: 1.3em;
-  color: var(--text-header);
-  text-align: center;
-}
-
-.promo-packages__note {
-  color: var(--text-footer);
-  font-size: 0.85em;
-  text-align: center;
-  margin: 0 auto;
-  max-width: 520px;
-}
-
-.promo-packages__grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-@media (min-width: 720px) {
-  .promo-packages__grid {
-    grid-template-columns: repeat(3, 1fr);
-    align-items: stretch;
-  }
-}
-
-.promo-pkg {
-  position: relative;
-  background: var(--content);
-  border: 1px solid var(--secondary);
-  border-radius: 0.85em;
-  padding: 1.25em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.promo-pkg--featured {
-  border-color: var(--primary);
-}
-
-.promo-pkg__badge {
-  position: absolute;
-  top: -0.7em;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--primary);
-  color: var(--text-header);
-  font-size: 0.7em;
-  font-weight: 600;
-  padding: 0.2em 0.7em;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
-
-.promo-pkg__name {
-  color: var(--text-header);
-  font-size: 1.05em;
-  font-weight: 600;
-}
-
-.promo-pkg__price {
-  color: var(--primary);
-  font-size: 1.15em;
-  font-weight: 600;
-}
-
-.promo-pkg__includes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  flex: 1;
-}
-
-.promo-pkg__include {
-  color: var(--text-body);
-  font-size: 0.85em;
-  padding-left: 1.2em;
-  position: relative;
-}
-
-.promo-pkg__include::before {
-  content: "+";
-  position: absolute;
-  left: 0;
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.promo-pkg__delivery {
-  color: var(--text-footer);
-  font-size: 0.8em;
-  border-top: 1px solid var(--border);
-  padding-top: 0.6rem;
-}
-
-/* Example video placeholder (owner content pending: real embed). */
-.promo-example {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.promo-example__title {
-  color: var(--text-header);
-  font-size: 1.05em;
-  font-weight: 500;
-}
-
-.promo-example__frame {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: var(--bg);
-  border: 1px dashed var(--secondary);
-  border-radius: 0.6em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.promo-example__placeholder {
-  color: var(--text-footer);
-  font-size: 0.9em;
-}
-
-/* Info steps section (submit / promo) */
-.form-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  width: 100%;
-  max-width: 700px;
-}
-
-.form-steps__title {
-  font-size: 1.3em;
-  color: var(--text-header);
-}
-
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.step-item__num {
-  background: var(--primary);
-  border-radius: 50%;
-  color: var(--text-header);
-  font-size: 0.9em;
-  font-weight: 600;
-  flex-shrink: 0;
-  height: 2.4em;
-  width: 2.4em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.step-item__title {
-  color: var(--text-header);
-  font-weight: 500;
-  font-size: 0.95em;
-}
-
-.step-item__desc {
-  color: var(--text-body);
-  font-size: 0.85em;
-}
-
 /* Success state */
 .form-success {
   display: flex;
@@ -2441,244 +486,234 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   color: var(--text-header);
 }
 
-.form-success__body {
-  color: var(--text-body);
-  max-width: 400px;
-}
-
-.form-success__back {
-  border: 1px solid var(--secondary);
-  border-radius: 0.5em;
-  color: var(--text-body);
-  display: inline-block;
-  font-size: 0.9em;
-  padding: 0.5em 1.2em;
-  text-decoration: none;
-  transition: border-color 0.18s;
-}
-
-.form-success__back:hover {
-  border-color: var(--primary);
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
-   HOME REDESIGN (2026) — greeting + themed hero carousel.
-   Neutral base tokens are untouched; each hero slide is tinted by its own
-   album cover via --slide-color (set inline, sourced from vibrant.ts).
+   METAL ARCHIVE, "THE DARK ROOM" (premium redesign, 2026)
+
+   One warm-black field top to bottom; the covers are the only lit things.
+   Tokens live on the archive <body> (body.ma, or any body that renders the
+   archive bar / footer), so the bio (/) keeps the original look untouched.
+
+   Order: fonts · tokens + legacy bridge · base · buttons/chips · top bar and
+   tab bar · player bar and mini video · footer · album card and shelf · home
+   sections · motion.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Greeting header ────────────────────────────────────────────────────────*/
-.home-greeting {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 0.5rem;
+/* Onest: self-hosted variable font (400-700), OFL, one file per script. Erode
+   (display) loads from the Fontshare API (see ArchiveHead.astro): its licence
+   does not allow the files in this repository. */
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-.home-greeting__hello {
-  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
-  font-weight: 700;
-  color: var(--text-header);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-.home-greeting__sub {
-  color: var(--text-footer);
-  font-size: 0.9rem;
-  margin-top: 0.2rem;
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Onest-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
-.home-greeting__actions {
-  display: flex;
-  gap: 0.45rem;
-  flex-shrink: 0;
+
+body.ma,
+body:has(.ma-bar),
+body:has(.ma-footer) {
+  /* ground, surfaces, ink */
+  --bg: #0e0d0c;
+  --surface: #171514;
+  --surface-2: #201d1b;
+  --surface-3: #2a2624;
+  --ink: #ece6da;
+  --muted: #a39b8f;
+  --on-ink: #17140f;          /* text on a bone card */
+  --on-ink-muted: #4d463d;    /* secondary text on a bone card, 7:1 */
+  /* the one accent: fill of primary actions and the progress fill, nothing else */
+  --accent: #b3261e;
+  --accent-hover: #c62f26;
+  --accent-ink: #f6f1e7;
+  /* fields: the 1px edge of an input, 3.7:1 on the ground (a boundary has to be found), and
+     the one error tone (text 10:1 on the ground; the fill under a failure note, ink on it 12:1) */
+  --edge: #736c62;
+  --err: #f4b1a8;
+  --err-edge: #e36b5f;
+  --err-fill: #431a17;
+  /* type */
+  --font-display: 'Erode', 'Onest', Georgia, serif;
+  --font-text: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --step-small: clamp(1rem, 0.95rem + 0.1vw, 1.0625rem);
+  --step-body: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
+  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-head: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --step-display: clamp(2.75rem, 1.4rem + 5.4vw, 6.75rem);
+  /* frame */
+  --margin: clamp(1rem, 2.2vw, 2rem);
+  --col-gap: clamp(0.75rem, 1.4vw, 1.5rem);
+  --gap-sect: clamp(5rem, 11vw, 10rem);
+  --bar-h: 4rem;
+  --player-h: 76px;
+  --tabbar-h: 0px;
+  /* the docked mini video (16:9); the footer lifts its last lines by its height while it shows */
+  --mini-w: 240px;
+  --mini-h: calc(var(--mini-w) * 9 / 16);
+  /* motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* Bridge: the screens not redesigned yet still read these legacy tokens, so
+     they sit in the same room instead of keeping the old blue-black. */
+  --text-header: var(--ink);
+  --text-body: var(--ink);
+  --text-footer: var(--muted);
+  --border: var(--surface-3);
+  --content: var(--surface);
+  --secondary: var(--surface-2);
+  --primary: var(--accent);
+  --on-accent: var(--accent-ink);
+  --font-default: var(--font-text);
+  --accent-bright: color-mix(in srgb, var(--accent) 72%, #fff);
+  --accent-soft: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 40%, transparent);
+
+  color-scheme: dark;
 }
-.home-greeting__icon {
-  width: 2.6rem;
-  height: 2.6rem;
-  display: flex;
+
+/* ─── Base ───────────────────────────────────────────────────────────────────*/
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-weight: 400;
+  line-height: 1.5;
+  font-kerning: normal;
+}
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+  text-wrap: balance;
+  hyphens: none;
+}
+:is(body.ma, body:has(.ma-bar), body:has(.ma-footer)) ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+/* Cover art and avatars never need a frame; images are plain pictures. */
+.ma-bar a, .ma-footer a, .tabbar a, .hero a, .shelf a, .chip, .btn { text-underline-offset: 0.22em; }
+
+/* ─── Buttons and chips: one shape, fully round ──────────────────────────────*/
+.btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: var(--text-body);
-  background: color-mix(in srgb, var(--content) 85%, transparent);
-  border: 1px solid var(--border);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.home-greeting__icon:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-
-/* ─── Hero carousel ──────────────────────────────────────────────────────────*/
-.hero-carousel { margin-top: 1.25rem; }
-
-.hero-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 100%;
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.hero-track::-webkit-scrollbar { display: none; }
-
-.hero-slide {
-  scroll-snap-align: center;
-  position: relative;
-  display: block;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-height: clamp(220px, 40vw, 360px);
-  color: var(--text-header);
-  text-decoration: none;
-  isolation: isolate;
-}
-
-/* cover image layer (behind the gradient + text) */
-.hero-slide__bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -2;
-}
-
-/* color + dark gradient: text-legible on the left, cover/tint bleeds right */
-.hero-slide::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    100deg,
-    rgba(8, 6, 4, 0.92) 0%,
-    rgba(8, 6, 4, 0.60) 44%,
-    color-mix(in srgb, var(--slide-color, var(--primary)) 62%, transparent) 100%
-  );
-}
-
-.hero-slide__inner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.45rem;
-  height: 100%;
-  min-height: inherit;
-  padding: clamp(1.4rem, 4vw, 2.6rem);
-  max-width: 62%;
-}
-@media (max-width: 600px) {
-  .hero-slide__inner { max-width: 84%; }
-}
-
-.hero-slide__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--slide-color, var(--primary));
-  filter: brightness(1.35);
-}
-
-.hero-slide__band {
-  font-size: clamp(1.9rem, 6vw, 3.4rem);
-  font-weight: 900;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: var(--text-header);
-}
-
-.hero-slide__album {
-  font-size: clamp(1rem, 2.4vw, 1.35rem);
-  font-weight: 600;
-  color: color-mix(in srgb, var(--slide-color, var(--primary)) 65%, white);
-}
-
-.hero-slide__meta {
-  color: var(--text-body);
-  font-size: 0.88rem;
-  margin-bottom: 0.3rem;
-}
-
-.hero-slide__cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  margin-top: auto;
-  background: var(--slide-color, var(--primary));
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  gap: 0.55em;
+  min-height: 48px;
   padding: 0.7em 1.5em;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  font-size: 0.95rem;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
-  transition: transform 0.16s ease, filter 0.16s ease;
-}
-.hero-slide__cta:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.08);
-  color: #fff;
-}
-
-/* dots */
-.hero-dots {
-  display: flex;
-  justify-content: center;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-}
-.hero-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border);
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: background 0.2s ease, width 0.2s ease;
-}
-.hero-dot.is-active {
-  background: var(--primary);
-  width: 18px;
+  border: 0;
   border-radius: 999px;
+  font-family: var(--font-text);
+  font-size: var(--step-body);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
+.btn:active { transform: scale(0.98); }
+.btn--primary { background: var(--accent); color: var(--accent-ink); }
+.btn--primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+.btn--secondary { background: var(--surface-2); color: var(--ink); }
+.btn--secondary:hover { background: var(--surface-3); color: var(--ink); }
 
-@media (prefers-reduced-motion: reduce) {
-  .hero-slide__cta:hover { transform: none; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  min-height: 44px;
+  padding: 0.45em 1.1em;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--step-small);
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
 }
+.chip:hover { background: var(--surface-3); color: var(--ink); }
+.chip.is-active, .chip[aria-selected='true'] { background: var(--ink); color: var(--bg); }
+.chip__n { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE CHROME (metal-archive only) — minimal top + bottom tab bar, matching
-   the player mockups. Scoped via .navbar--ma and :has(): the bio (/) renders no
-   tab bar and keeps its full navbar, so it stays untouched.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.tabbar { display: none; }   /* desktop: the top navbar handles navigation */
+/* ─── Top bar (archive): on the ground, no band, no border, no blur ──────────*/
+.ma-bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.4vw, 2.5rem);
+  height: var(--bar-h);
+  padding-inline: var(--margin);
+  background: transparent;
+  transition: background-color 160ms var(--ease-out);
+}
+.ma-bar.is-scrolled { background: var(--bg); }
+.ma-bar__brand {
+  margin-right: auto;
+  font-family: var(--font-logo);
+  font-size: var(--step-body);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ma-bar__brand, .ma-bar__brand span { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.01em; }
+.ma-bar__brand .logo-word { color: var(--ink); }
+.ma-bar__brand .logo-paren, .ma-bar__brand .logo-semi { color: var(--muted); }
+.ma-bar__brand:hover { color: var(--ink); }
+.ma-bar__links { display: flex; align-items: center; gap: clamp(1rem, 2vw, 2rem); }
+.ma-bar__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--ink);
+  transition: text-decoration-color 160ms var(--ease-out);
+}
+.ma-bar__links a:hover { color: var(--ink); text-decoration: underline; text-decoration-thickness: 0.09em; }
+.ma-bar__links a[aria-current='page'] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 0.09em;
+}
+.ma-bar__search { min-height: 44px; padding: 0.5em 1.15em 0.5em 1em; font-size: var(--step-small); }
 
-/* #8: also cover landscape phones with the same swap -- a portrait-only
-   breakpoint let the nav tap targets fall back under the 44px minimum and
-   hid the album grid above the fold whenever a phone was rotated to
-   landscape (e.g. to watch the embedded video), since neither this media
-   query nor the bio 44px tap-target fix above used to match.
-   R3-006: (max-width: 900px) and (orientation: landscape) also matched a
-   768-900px-wide desktop/laptop window, and missed 915-932px-wide landscape
-   phones. (max-height: 500px) targets a phone's short landscape dimension
-   regardless of width, and (pointer: coarse) excludes a mouse-driven window
-   that happens to be short. */
+/* Bottom tab bar: phone only */
+.tabbar { display: none; }
+
 @media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
-     over primary nav) and centre the brand. */
-  .navbar--ma .navbar__links { display: none; }
-  .navbar--ma { justify-content: center; }
-
-  /* Bottom tab bar */
+  body:has(.tabbar) { --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px)); --player-h: 68px; --mini-w: 176px; }
+  .ma-bar__links { display: none; }
+  .ma-bar__search { width: 44px; padding: 0; }
+  .ma-bar__search-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; /* visually-hidden clip, not a rule line: taste-skill-ignore */
+    clip: rect(0, 0, 0, 0); white-space: nowrap;
+  }
   .tabbar {
     position: fixed;
     left: 0;
@@ -2686,201 +721,1515 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
     bottom: 0;
     z-index: 110;
     display: flex;
-    align-items: stretch;
-    justify-content: space-around;
-    height: 58px;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    border-top: 1px solid var(--glass-border);
-    padding-bottom: env(safe-area-inset-bottom);
+    height: var(--tabbar-h);
+    padding: 0 var(--margin) env(safe-area-inset-bottom, 0px);
+    background: var(--surface);
   }
   .tabbar__item {
     flex: 1 1 0;
-    min-width: 0;   /* allow 4–5 columns to shrink evenly without overflow */
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 0 2px;
-    color: var(--text-footer);
-    /* #15: fixed 0.6rem + a fixed 20px icon didn't shrink enough for the 5
-       items to fit under an extreme-zoom effective viewport (195px wide at
-       200% zoom measured scrollWidth 200 vs clientWidth 195) -- scale both
-       down with the available width via clamp(). */
-    font-size: clamp(0.45rem, 2.2vw, 0.6rem);
+    padding: 0;
+    color: var(--muted);
+    font-size: 0.8125rem;
     font-weight: 500;
-    text-decoration: none;
-    transition: color 0.15s ease;
+    line-height: 1.1;
+    transition: color 160ms var(--ease-out);
   }
-  .tabbar__item span {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .tabbar__item svg { width: clamp(14px, 5vw, 20px); height: clamp(14px, 5vw, 20px); }
-  .tabbar__item.is-active,
-  .tabbar__item:active { color: var(--accent-bright); }
-
-  /* Now-playing bar sits ABOVE the tab bar (mockups #4 / #6). */
-  #now-playing-bar { bottom: 58px; }
-
-  /* Reserve space so the fixed bars never cover content. :has() scopes the
-     padding to metal-archive pages only — the bio has neither bar. */
-  body:has(.tabbar) { padding-bottom: 58px; }
-  body:has(#now-playing-bar) { padding-bottom: 134px; }   /* 58 tab + 72 bar + 4 */
+  .tabbar__item svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .tabbar__item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabbar__item:hover, .tabbar__item.is-active { color: var(--ink); }
 }
 
-/* ─── Home: "Bands" circular avatar row (representative cover as the avatar) ── */
-.bands-row {
+/* ─── Player bar: fixed at the bottom, solid surface ─────────────────────────
+   Persistent across the whole archive (Navbar renders the Player island with
+   transition:persist). Cover + names left, transport + progress centre, the
+   YouTube link right. Accent appears twice: the play button and the progress
+   fill. */
+/* The bar stays off-screen until the first Play: nothing to show before that, and an
+   empty bar would sit over the page for no reason. The Player reveals the cover when it
+   paints "now playing", which is the signal used here. */
+body:has(.tabbar) { padding-bottom: var(--tabbar-h); }
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) { padding-bottom: calc(var(--player-h) + var(--tabbar-h)); }
+
+#now-playing-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--tabbar-h);
+  z-index: 100;
+  height: var(--player-h);
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(108px, 28vw, 148px);
-  gap: 1.25rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  padding-bottom: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1rem;
+  padding-inline: var(--margin);
+  background: var(--surface);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 300ms var(--ease-out), visibility 0s linear 300ms;
 }
-.bands-row::-webkit-scrollbar { display: none; }
-
-/* #16/R3-003: same scoped scroll affordance as .carousel-row above --
-   .has-scroll-fade toggled by the home page's script. */
-.bands-row.has-scroll-fade {
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+body:has(.np-cover[style*='visibility: visible']) #now-playing-bar {
+  transform: none;
+  visibility: visible;
+  transition: transform 300ms var(--ease-out);
 }
+.np-cover[style*='hidden'] { display: none; }
+.np-left { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
+.np-cover {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  object-position: 0% 50%;
+  background: var(--surface-2);
+}
+.np-text { display: flex; flex-direction: column; min-width: 0; }
+.np-name, .np-artist {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--step-small);
+  line-height: 1.35;
+}
+.np-name { color: var(--ink); font-weight: 500; }
+.np-artist { color: var(--muted); }
+.np-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
+.np-controls { display: flex; align-items: center; gap: 0.25rem; }
+.np-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.np-icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+.np-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.np-toggle:hover { background: var(--accent-hover); }
+.np-toggle:active { transform: scale(0.96); }
+.np-toggle .ic-play { margin-left: 2px; }
+.np-timeline { display: flex; align-items: center; gap: 0.75rem; width: 100%; max-width: 560px; }
+.np-time {
+  flex: 0 0 auto;
+  min-width: 3.4ch;
+  font-size: var(--step-small);
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.np-time:last-child { text-align: right; }
+.np-progress { flex: 1 1 auto; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.np-progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 400ms linear; }
+@keyframes np-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+#now-playing-progress.np-loading { animation: np-pulse 1s ease-in-out infinite; }
+.np-right { display: flex; justify-content: flex-end; min-width: 0; }
+.np-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 160ms var(--ease-out);
+}
+.np-yt-link:hover { color: var(--ink); }
+.np-yt-icon { display: none; }
 
-.band-avatar {
+/* Mini video: docked above the bar's right end. Square corners, no shadow.
+   While the album is only cued (nothing played yet) it is parked below the screen and
+   inert; it slides in as soon as the listener presses Play (the bar appears with it, so a
+   loading or error overlay is seen then) and stays visible while playing (YouTube terms).
+   An album whose video cannot be embedded fails while it is only cued: that must not pop an
+   error box over the page's own buttons before anyone asked for sound, so a cue-time
+   error does not dock it. */
+#mini-player {
+  position: fixed;
+  right: var(--margin);
+  bottom: calc(var(--player-h) + var(--tabbar-h) + 0.75rem);
+  z-index: 90;
+  width: var(--mini-w);
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+  /* Parked below the screen until needed (not hidden: a hidden iframe is a worse
+     place to start playback from, and a transparent one would still sit over the page). */
+  transform: translateY(calc(100% + 160px));
+  pointer-events: none;
+  transition: width 240ms var(--ease-out), transform 300ms var(--ease-out);
+}
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) #mini-player,
+body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'])) #mini-player {
+  transform: none;
+  pointer-events: auto;
+}
+#mini-player.expanded { width: min(480px, calc(100vw - 2 * var(--margin))); }
+#mini-player iframe { border: 0; pointer-events: none; }
+
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--surface-3);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: mp-spin 0.8s linear infinite;
+}
+.mp-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: #000;
+  text-align: center;
+}
+.mp-title { font-size: var(--step-small); font-weight: 600; color: var(--ink); }
+.mp-text { font-size: var(--step-small); color: var(--muted); }
+.mp-link { font-size: var(--step-small); font-weight: 500; color: var(--ink); text-decoration: underline; }
+.mp-retry { min-height: 36px; padding: 0.4em 1.1em; font-size: var(--step-small); }
+
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  #now-playing-bar { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.5rem; }
+  .np-cover { width: 48px; height: 48px; }
+  .np-center { grid-column: 2; grid-row: 1; }
+  .np-right { display: none; }
+  .np-timeline { display: none; }
+  .np-controls { gap: 0; }
+  #mini-player { bottom: calc(var(--player-h) + var(--tabbar-h) + 0.5rem); }
+}
+
+/* ─── Footer: the name across the last photograph ────────────────────────────*/
+.ma-footer {
+  --bleed-h: clamp(520px, 78svh, 820px);
+  position: relative;
+  isolation: isolate;
+  margin-top: var(--gap-sect);
+  min-height: var(--bleed-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.25rem, 2vw, 2rem) var(--margin) clamp(1.25rem, 2.4vw, 2rem);
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--surface);
+}
+main:has(.ask) + .ma-footer { margin-top: 0; }
+/* While the player is docked its mini video sits over the bottom-right of the page, so at the
+   maximum scroll it would hide the end of the wordmark and the legal line. The footer lifts
+   its last lines above it (the photo behind keeps running to the bar). */
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) .ma-footer,
+body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'])) .ma-footer {
+  padding-bottom: calc(clamp(1.25rem, 2.4vw, 2rem) + var(--mini-h) + 0.75rem);
+}
+.ma-footer__photo { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.ma-footer__photo::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.55); }
+.ma-footer__photo img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.ma-footer__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+.ma-footer__links, .ma-footer__contact { display: flex; flex-direction: column; align-items: flex-start; }
+.ma-footer__contact { align-items: flex-end; text-align: right; }
+.ma-footer__links a, .ma-footer__contact a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-body);
+  color: var(--ink);
+}
+.ma-footer__links a:hover, .ma-footer__contact a:hover { text-decoration: underline; color: var(--ink); }
+.ma-footer__bottom { display: flex; flex-direction: column; gap: 0.75rem; }
+.ma-footer__name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14vw;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ma-footer__legal { font-size: var(--step-small); color: var(--ink); max-width: 58ch; }
+@media (max-width: 599px) {
+  .ma-footer { --bleed-h: max(78svh, 800px); }
+  .ma-footer__top { flex-direction: column; gap: 0.75rem; }
+  .ma-footer__contact { align-items: flex-start; text-align: left; }
+}
+
+/* ─── Pictures that bleed: the left square of a YouTube thumbnail is the cover,
+   so a full-bleed close-up scales that square up to the frame width. --bleed-h
+   is the frame height; on a portrait frame the image is as tall as the frame
+   and the crop is centred on the cover. ──────────────────────────────────────*/
+.hero__img, .gem__img, .ma-footer__photo img {
+  max-width: none;
+  height: auto;
+  width: max(195%, calc(var(--bleed-h) * 1.95));
+}
+@media (max-aspect-ratio: 1 / 1) {
+  .hero__img, .gem__img, .ma-footer__photo img { left: 50%; transform: translate(-29%, -50%); }
+}
+
+/* ─── Album card ─────────────────────────────────────────────────────────────
+   One real link for the whole card. The cover is the left square of the 16:9
+   thumbnail. Hover: the cover brightens and a round accent play mark appears.
+   No shadow, no scale. */
+.album-card {
+  display: block;
+  min-width: 0;
+  color: var(--ink);
   text-decoration: none;
-  color: inherit;
   scroll-snap-align: start;
 }
-.band-avatar__img-wrap {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--content);
-  border: 2px solid transparent;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-.band-avatar:hover .band-avatar__img-wrap {
-  border-color: var(--accent);
-  transform: translateY(-3px);
-}
-.band-avatar__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.band-avatar__img--empty {
+.album-card:hover { color: var(--ink); }
+.album-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.album-card__art { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface-2); }
+.album-card__cover {
+  display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, var(--content), color-mix(in srgb, var(--accent) 35%, var(--content)));
+  object-fit: cover;
+  object-position: 0% 50%;
+  transition: filter 160ms var(--ease-out);
 }
-.band-avatar__name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-header);
-  text-align: center;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.band-avatar__count { font-size: 0.72rem; color: var(--text-footer); }
-
-@media (prefers-reduced-motion: reduce) {
-  .band-avatar:hover .band-avatar__img-wrap { transform: none; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   BAND ("artist") PAGE HEADER — cover backdrop + circular avatar + real stats.
-   --album-color is set per band (its newest cover) so the header takes that
-   band's colour. No fabricated monthly-listeners / follow.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.artist-header {
-  position: relative;
-  margin: 0 calc(-1 * var(--gutter)) 2.5rem;
-  padding: clamp(2rem, 6vw, 4rem) var(--gutter) clamp(1.5rem, 4vw, 2.5rem);
-  overflow: hidden;
-  isolation: isolate;
-}
-.artist-header__backdrop {
+.album-card:hover .album-card__cover { filter: brightness(1.12); }
+.album-card__cover--empty { background: var(--surface-2); }
+.album-card__open {
   position: absolute;
-  inset: 0;
-  z-index: -2;
-  background-size: cover;
-  background-position: center;
-  filter: blur(44px) saturate(1.25);
-  transform: scale(1.25);
-  opacity: 0.55;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out), background-color 160ms var(--ease-out);
+  pointer-events: none;
 }
-.artist-header::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent) 32%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 82%, transparent) 68%,
-    var(--bg) 100%);
+.album-card__open svg { margin-left: 2px; }
+.album-card:hover .album-card__open, .album-card:focus-visible .album-card__open { opacity: 1; }
+@media (hover: none) { .album-card__open { display: none; } }
+.album-card__body { padding-top: 0.75rem; min-width: 0; }
+.album-card__band, .album-card__album {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
-.artist-header__inner {
+.album-card__band { font-family: var(--font-display); font-weight: 500; font-size: var(--step-body); line-height: 1.2; color: var(--ink); letter-spacing: -0.01em; }
+.album-card__album { margin-top: 0.15rem; font-size: var(--step-small); color: var(--muted); }
+.album-card__genre { color: var(--muted); font-size: var(--step-small); margin-top: 0.3rem; }
+
+/* ─── Shelf: heading, "See all" and the two buttons, one row of whole cards ───
+   The row shows a whole number of cards (2 on a phone, up to 6 on a wide screen)
+   between the page margins, so no card is cut by the edge of the screen; the
+   buttons and a swipe move it a page at a time. */
+.carousel-deferred { content-visibility: auto; contain-intrinsic-size: auto 480px; }
+.shelf { margin-top: var(--gap-sect); }
+.shelf--headless { margin-top: 0; }
+.shelf__head {
   display: flex;
   align-items: flex-end;
-  gap: clamp(1.2rem, 4vw, 2.2rem);
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  padding-inline: var(--margin);
+  margin-bottom: clamp(1.25rem, 2.4vw, 2rem);
 }
-.artist-header__avatar {
-  width: clamp(120px, 26vw, 196px);
-  height: clamp(120px, 26vw, 196px);
+.shelf--headless .shelf__head { justify-content: flex-end; margin-bottom: 1rem; }
+/* One row at every width. A long heading ("More from the band" on a phone) shrinks and
+   wraps inside its own column; "See all" and the buttons keep their place beside it
+   instead of dropping under it. */
+.shelf__title { flex: 0 1 auto; min-width: 0; font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; text-wrap: balance; }
+.shelf__tools { flex: none; display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
+.shelf__more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-body);
+  color: var(--ink);
+  text-decoration: underline;
+}
+.shelf__nav-group { display: flex; gap: 0.5rem; }
+.shelf__nav {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 3px solid color-mix(in srgb, #fff 12%, transparent);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 50px var(--accent-glow);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
 }
-.artist-header__avatar--empty { background: linear-gradient(135deg, var(--content), var(--accent-soft)); }
-.artist-header__info { min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; }
-.artist-header__eyebrow {
-  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.2em;
-  text-transform: uppercase; color: var(--accent-bright);
+.shelf__nav[hidden] { display: none; }
+.shelf__nav:hover { background: var(--surface-3); }
+.shelf__frame { margin-inline: var(--margin); }
+.shelf__track {
+  --cols: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--cols) - 1) * var(--col-gap)) / var(--cols));
+  gap: var(--col-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
 }
-.artist-header__name {
-  margin: 0;
-  font-size: clamp(2.2rem, 8vw, 4.5rem);
-  font-weight: 800; line-height: 1; letter-spacing: -0.02em;
-  color: var(--title-white); overflow-wrap: anywhere;
-}
-.artist-header__stats { color: var(--text-body); font-size: 0.95rem; }
-.artist-header__stats .sep { color: var(--text-footer); }
-.artist-header__origin { color: var(--text-footer); font-size: 0.85rem; }
-.artist-header__actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.7rem; }
-.artist-header__play {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  padding: 0.7em 1.5em; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 88%, #fff); color: var(--on-accent);
-  font-weight: 700; font-size: 0.95rem; text-decoration: none;
-  box-shadow: 0 10px 26px var(--accent-glow);
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-.artist-header__play:hover { transform: translateY(-2px); filter: brightness(1.05); color: var(--on-accent); }
-.artist-header__action {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  padding: 0.7em 1.2em; border-radius: var(--radius-pill);
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
-  color: var(--text-header); font-family: var(--font-default);
-  font-size: 0.9rem; font-weight: 500; cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.artist-header__action:hover { color: var(--accent-bright); border-color: var(--accent-soft); }
-@media (max-width: 640px) {
-  .artist-header__inner { flex-direction: column; align-items: flex-start; }
-}
-@media (prefers-reduced-motion: reduce) { .artist-header__play:hover { transform: none; } }
+.shelf__track::-webkit-scrollbar { display: none; }
+.shelf__track:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+@media (min-width: 560px) { .shelf__track { --cols: 3; } }
+@media (min-width: 760px) { .shelf__track { --cols: 4; } }
+@media (min-width: 1000px) { .shelf__track { --cols: 5; } }
+@media (min-width: 1240px) { .shelf__track { --cols: 6; } }
 
+/* ─── Home sections ──────────────────────────────────────────────────────────*/
+.sect { margin-top: var(--gap-sect); padding-inline: var(--margin); max-width: 1920px; margin-inline: auto; }
+.sect-title { font-size: var(--step-head); font-weight: 500; line-height: 0.98; letter-spacing: -0.025em; }
+
+/* Entrances: the parts of a section (.rv) rise into place once, staggered. */
+.rv { transition: opacity 700ms var(--ease-expo), transform 700ms var(--ease-expo); transition-delay: calc(var(--i, 0) * 70ms); }
+.js [data-reveal]:not(.is-in) .rv,
+.js .rv[data-reveal]:not(.is-in) { opacity: 0; transform: translateY(20px); }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 800ms var(--ease-expo) both; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
+/* A button must not keep the entrance's final transform, or its :active press never shows. */
+.btn.rise { animation-fill-mode: backwards; }
+
+/* 1 · Hero: card over a dim room */
+.hero {
+  --bleed-h: 100svh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 100svh;
+  margin-top: calc(var(--bar-h) * -1);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-content: center;
+  padding: calc(var(--bar-h) + 1rem) var(--margin) calc(var(--player-h) + var(--tabbar-h) + 1.25rem);
+  background: var(--bg);
+}
+.hero__bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
+.hero__img {
+  /* The room: the cover pushed down to a dim, desaturated backdrop (a plain filter on the
+     image itself, no backdrop-filter). The light blur hides the softness of a 480p upscale.
+     The brightness is set by the brightest cover that can be dealt: at 0.32 a pale one (Compadres
+     Recerdos, Diocletian) read as a grey room around the card, at 0.24 its whites stop at
+     about a quarter of full and the room stays dark. */
+  filter: brightness(0.24) saturate(0.75) blur(2.5px);
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scale(1.04);
+  animation: hero-drift 32s var(--ease-soft) infinite alternate;
+}
+@keyframes hero-drift {
+  from { transform: translateY(-50%) scale(1.04); }
+  to { transform: translateY(-50%) scale(1.14) translate3d(-1.5%, 0, 0); }
+}
+@media (max-aspect-ratio: 1 / 1) {
+  @keyframes hero-drift {
+    from { transform: translate(-29%, -50%) scale(1.04); }
+    to { transform: translate(-29%, -50%) scale(1.14); }
+  }
+}
+.hero__card {
+  --cover: clamp(112px, 9.5vw, 144px);
+  grid-column: 4 / span 7;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  row-gap: clamp(1.5rem, 3vw, 2.5rem);
+  min-height: clamp(21rem, 46svh, 30rem);
+  padding: clamp(1.25rem, 2.2vw, 2rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.hero__head { display: grid; row-gap: 0.85rem; }
+.hero__title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: 0.4em;
+  font-size: var(--step-head);
+  line-height: 0.98;
+}
+.hero__lead { max-width: 46ch; font-size: var(--step-body); line-height: 1.45; color: var(--ink); text-wrap: balance; }
+/* The one lit thing in the card: the featured cover, un-dimmed, beside its credit. */
+.hero__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 30ch); column-gap: var(--col-gap); align-items: end; }
+.hero__credit {
+  display: grid;
+  grid-template-columns: var(--cover) minmax(0, 1fr);
+  column-gap: 1.1rem;
+  align-items: end;
+  color: var(--ink);
+  text-decoration: none;
+}
+.hero__credit:hover { color: var(--ink); }
+.hero__cover { display: block; width: var(--cover); height: var(--cover); object-fit: cover; object-position: 0% 50%; border-radius: 0; background: var(--surface); }
+.hero__credit-text { display: grid; row-gap: 0.2em; min-width: 0; }
+.hero__credit-band, .hero__credit-album {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+}
+.hero__credit-band { -webkit-line-clamp: 2; font-size: var(--step-body); font-weight: 500; }
+.hero__credit-album { -webkit-line-clamp: 3; font-size: var(--step-small); text-decoration: underline; text-underline-offset: 0.22em; }
+.hero__credit:hover .hero__credit-album { text-decoration-thickness: 0.12em; }
+.hero__facts {
+  display: grid;
+  gap: 0.2em;
+  list-style: none;
+  font-family: var(--font-display);
+  font-size: var(--step-lead);
+  line-height: 1.15;
+  color: var(--ink);
+}
+.hero__facts strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.hero__foot { display: flex; align-items: center; justify-content: space-between; column-gap: var(--col-gap); }
+.hero__surprise {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+}
+.hero__surprise:hover { color: var(--ink); text-decoration-thickness: 0.12em; }
+
+@media (max-width: 899px) {
+  .hero__title { justify-content: flex-start; column-gap: 0.28em; }
+  .hero { display: block; padding-inline: var(--margin); }
+  .hero__card { --cover: 112px; min-height: 0; }
+  .hero__body { grid-template-columns: 1fr; row-gap: 1.25rem; align-items: start; }
+  .hero__facts { order: 1; }
+  .hero__credit { order: 2; }
+  .hero__foot { flex-direction: column; align-items: stretch; row-gap: 0.5rem; }
+  .hero__play { width: 100%; }
+  .hero__surprise { justify-self: center; align-self: center; }
+}
+@media (max-width: 599px) { .hero__card { --cover: 88px; } }
+
+/* 2 · Find a record */
+.find { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.find__intro { grid-column: 1 / span 4; }
+.find__lead { margin-top: 1rem; max-width: 30ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.find__tools { grid-column: 5 / span 8; padding-top: 0.5rem; }
+.find__form { display: flex; gap: 0.75rem; }
+.find__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 1.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-body);
+}
+.find__input::placeholder { color: var(--muted); opacity: 1; }
+.find__input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.find__form .btn { min-height: 56px; }
+@media (max-width: 479px) { .find__input { padding: 0 1.1rem; } .find__form .btn { padding-inline: 1.15em; } }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; list-style: none; }
+@media (max-width: 899px) {
+  .find { display: block; }
+  .find__tools { padding-top: 1.5rem; }
+}
+
+/* 4 · Most played: sticky cover, active list */
+.played { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.played__stage { grid-column: 1 / span 5; position: sticky; top: calc(var(--bar-h) + 4vh); }
+.played__cover { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.played__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 0% 50%;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+.played__img.is-active { opacity: 1; }
+.played__main { grid-column: 7 / -1; }
+.played__lead { margin: 1rem 0 clamp(1.5rem, 3vw, 2.5rem); max-width: 36ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.played__list { list-style: none; }
+.played__row a {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 6rem;
+  padding: 0.75rem 0 0.75rem 1.25rem;
+  color: var(--muted);
+  transition: color 160ms var(--ease-out);
+}
+.played__row a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 4px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+.played__row.is-active a { color: var(--ink); }
+.played__row.is-active a::before { opacity: 1; }
+.played__name { display: grid; gap: 0.2rem; min-width: 0; }
+.played__band { font-family: var(--font-display); font-size: var(--step-lead); line-height: 1.1; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.played__album { font-size: var(--step-small); line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.played__views { font-size: var(--step-small); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Narrow screens: the cover becomes a band pinned under the bar (a strip 112px tall: it
+   never hides the list, the list just scrolls under it). */
+@media (max-width: 899px) {
+  .played { display: block; }
+  .played__stage { top: var(--bar-h); z-index: 3; margin-inline: calc(var(--margin) * -1); }
+  .played__cover { aspect-ratio: auto; height: 112px; }
+  .played__img { inset: auto; left: 0; top: 50%; width: 177.78%; height: auto; max-width: none; transform: translateY(-50%); }
+  .played__main { padding-top: 1.5rem; }
+}
+
+/* 5 · By genre */
+.genre__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; margin-bottom: clamp(1.25rem, 2.4vw, 2rem); }
+.genre__tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.genre { padding-inline: 0; max-width: none; }
+.genre__head, .genre__all { padding-inline: var(--margin); }
+.genre__panel .shelf { margin-top: 0; }
+.genre__all { display: inline-flex; align-items: center; min-height: 44px; margin-top: 1.25rem; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+.genre__panel[hidden] { display: none; }
+
+/* 6 · Hidden gems: three close-ups, one bone card per frame */
+.gems { margin-top: var(--gap-sect); }
+.gem {
+  --bleed-h: 85svh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 85svh;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 3rem) var(--margin);
+}
+.gem__bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--field, var(--bg)); }
+.gem__bg::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.56); }
+.gem__img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.gem__intro { grid-column: 1; grid-row: 1; align-self: start; }
+/* The number that makes the album a hidden gem sits across from the card, so each
+   frame has something on both sides of the picture. */
+.gem__figure { grid-column: 1 / span 2; grid-row: 1; align-self: end; display: grid; gap: 0.25rem; }
+.gem--first .gem__figure { grid-column: 4; align-self: center; text-align: right; }
+.gem__n { font-family: var(--font-display); font-weight: 500; font-size: var(--step-display); line-height: 0.95; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.gem__unit { font-size: var(--step-body); color: var(--ink); }
+.gem__title { font-size: var(--step-head); line-height: 0.98; }
+.gem__lead { margin-top: 1rem; max-width: 22ch; font-size: var(--step-body); color: var(--ink); }
+.gem__card {
+  grid-column: var(--col);
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.25rem;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.gem__art { aspect-ratio: 1; overflow: hidden; margin-bottom: 0.65rem; background: #d8d0c2; }
+.gem__art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; }
+.gem__album { font-family: var(--font-display); font-weight: 500; font-size: var(--step-lead); line-height: 1.08; letter-spacing: -0.015em; color: var(--on-ink); overflow-wrap: anywhere; }
+.gem__band { font-size: var(--step-body); color: var(--on-ink); }
+.gem__meta { font-size: var(--step-small); color: var(--on-ink-muted); }
+.gem__card .btn { margin-top: 0.85rem; }
+@media (max-width: 899px) {
+  .gem + .gem { margin-top: clamp(2rem, 6vw, 4rem); }
+  .gem { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 2rem; min-height: 100svh; --bleed-h: 100svh; padding-bottom: 0; }
+  .gem__figure, .gem--first .gem__figure { text-align: left; align-self: stretch; }
+  .gem__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    grid-template-areas: 'album art' 'band art' 'meta art' 'btn btn';
+    column-gap: 1rem;
+    align-content: start;
+    align-self: flex-start;
+    width: min(30rem, 100%);
+    padding: 1.25rem 1.25rem 1.5rem;
+    margin-bottom: clamp(1.5rem, 3vw, 3rem);
+  }
+  .gem__art { grid-area: art; width: 96px; margin: 0; }
+  .gem__album { grid-area: album; }
+  .gem__band { grid-area: band; }
+  .gem__meta { grid-area: meta; }
+  .gem__card .btn { grid-area: btn; width: 100%; margin-top: 0.75rem; }
+}
+/* Phone: the card is a full-width sheet at the foot of the frame. */
+@media (max-width: 599px) {
+  .gem__card { align-self: stretch; width: auto; margin: 0 calc(var(--margin) * -1); padding: 1.25rem var(--margin) 1.5rem; }
+}
+
+/* 7 · Live in Tegucigalpa: pictures gathered round a heading */
+.live { position: relative; display: grid; place-items: center; min-height: clamp(660px, 92svh, 900px); isolation: isolate; }
+.live__center { position: relative; z-index: 2; max-width: 36rem; text-align: center; }
+.live__title { font-size: var(--step-head); line-height: 0.98; }
+.live__lead { margin: 1.25rem auto 1rem; max-width: 34ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.live__more { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+.live__pics { position: absolute; inset: 0; list-style: none; pointer-events: none; }
+.live__pic { position: absolute; left: var(--x); top: var(--y); width: clamp(120px, 15vw, 240px); aspect-ratio: 9 / 10; pointer-events: auto; }
+.live__pic a { display: block; width: 100%; height: 100%; }
+.live__pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; transition: filter 160ms var(--ease-out); }
+.live__pic a:hover img { filter: brightness(1.12); }
+.live__pic--1 { --x: 17%; --y: 7%; --d: 14px; }
+.live__pic--2 { --x: 43%; --y: 1%; --d: 22px; }
+.live__pic--3 { --x: 68%; --y: 9%; --d: 12px; }
+.live__pic--4 { --x: 14%; --y: 50%; --d: 20px; }
+.live__pic--5 { --x: 72%; --y: 46%; --d: 16px; }
+.live__pic--6 { --x: 28%; --y: 76%; --d: 24px; }
+.live__pic--7 { --x: 56%; --y: 73%; --d: 12px; }
+/* Narrow screens: no room to gather pictures round the heading, so they follow it as a
+   staggered grid (3 across on a tablet, 2 across on a phone). */
+@media (max-width: 899px) {
+  .live { display: block; min-height: 0; }
+  .live__center { margin-inline: auto; }
+  .live__pics { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--col-gap); margin-top: 2.5rem; }
+  .live__pic { position: relative; left: auto; top: auto; width: auto; }
+  .live__pic--2, .live__pic--5 { margin-top: 2.5rem; }
+  .live__pic--7 { display: none; }
+}
+@media (max-width: 599px) {
+  .live__pics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live__pic--5, .live__pic--6 { display: none; }
+  .live__pic--4 { margin-top: 2.5rem; }
+}
+
+/* 8 · Bands */
+.bands { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.bands__intro { grid-column: 1 / span 4; }
+.bands__lead { margin-top: 1rem; max-width: 26ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+.bands__grid { grid-column: 5 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.25rem var(--col-gap); list-style: none; }
+.avatar { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; color: var(--ink); }
+.avatar:hover { color: var(--ink); }
+.avatar__img { display: block; width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--surface-2); }
+.avatar__img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; transition: filter 160ms var(--ease-out); }
+.avatar:hover .avatar__img img { filter: brightness(1.12); }
+.avatar__empty { display: block; width: 100%; height: 100%; background: var(--surface-3); }
+.avatar__name { max-width: 100%; font-family: var(--font-display); font-weight: 500; font-size: var(--step-body); line-height: 1.15; overflow-wrap: anywhere; }
+.avatar__count { font-size: var(--step-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 899px) {
+  .bands { display: block; }
+  .bands__grid { margin-top: 2rem; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.75rem 0.75rem; }
+}
+
+/* 9 · Countries and years: plain text lists */
+.lists { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+.lists__col--countries { grid-column: 1 / span 7; }
+.lists__col--years { grid-column: 9 / span 4; }
+.plain { margin-top: clamp(1.25rem, 2.4vw, 2rem); list-style: none; columns: 3; column-gap: var(--col-gap); }
+.plain--years { columns: 2; }
+.plain li { break-inside: avoid; }
+.plain a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding-inline: 0.5rem;
+  margin-inline: -0.5rem;
+  color: var(--ink);
+  transition: background-color 160ms var(--ease-out);
+}
+.plain a:hover { background: var(--surface-2); color: var(--ink); }
+.plain a:not(:has(.plain__flag)) { grid-template-columns: minmax(0, 1fr) auto; }
+.plain__flag { font-size: var(--step-body); line-height: 1; }
+.plain__name { font-size: var(--step-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plain__n { font-size: var(--step-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.more { margin-top: 1rem; }
+.more:not([open]) > :not(summary) { display: none; }
+.more summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-size: var(--step-body); color: var(--ink); text-decoration: underline; }
+@media (max-width: 1099px) { .plain { columns: 2; } }
+@media (max-width: 899px) {
+  .lists { display: block; }
+  .lists__col--years { margin-top: var(--gap-sect); }
+}
+@media (max-width: 479px) { .plain { columns: 1; } .plain--years { columns: 2; column-gap: 1.25rem; } }
+
+/* 10 · Two questions, each with its own action: the first at the left edge, the second at
+   the right edge. Natural height, one viewport at most. */
+.ask {
+  margin-top: var(--gap-sect);
+  padding: clamp(1.5rem, 3vw, 2.5rem) var(--margin);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5rem, 7vw, 5.5rem);
+}
+.ask__block { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+.ask__block--end { align-self: flex-end; align-items: flex-end; text-align: right; }
+.ask__q { font-size: min(var(--step-display), 8.6vw); line-height: 0.95; }
+.ask__note { max-width: 34ch; font-size: var(--step-body); line-height: 1.4; color: var(--ink); text-wrap: pretty; }
+.ask .btn { margin-top: 0.5rem; }
+@media (max-width: 899px) {
+  .ask__q { font-size: 10.5vw; }
+  .ask__block--end { align-self: stretch; align-items: flex-start; text-align: left; }
+  .ask .btn { width: min(100%, 22rem); }
+}
+
+/* ─── Play / pause / loading: one icon (and label) swap for every .js-pp control ─
+   The Player writes data-state on each one: paused (the default), playing,
+   buffering or error. The player bar's round toggle and the album page's Play
+   button are both .js-pp, so they always agree. ─────────────────────────────*/
+.js-pp .ic-pause,
+.js-pp .ic-spinner,
+.js-pp .pp-lbl--pause,
+.js-pp .pp-lbl--wait { display: none; }
+.js-pp[data-state='playing'] :is(.ic-play, .pp-lbl--play) { display: none; }
+.js-pp[data-state='playing'] .ic-pause { display: block; }
+.js-pp[data-state='playing'] .pp-lbl--pause { display: inline; }
+.js-pp[data-state='buffering'] :is(.ic-play, .ic-pause, .pp-lbl--play) { display: none; }
+.js-pp[data-state='buffering'] .ic-spinner { display: block; }
+.js-pp[data-state='buffering'] .pp-lbl--wait { display: inline; }
+.js-pp .ic-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent-ink) 30%, transparent);
+  border-top-color: var(--accent-ink);
+  animation: mp-spin 0.8s linear infinite;
+}
+/* Nothing is playing and the last attempt failed: the control drops its accent. */
+.js-pp[data-state='error'] { background: var(--surface-3); color: var(--ink); }
+
+/* ─── Player bar states ──────────────────────────────────────────────────────
+   Playing: accent progress, cover at full strength, pause icon. Paused (or
+   failed): the progress fill goes muted and the cover dims, play icon. Buffering:
+   spinner in the toggle and a pulsing progress. On a phone the times row is
+   hidden, so a 3px progress line runs along the top edge of the bar instead. */
+.np-cover { transition: filter 160ms var(--ease-out); }
+#now-playing-bar:has(.np-toggle:is([data-state='paused'], [data-state='error'])) .np-progress-fill { background: var(--muted); }
+#now-playing-bar:has(.np-toggle:is([data-state='paused'], [data-state='error'])) .np-cover { filter: brightness(0.55); }
+#now-playing-bar:has(.np-toggle[data-state='buffering']) .np-edge { animation: np-pulse 1s ease-in-out infinite; }
+.np-edge { display: none; }
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .np-edge { display: block; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--surface-3); overflow: hidden; }
+}
+
+/* ─── Album page ─────────────────────────────────────────────────────────────
+   A header band on a field of the album's own colour (--field, set inline and
+   capped dark at build time), running up under the top bar to a hard edge below
+   the actions. The cover sits lit on the left at 5 of 12 columns, the left square
+   of the thumbnail (the art), square corners. Below it: the tracklist, then two
+   shelves and a row of chips. */
+.album-head {
+  position: relative;
+  margin-top: calc(var(--bar-h) * -1);
+  padding: calc(var(--bar-h) + clamp(1.25rem, 2.6vw, 2.5rem)) var(--margin) clamp(2rem, 4vw, 3.5rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.album-head__inner {
+  max-width: 1920px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: end;
+}
+.album-head__cover { grid-column: 1 / span 5; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.album-head__cover img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 0% 50%; }
+/* The one slow move on the page: the cover drifts in by 3.5% over half a minute (the box clips it). */
+@keyframes cover-drift { from { transform: scale(1); } to { transform: scale(1.035); } }
+.album-head__cover img { transform-origin: 25% 60%; animation: cover-drift 28s ease-in-out infinite alternate; }
+.album-head__cover-empty { width: 100%; height: 100%; background: var(--surface-2); }
+.album-head__text { grid-column: 6 / -1; min-width: 0; container-type: inline-size; padding-left: clamp(0.5rem, 3vw, 3rem); }
+@media (min-width: 1100px) {
+  /* six of twelve: on a wide screen the cover is the first thing, a third of the first screen */
+  .album-head__cover { grid-column: 1 / span 6; }
+  .album-head__text { grid-column: 7 / -1; }
+}
+
+/* The title is data of any length (up to ~100 characters), so its size is fitted to the
+   column. --cc is how many characters the wider of its two lines must hold (set on the column,
+   which is the container); one character takes about 0.56em, so the name fills two lines at
+   178 container-widths / --cc. The clamp holds short names at display size and the longest
+   ones at a readable one. */
+.album-head__title {
+  font-size: var(--step-head);
+  font-size: clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display));
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+.album-head__sub {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: var(--step-lead);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.album-head__band {
+  margin-top: clamp(0.75rem, 1.4vw, 1.25rem);
+  font-family: var(--font-display);
+  /* the lead size, but never larger than the title it sits under */
+  font-size: var(--step-lead);
+  font-size: max(var(--step-small), min(var(--step-lead), calc(0.85 * clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display)))));
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.album-head__band a,
+.album-head__facts a,
+.page-head__facts a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, var(--ink) 45%, transparent);
+  transition: text-decoration-color 160ms var(--ease-out);
+}
+.album-head__band a:hover,
+.album-head__facts a:hover,
+.page-head__facts a:hover { color: var(--ink); text-decoration-color: currentColor; }
+.album-head__facts,
+.page-head__facts {
+  /* Separators lead each item and the list clips its own left edge, so a dot is never the
+     first or last thing on a wrapped line (the item's -1.1em margin parks its dot out of view). */
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  margin-top: 0.75rem;
+  padding-block: 3px;
+  list-style: none;
+  font-size: var(--step-small);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.album-head__facts li,
+.page-head__facts li { position: relative; margin: 0 1.1em 0 -1.1em; padding-left: 1.1em; }
+.album-head__facts li::before,
+.page-head__facts li::before { content: '·'; content: '·' / ''; position: absolute; left: 0.4em; color: var(--muted); }
+.album-head__actions,
+.page-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: clamp(1.25rem, 2.4vw, 2rem); }
+.album-head__play { min-width: 8.5em; }  /* the label changes: Play, Pause, Loading */
+.album-head__links { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: -0.6rem; list-style: none; }  /* the 44px target, so the glyph itself lines up with the text above */
+/* On the field, the secondary fill and the hover tone are steps of the bone ink, so they
+   read on any album colour (a fixed grey can land on the field's own tone). */
+.album-head .btn--secondary,
+.page-head .btn--secondary { background: color-mix(in srgb, var(--ink) 14%, var(--field)); }
+.album-head .btn--secondary:hover,
+.page-head .btn--secondary:hover { background: color-mix(in srgb, var(--ink) 24%, var(--field)); }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--ink);
+  transition: background-color 160ms var(--ease-out);
+}
+.icon-btn:hover { background: color-mix(in srgb, var(--ink) 18%, transparent); color: var(--ink); }
+@media (max-width: 699px) {
+  .album-head__inner { display: block; }
+  .album-head__cover { max-width: 100%; }
+  .album-head__text { padding-left: 0; margin-top: 1.5rem; }
+  .album-head__play { width: 100%; }
+}
+
+/* From 1000px the tracklist sits beside its heading, on the header's own columns (heading in
+   the first four, rows in the last eight), so a row never runs the full width of the page. */
+@media (min-width: 1000px) {
+  .tracks { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: start; }
+  .tracks > .sect-title { grid-column: 1 / span 4; position: sticky; top: calc(var(--bar-h) + 1.5rem); }
+  .tracks > .tl { grid-column: 5 / -1; margin: 0; }
+}
+
+/* Tracklist: a real ordered list, one button per row. The row is wider than the text
+   column by --row-pad on both sides, so the text lines up with the heading and the
+   hover tone reaches into the margin. */
+.tl { --row-pad: clamp(0.75rem, 1.4vw, 1.25rem); margin: clamp(1.25rem, 2.4vw, 2rem) calc(var(--row-pad) * -1) 0; list-style: none; }
+.tl__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: clamp(0.75rem, 1.6vw, 1.5rem);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.5rem var(--row-pad);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.tl__row:disabled { cursor: default; }
+.tl__row:hover { background: var(--surface-2); }
+.tl__row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tl__row.track-active { background: var(--surface-3); }
+/* The marker of the row that is playing (the Player sets .track-active and aria-current). */
+.tl__row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 4px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+.tl__row.track-active::before { opacity: 1; }
+.tl__n { position: relative; display: block; font-size: var(--step-small); font-variant-numeric: tabular-nums; color: var(--muted); }
+.tl__t { font-size: var(--step-body); line-height: 1.3; overflow-wrap: anywhere; }
+.tl__d { font-size: var(--step-small); font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); white-space: nowrap; }
+/* On hover (or focus) the number gives way to a play mark; on the playing row it gives
+   way to three bars that move while the music does and rest when it stops. */
+.tl__n::before {
+  content: '';
+  position: absolute;
+  left: 0.05em;
+  top: 50%;
+  width: 0.7em;
+  height: 0.8em;
+  transform: translateY(-50%);
+  background: var(--ink);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  opacity: 0;
+}
+.tl__row:not(:disabled, .track-active):focus-visible .tl__n::before { opacity: 1; }
+.tl__row:not(:disabled, .track-active):focus-visible .tl__num { visibility: hidden; }
+@media (hover: hover) {
+  .tl__row:not(:disabled, .track-active):hover .tl__n::before { opacity: 1; }
+  .tl__row:not(:disabled, .track-active):hover .tl__num { visibility: hidden; }
+}
+.tl__eq { position: absolute; left: 0; top: 50%; display: none; align-items: flex-end; gap: 2px; width: 1.1em; height: 1em; transform: translateY(-50%); }
+.tl__eq i { flex: 1; height: 100%; background: var(--ink); transform: scaleY(0.45); transform-origin: bottom; }
+.tl__row.track-active .tl__eq { display: flex; }
+.tl__row.track-active .tl__num { visibility: hidden; }
+.tl__eq i:nth-child(1) { --d: 640ms; }
+.tl__eq i:nth-child(2) { --d: 480ms; }
+.tl__eq i:nth-child(3) { --d: 800ms; }
+@keyframes tl-eq { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
+body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__eq i { animation: tl-eq var(--d, 700ms) ease-in-out infinite alternate; }
+
+/* ─── Band, genre, country and year pages ────────────────────────────────────
+   The header is the album page's, turned round: the same field and hard edge under the top
+   bar, the name left on 6 of 12 columns (7 below 1100px), the lead cover lit on the right
+   (6 columns, so it is a third of a 1440 screen; 5 below 1100px). Whatever the page says
+   about itself goes under the name.
+   Below 700px it is one column: the name, then what the page says, then the cover. Under
+   it, a cover grid: 2 columns on a phone up to 5 on a desktop (.wall). */
+.page-head {
+  position: relative;
+  margin-top: calc(var(--bar-h) * -1);
+  padding: calc(var(--bar-h) + clamp(1.25rem, 2.6vw, 2.5rem)) var(--margin) clamp(2rem, 4vw, 3.5rem);
+  background: var(--field, var(--surface));
+  color: var(--ink);
+}
+.page-head__inner {
+  max-width: 1920px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  align-items: end;
+}
+.page-head__text { grid-column: 1 / span 7; min-width: 0; container-type: inline-size; padding-right: clamp(0.5rem, 3vw, 3rem); }
+.page-head__pic { grid-column: 8 / -1; display: block; min-width: 0; color: var(--ink); text-decoration: none; }
+.page-head--bare .page-head__text { grid-column: 1 / -1; }
+@media (min-width: 1100px) {
+  .page-head__text { grid-column: 1 / span 6; }
+  .page-head__pic { grid-column: 7 / -1; }
+  .page-head--bare .page-head__text { grid-column: 1 / -1; }
+  /* Split: the name on the left, what the page says on the right, level with the name's foot,
+     so the head is a composition and not a name with half a screen of field beside it. */
+  .page-head--split .page-head__text { padding-right: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: end; }
+  .page-head--split .page-head__lead { margin-top: 0; padding-bottom: 0.6rem; }
+}
+
+/* The name is data of any length, so its size is fitted to the column: --cc is how many
+   characters the wider of its two lines holds (set on the column, which is the container),
+   one character takes about 0.56em, so the name fills two lines at 178 container-widths /
+   --cc. The clamp holds short names at display size and the longest at a readable one. */
+.fit {
+  font-size: var(--step-head);
+  font-size: clamp(1.1875rem, calc(178 * 1cqi / var(--cc, 10)), var(--step-display));
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+/* A name that is one long word carries a soft hyphen at its middle (title-fit.ts). Headings
+   are set to hyphens: none above, which also ignores soft hyphens, so this opts the name back in. */
+.page-head__title.fit { hyphens: manual; }
+.page-head__flag { margin-right: 0.28em; font-size: 0.62em; letter-spacing: 0; vertical-align: 0.1em; }
+.page-head__lead {
+  margin-top: clamp(1rem, 2vw, 1.5rem);
+  max-width: 30ch;
+  font-size: var(--step-lead);
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+@media (min-width: 1100px) {
+  /* A lead and its actions (the 404) go in one box, so the split grid keeps them in the right half. */
+  .page-head--split .page-head__side { padding-bottom: 0.6rem; }
+  .page-head--split .page-head__side .page-head__lead { padding-bottom: 0; }
+}
+.page-head__side .fm-actions { margin-top: clamp(1.25rem, 2.4vw, 2rem); }
+.page-head__side .btn { padding-inline: 1.2em; }
+.page-head__facts { margin-top: clamp(1rem, 2vw, 1.5rem); }
+.page-head__play { min-width: 9.5em; }  /* the label changes: Play latest, Pause, Loading */
+
+/* The lead cover, lit: the left square of the thumbnail (the art), square corners, with the
+   slow drift of the album page. A live set's frame is shown whole. */
+.page-head__art { display: block; aspect-ratio: 1; overflow: hidden; background: var(--surface); }
+.page-head__art--frame { aspect-ratio: 16 / 9; }
+.page-head__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 0% 50%;
+  transform-origin: 25% 60%;
+  animation: cover-drift 28s ease-in-out infinite alternate;
+  transition: filter 160ms var(--ease-out);
+}
+.page-head__art--frame img { object-position: 50% 50%; }
+.page-head__pic:hover .page-head__art img { filter: brightness(1.1); }
+.page-head__pic:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.page-head__cap { display: grid; gap: 0.15rem; margin-top: 0.9rem; }
+.page-head__cap-kind { font-size: var(--step-body); font-weight: 500; line-height: 1.25; }
+.page-head__pic:hover .page-head__cap-kind { text-decoration: underline; text-underline-offset: 0.22em; }
+.page-head__cap-detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--step-small);
+  line-height: 1.35;
+  color: var(--muted);
+}
+@media (max-width: 699px) {
+  .page-head__inner { display: block; }
+  .page-head__text { padding-right: 0; }
+  .page-head__pic { margin-top: 2rem; }
+  .page-head__play { width: 100%; }
+}
+
+/* The cover grid. Never reveal the grid of a facet page as a whole: a thousand covers are
+   taller than any screen, and the observer waits for 8% of an element to be on it. */
+.wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem var(--col-gap);
+  margin-top: clamp(1.25rem, 2.4vw, 2rem);
+  list-style: none;
+}
+@media (min-width: 560px) { .wall { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 760px) { .wall { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .wall { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .wall { row-gap: 2.5rem; } }
+/* Live sets: whole 16:9 frames, one column fewer than the covers. */
+.wall--frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 760px) { .wall--frames { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .wall--frames { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.album-card--frame .album-card__art { aspect-ratio: 16 / 9; }
+.album-card--frame .album-card__cover { object-position: 50% 50%; }
+/* A live set's tail holds its place and its date: the information of the card, not a note. */
+.album-card--frame .album-card__album { color: var(--ink); }
+.sect-lead { margin: 1rem 0 0; max-width: 36ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; }
+
+/* ─── Browse and Search ──────────────────────────────────────────────────────
+   Under the head, on the ground: one row of controls (the search field and five filters, all
+   pills of one height, no box around them), then the count, then the result. With no text
+   typed the result is the cover wall (.wall); once somebody types it is rows (.srow): a 48px
+   cover, the album, the band and year under it, the genre and country beside it. */
+.finder {
+  --ctl-h: 40px;
+  max-width: 1920px;
+  margin: clamp(1.5rem, 3vw, 2.5rem) auto 0;
+  padding-inline: var(--margin);
+}
+@media (max-width: 899px), (pointer: coarse) { .finder { --ctl-h: 44px; } }
+/* The controls and "Show more" need script; without it the page is the newest wall. */
+html:not(.js) .finder__bar, html:not(.js) .finder__more, html:not(.js) .finder__clear { display: none; }
+.finder__nojs { max-width: 1920px; margin: 1rem auto 0; padding-inline: var(--margin); font-size: var(--step-body); }
+
+.finder__bar { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.finder__field { position: relative; flex: 1 1 100%; min-width: 0; }
+.finder__field > svg { position: absolute; left: 1rem; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.finder__pick { position: relative; flex: 1 1 calc(50% - 0.375rem); min-width: 0; }
+@media (min-width: 560px) { .finder__pick { flex-basis: calc(33.333% - 0.5rem); } }
+/* From 1100px the five pills share one row under the search field, which keeps its own row until
+   1280px: on a single row, 1100 to 1279px left each pill about 144px, and "All countries" and
+   "Newest first" were cut to "All countr…" and "Newest f…". */
+@media (min-width: 1100px) {
+  .finder__pick { flex: 1 1 9rem; }
+}
+@media (min-width: 1280px) {
+  .finder__field { flex: 2 1 16rem; }
+  .finder__pick { flex: 1 1 8.5rem; }
+}
+
+.finder__input, .finder__select {
+  display: block;
+  width: 100%;
+  height: var(--ctl-h);
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-small);
+  line-height: 1.2;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.finder__input { padding: 0 1.25rem 0 2.9rem; }
+.finder__input::placeholder { color: var(--muted); opacity: 1; }
+.finder__input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+.finder__select { padding: 0 2.5rem 0 1.15rem; font-weight: 500; text-overflow: ellipsis; cursor: pointer; }
+.finder__select option { background: var(--surface-2); color: var(--ink); }
+.finder__chev { position: absolute; right: 0.9rem; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.finder__input:hover, .finder__select:hover { background: var(--surface-3); }
+.finder__input:focus-visible, .finder__select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* A filter that is on is bone, so what narrows the list can be seen at a glance. */
+.finder__pick[data-set] .finder__select, .finder__pick[data-set] .finder__select:hover { background: var(--ink); color: var(--bg); }
+.finder__pick[data-set] .finder__chev { color: var(--bg); }
+
+.finder__status { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; margin-top: 1rem; }
+.finder__count { min-width: 0; font-size: var(--step-small); font-variant-numeric: tabular-nums; color: var(--muted); overflow-wrap: anywhere; }
+.finder__clear {
+  flex: none;
+  min-height: 44px;
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step-small);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.22em;
+  cursor: pointer;
+}
+.finder__clear:hover { text-decoration-thickness: 0.12em; }
+.finder__note { margin-top: 0.5rem; max-width: 58ch; font-size: var(--step-small); color: var(--ink); }
+
+.finder__results { transition: opacity 160ms var(--ease-out); }
+.finder__results[aria-busy='true'] { opacity: 0.45; }
+.finder__results .wall { margin-top: 0.5rem; }
+.finder__more { display: flex; justify-content: center; margin-top: clamp(2rem, 4vw, 3rem); }
+
+/* No results: said plainly, with the way out. */
+.finder__empty { max-width: 40rem; padding-block: clamp(5rem, 9vw, 7rem) clamp(1rem, 3vw, 2rem); }
+.finder__empty h2 { font-size: var(--step-head); line-height: 0.98; }
+.finder__empty p { margin-top: 1rem; max-width: 34ch; font-size: var(--step-body); color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }
+.finder__empty .btn { margin-top: 1.5rem; }
+@media (min-width: 1100px) {
+  /* The same split as the head above it: the message on the left, what to do about it on the right. */
+  .finder__empty { max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: end; }
+  .finder__empty h2 { grid-column: 1; grid-row: 1 / span 2; }
+  .finder__empty p { grid-column: 2; grid-row: 1; margin-top: 0; align-self: end; }
+  .finder__empty .btn { grid-column: 2; grid-row: 2; justify-self: start; }
+}
+
+/* Rows. Wider than the text column by --row-pad on both sides, so the text lines up with the
+   controls above and the hover tone reaches into the margin (as the tracklist does). */
+.srows { --row-pad: clamp(0.75rem, 1.4vw, 1.25rem); margin: 0.25rem calc(var(--row-pad) * -1) 0; list-style: none; }
+.srow {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  column-gap: clamp(0.75rem, 1.6vw, 1.5rem);
+  min-height: 4rem;
+  padding: 0.5rem var(--row-pad);
+  color: var(--ink);
+  text-decoration: none;
+  scroll-margin-block: calc(var(--bar-h) + 1rem) calc(var(--player-h) + var(--tabbar-h) + 1rem);
+  transition: background-color 160ms var(--ease-out);
+}
+.srow:hover { background: var(--surface-2); color: var(--ink); }
+.srow:active { background: var(--surface-3); }
+.srow:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; background: var(--surface-2); }
+.srow__art { display: block; width: 48px; height: 48px; overflow: hidden; background: var(--surface-2); }
+.srow__art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 0% 50%; }
+.srow__text { display: grid; gap: 0.1rem; min-width: 0; }
+.srow__album {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: var(--step-body);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.srow__sub, .srow__facet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--step-small);
+  line-height: 1.3;
+  color: var(--muted);
+}
+.srow__year { font-variant-numeric: tabular-nums; }
+.srow__facet { display: none; }
+.srow__flag { margin-right: 0.45em; }
+@media (min-width: 760px) {
+  .srow { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 12rem) minmax(0, 9rem); }
+  .srow__facet { display: block; }
+  .srow__sub-country { display: none; }  /* the country has its own column from here up */
+}
+@media (min-width: 1100px) {
+  .srow { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 16rem) minmax(0, 12rem); }
+}
+
+/* ─── Forms (submit, promo, newsletter) ──────────────────────────────────────
+   Under the shared head, on the ground. Two columns from 1000px: the argument (the steps, the
+   archive's real numbers, sometimes a picture) on 5 of 12 columns, the form on the last 6, a gap
+   column between. Below that the argument comes first, then the form. The form is not boxed;
+   only a field has an edge (a field may keep its line, and the edge has to be found, 3:1), and a
+   label always sits above its field. Never reveal the form as a whole: only the argument's parts
+   rise in (.rv), the heading of the form rises on load. */
+.fm {
+  max-width: 1920px;
+  margin: clamp(2.5rem, 5vw, 4.5rem) auto 0;
+  padding-inline: var(--margin);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: clamp(3rem, 7vw, 4.5rem);
+  align-items: start;
+}
+@media (min-width: 1000px) {
+  .fm { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); }
+  .fm-aside { grid-column: 1 / span 5; }
+  .fm-main { grid-column: 7 / -1; }
+}
+/* Whichever column is the shorter one rides along beside the other instead of leaving the ground
+   under it empty (the taller column has no travel, so for it this does nothing). */
+@media (min-width: 1000px) and (min-height: 760px) {
+  .fm-aside, .fm-main { position: sticky; top: calc(var(--bar-h) + 2rem); }
+}
+.fm-main { min-width: 0; container-type: inline-size; }
+.fm-title { font-size: var(--step-lead); font-weight: 500; line-height: 1.1; letter-spacing: -0.015em; }
+
+/* The argument */
+.fm-steps { margin: 1.5rem 0 0; padding-left: 1.9rem; display: grid; gap: 1.5rem; }
+.fm-steps li::marker { color: var(--muted); font-family: var(--font-text); font-size: var(--step-small); font-weight: 500; font-variant-numeric: tabular-nums; }
+.fm-steps__name { display: block; font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.fm-steps__text { display: block; margin-top: 0.35rem; max-width: 38ch; font-size: var(--step-body); line-height: 1.45; text-wrap: pretty; }
+.fm-list { margin: 1.5rem 0 0; padding: 0; list-style: none; display: grid; gap: 1rem; font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.fm-facts__lead { margin-top: clamp(2.25rem, 4.5vw, 3.5rem); font-size: var(--step-body); line-height: 1.4; }
+.fm-facts { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.75rem clamp(1.5rem, 3.4vw, 3rem); }
+.fm-facts > div { display: flex; flex-direction: column-reverse; }
+.fm-facts dd { font-family: var(--font-display); font-size: var(--step-head); font-weight: 500; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.fm-facts dt { margin-top: 0.4rem; font-size: var(--step-small); color: var(--muted); }
+.fm-frame { margin: clamp(2rem, 4vw, 3rem) 0 0; }
+.fm-frame a { display: block; }
+.fm-frame img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: var(--surface-2); transition: filter 160ms var(--ease-out); }
+.fm-frame a:hover img { filter: brightness(1.1); }
+.fm-frame a:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.fm-frame figcaption { margin-top: 0.75rem; max-width: 52ch; font-size: var(--step-small); line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+
+/* The form */
+.fm-form { display: grid; gap: 1.5rem; }
+.fm-form > .fm-title { margin-bottom: -0.5rem; scroll-margin-top: calc(var(--bar-h) + 1rem); }
+/* Below 1000px the argument comes first, so the head offers a way down to the form. */
+.fm-jump { margin-top: 1.25rem; }
+@media (min-width: 1000px) { .fm-jump { display: none; } }
+.fm-hint, .fm-hint-inline { font-size: var(--step-small); line-height: 1.4; color: var(--muted); }
+.fm-hint-inline { font-weight: 400; }
+.fm-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+@container (min-width: 34rem) {
+  .fm-row { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--col-gap); }
+}
+.fm-field { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+.fm-label { font-size: var(--step-small); font-weight: 500; line-height: 1.3; color: var(--ink); }
+.fm-req { color: var(--muted); }
+
+/* Fields: on the ground, a 1px edge, text at 16px or more, 48px tall (WebKit zooms below 16px). */
+.fm-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-small);
+  line-height: 1.35;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.fm-input::placeholder { color: var(--muted); opacity: 1; }
+.fm-input:hover { border-color: var(--muted); }
+.fm-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-color: var(--ink); }
+.fm-input.is-invalid { border-color: var(--err-edge); }
+.fm-textarea { min-height: 9rem; resize: vertical; }
+.fm-input option { background: var(--surface-2); color: var(--ink); }
+.fm-pick { position: relative; }
+.fm-pick .fm-input { padding-right: 2.75rem; text-overflow: ellipsis; cursor: pointer; }
+.fm-chev { position: absolute; right: 1rem; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.fm-error { font-size: var(--step-small); line-height: 1.4; color: var(--err); }
+
+/* Links group (promo): the legend is a label, the extra rows come from the script */
+.fm-group { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 1.5rem; }
+.fm-group > legend { float: left; width: 100%; padding: 0; margin-bottom: -0.5rem; }
+.fm-group > legend + * { clear: both; }
+.fm-extra { display: grid; gap: 0.75rem; }
+.fm-extra:empty { display: none; }
+.fm-extra__row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 0.5rem; align-items: center; }
+.fm-remove {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.fm-remove:hover { background: var(--surface-3); }
+.fm-add { justify-self: start; }
+
+/* States: a failure note above the button, a spinner while it sends, a plain done panel */
+.fm-note {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--step-small);
+  line-height: 1.45;
+}
+.fm-note[hidden] { display: none; }
+.fm-note strong { font-weight: 600; }
+.fm-note--error { background: var(--err-fill); }
+.fm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+.fm-submit { min-width: min(100%, 15rem); touch-action: manipulation; }
+.fm-submit:disabled { cursor: progress; }
+.fm-submit::before {
+  content: '';
+  display: none;
+  width: 1em;
+  height: 1em;
+  border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+  border-top-color: var(--accent-ink);
+  border-radius: 50%;
+  animation: mp-spin 0.8s linear infinite;
+}
+.fm-form[aria-busy='true'] .fm-submit::before { display: block; }
+@media (max-width: 599px) { .fm-submit { width: 100%; } }
+.fm-done { flex-direction: column; align-items: flex-start; gap: 1.25rem; padding: clamp(1.25rem, 3vw, 2rem); background: var(--surface); }
+/* Focus lands here on purpose, to announce the result; it is not a control, so no ring. */
+.fm-done:focus { outline: none; }
+.fm-done__title { font-size: var(--step-head); line-height: 0.98; }
+.fm-done__body { max-width: 34ch; font-size: var(--step-body); line-height: 1.45; text-wrap: pretty; }
+
+/* Packages (promo, hidden until the owner has real ones): one comparison, a row per package, the
+   same four columns. On a phone each package is a block and every value names itself. */
+.fm-packages { max-width: 1920px; }
+.pkg { width: 100%; margin-top: clamp(1.5rem, 3vw, 2.5rem); border-collapse: collapse; text-align: left; font-size: var(--step-body); }
+.pkg th, .pkg td { padding: 1.25rem 1rem 1.25rem 0; vertical-align: top; }
+.pkg thead th { font-size: var(--step-small); font-weight: 500; color: var(--muted); }
+.pkg tbody tr { border-top: 1px solid var(--surface-3); }  /* a real table: its rows may have a line */
+.pkg__name { font-family: var(--font-display); font-size: var(--step-lead); font-weight: 500; line-height: 1.15; }
+.pkg__includes { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35rem; }
+@media (max-width: 759px) {
+  .pkg thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .pkg tr, .pkg th, .pkg td { display: block; }
+  .pkg td { padding: 0.5rem 0 0; }
+  .pkg td::before { content: attr(data-label); display: block; font-size: var(--step-small); color: var(--muted); }
+  .pkg tbody tr { padding-block: 1.25rem; }
+  .pkg th { padding: 0; }
+}
+@media (min-width: 760px) {
+  .pkg td:last-child, .pkg th:last-child { padding-right: 0; }
+}
+
+/* ─── Reduced motion: keep the finished state, drop the travel ───────────────*/
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  .rv { transition: none; }
+  .finder__results { transition: none; }
+  .js [data-reveal]:not(.is-in) .rv, .js .rv[data-reveal]:not(.is-in) { opacity: 1; transform: none; }
+  .hero__img { animation: none; }
+  .btn:active, .np-toggle:active { transform: none; }
+  .fm-submit::before { animation: none; }
+  .fm-frame img { transition: none; }
+  .played__img { transition: none; }
+  #mini-player, #now-playing-bar { transition: none; }
+  .tl__eq i { animation: none !important; }
+  .album-head__cover img, .page-head__art img { animation: none; }
+  /* the buffering pulse of the player's progress: the fill stays, the flicker goes */
+  #now-playing-bar:has(.np-toggle[data-state='buffering']) .np-edge,
+  #now-playing-progress.np-loading { animation: none; }
+}
+
+/* Scroll-linked drift of the live pictures (4-12% of their own height) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .live__pic { animation: live-drift linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+  }
+}
+@keyframes live-drift {
+  from { transform: translateY(var(--d, 16px)); }
+  to { transform: translateY(calc(var(--d, 16px) * -1)); }
+}
