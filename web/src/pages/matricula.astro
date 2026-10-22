@@ -1,0 +1,571 @@
+---
+// matricula.astro — enrollment request form (DRAFT, unlisted).
+//
+// A family asks for a spot for a child. POSTs to /api/metal-archive/enrollment
+// (links_bio/fastapi_forms.py). The copy, the fields and the option lists are
+// a draft that the foundation will correct; the option values below must stay
+// identical to the Relationship / MonthlyIncome lists in fastapi_forms.py
+// (tests/test_enrollment_form.py checks that).
+//
+// Unlisted on purpose while it is a draft: noindex, not linked from anywhere,
+// and not in sitemap.xml (the sitemap is a fixed list plus DB pages, so a new
+// page is never added to it by accident). The audience reads Spanish, mostly
+// on a phone, so the page is Spanish while the rest of the site is English.
+import '../styles/global.css';
+
+const canonical = 'https://danielbanariba.com/matricula';
+---
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#09080d" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>Solicitud de matrícula</title>
+  <meta name="description" content="Formulario para solicitar un cupo para un niño o una niña." />
+  <link rel="canonical" href={canonical} />
+</head>
+<body class="enroll-page">
+  <main class="enroll" id="main">
+    <header class="enroll-header">
+      <h1>Solicitud de matrícula</h1>
+      <p class="enroll-lead">
+        Con este formulario puede pedir un cupo para un niño o una niña de una familia
+        con pocos recursos. Complete los datos y el equipo se pondrá en contacto con usted.
+      </p>
+      <p class="enroll-note">Todos los datos son obligatorios, menos los que dicen «opcional».</p>
+    </header>
+
+    <div class="enroll-card">
+      <!-- Success state: shown instead of the form once the API answers 200. -->
+      <div class="enroll-success" id="enroll-success" role="status" tabindex="-1" hidden>
+        <h2>Solicitud enviada</h2>
+        <p>Gracias. Recibimos la solicitud y el equipo se pondrá en contacto con usted.</p>
+        <button type="button" class="enroll-secondary" id="enroll-again">Enviar otra solicitud</button>
+      </div>
+
+      <form id="enrollment-form" novalidate>
+        <!-- ─── Guardian ──────────────────────────────────────────────── -->
+        <section class="enroll-section" aria-labelledby="sec-guardian">
+          <h2 id="sec-guardian">Persona encargada</h2>
+
+          <div class="enroll-field">
+            <label for="guardian_name">Nombre completo</label>
+            <input id="guardian_name" name="guardian_name" type="text" class="enroll-input"
+              autocomplete="name" maxlength="200" required aria-describedby="guardian_name-error" />
+            <p class="enroll-error" id="guardian_name-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="relationship">Relación con el niño o la niña</label>
+            <select id="relationship" name="relationship" class="enroll-input" required
+              aria-describedby="relationship-error">
+              <option value="" selected>Elija una opción</option>
+              <option value="Madre">Madre</option>
+              <option value="Padre">Padre</option>
+              <option value="Abuela o abuelo">Abuela o abuelo</option>
+              <option value="Tía o tío">Tía o tío</option>
+              <option value="Otro">Otro</option>
+            </select>
+            <p class="enroll-error" id="relationship-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="phone">Teléfono (WhatsApp)</label>
+            <input id="phone" name="phone" type="tel" class="enroll-input" inputmode="tel"
+              autocomplete="tel" maxlength="30" required aria-describedby="phone-hint phone-error" />
+            <p class="enroll-hint" id="phone-hint">Por ejemplo: 9999-0000</p>
+            <p class="enroll-error" id="phone-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="email">Correo electrónico (opcional)</label>
+            <input id="email" name="email" type="email" class="enroll-input" inputmode="email"
+              autocomplete="email" spellcheck="false" maxlength="254" aria-describedby="email-error" />
+            <p class="enroll-error" id="email-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="community">Colonia, aldea o ciudad donde vive</label>
+            <input id="community" name="community" type="text" class="enroll-input"
+              autocomplete="address-level2" maxlength="200" required aria-describedby="community-error" />
+            <p class="enroll-error" id="community-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="address">Dirección (opcional)</label>
+            <input id="address" name="address" type="text" class="enroll-input"
+              autocomplete="street-address" maxlength="200" aria-describedby="address-error" />
+            <p class="enroll-error" id="address-error"></p>
+          </div>
+        </section>
+
+        <!-- ─── Child ─────────────────────────────────────────────────── -->
+        <section class="enroll-section" aria-labelledby="sec-child">
+          <h2 id="sec-child">Niño o niña</h2>
+
+          <div class="enroll-field">
+            <label for="child_name">Nombre completo</label>
+            <input id="child_name" name="child_name" type="text" class="enroll-input"
+              autocomplete="off" maxlength="200" required aria-describedby="child_name-error" />
+            <p class="enroll-error" id="child_name-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="birth_date">Fecha de nacimiento</label>
+            <input id="birth_date" name="birth_date" type="date" class="enroll-input"
+              autocomplete="off" required aria-describedby="birth_date-error" />
+            <p class="enroll-error" id="birth_date-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="grade">Grado o nivel que solicita</label>
+            <input id="grade" name="grade" type="text" class="enroll-input"
+              autocomplete="off" maxlength="200" required aria-describedby="grade-error" />
+            <p class="enroll-error" id="grade-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="current_school">Escuela donde estudia ahora (opcional)</label>
+            <input id="current_school" name="current_school" type="text" class="enroll-input"
+              autocomplete="off" maxlength="200" aria-describedby="current_school-error" />
+            <p class="enroll-error" id="current_school-error"></p>
+          </div>
+        </section>
+
+        <!-- ─── Household ─────────────────────────────────────────────── -->
+        <section class="enroll-section" aria-labelledby="sec-household">
+          <h2 id="sec-household">Hogar</h2>
+
+          <div class="enroll-field">
+            <label for="household_size">Personas que viven en el hogar</label>
+            <input id="household_size" name="household_size" type="text" class="enroll-input enroll-input--short"
+              inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="2" required
+              aria-describedby="household_size-hint household_size-error" />
+            <p class="enroll-hint" id="household_size-hint">Cuente a todas las personas que viven en la casa. Escriba un número del 1 al 20.</p>
+            <p class="enroll-error" id="household_size-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="monthly_income">Ingreso mensual del hogar</label>
+            <select id="monthly_income" name="monthly_income" class="enroll-input" required
+              aria-describedby="monthly_income-hint monthly_income-error">
+              <option value="" selected>Elija una opción</option>
+              <option value="Menos de L 5,000">Menos de L 5,000</option>
+              <option value="De L 5,000 a L 10,000">De L 5,000 a L 10,000</option>
+              <option value="De L 10,001 a L 15,000">De L 10,001 a L 15,000</option>
+              <option value="Más de L 15,000">Más de L 15,000</option>
+              <option value="Prefiero no decir">Prefiero no decir</option>
+            </select>
+            <p class="enroll-hint" id="monthly_income-hint">Puede elegir «Prefiero no decir».</p>
+            <p class="enroll-error" id="monthly_income-error"></p>
+          </div>
+
+          <div class="enroll-field">
+            <label for="reason">¿Por qué solicita el cupo?</label>
+            <textarea id="reason" name="reason" class="enroll-input enroll-textarea" rows="5"
+              maxlength="5000" required aria-describedby="reason-hint reason-error"></textarea>
+            <p class="enroll-hint" id="reason-hint">Cuéntenos con sus palabras la situación de la familia.</p>
+            <p class="enroll-error" id="reason-error"></p>
+          </div>
+        </section>
+
+        <!-- ─── Consent ───────────────────────────────────────────────── -->
+        <section class="enroll-section" aria-labelledby="sec-privacy">
+          <h2 id="sec-privacy">Privacidad</h2>
+          <p class="enroll-privacy" id="consent-hint">
+            Los datos de este formulario se usan solo para evaluar la solicitud y para contactar a la familia.
+          </p>
+          <div class="enroll-field">
+            <label class="enroll-check" for="consent">
+              <input id="consent" name="consent" type="checkbox" required
+                aria-describedby="consent-hint consent-error" />
+              <span>Estoy de acuerdo con que se usen los datos para eso.</span>
+            </label>
+            <p class="enroll-error" id="consent-error"></p>
+          </div>
+        </section>
+
+        <!-- Honeypot: invisible and unreachable for a real visitor. A bot that
+             fills every field fills this one too, so the server drops the
+             request silently. Never display:none -- some bots skip fields
+             hidden that way. -->
+        <input type="text" id="website" name="website" class="sr-only"
+          tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+        <!-- Form-level problems (network, too many requests, server error).
+             role=alert announces it as soon as text is put inside. -->
+        <p class="enroll-alert" id="enroll-alert" role="alert"></p>
+
+        <button type="submit" class="enroll-submit" id="enroll-submit">Enviar solicitud</button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // Same API plumbing as the contact form on index.astro (shared timeout,
+    // API_BASE). The Spanish timeout text below replaces FORM_TIMEOUT_MESSAGE,
+    // which is English and would be shown to Spanish-speaking families.
+    import { API_BASE, FORM_FETCH_TIMEOUT_MS, isTimeoutError, timeoutSignal } from '../lib/api.js';
+
+    type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+    const form = document.getElementById('enrollment-form') as HTMLFormElement;
+    const submitBtn = document.getElementById('enroll-submit') as HTMLButtonElement;
+    const alertBox = document.getElementById('enroll-alert') as HTMLElement;
+    const success = document.getElementById('enroll-success') as HTMLElement;
+    const againBtn = document.getElementById('enroll-again') as HTMLButtonElement;
+
+    // ─── Messages (plain Spanish) ───────────────────────────────────────────
+    const REQUIRED = 'Este dato es obligatorio.';
+    const TOO_LONG = 'Este dato es demasiado largo.';
+    // What each field says when its own rule fails. The server's 422 detail is
+    // never shown: it is a list of objects in English.
+    const MESSAGES: Record<string, string> = {
+      relationship: 'Elija una opción de la lista.',
+      monthly_income: 'Elija una opción de la lista.',
+      phone: 'Escriba un teléfono válido, por ejemplo 9999-0000.',
+      email: 'Escriba un correo válido, por ejemplo nombre@correo.com.',
+      birth_date: 'Indique la fecha de nacimiento. No puede ser una fecha futura.',
+      household_size: 'Escriba un número del 1 al 20.',
+      consent: 'Marque la casilla para poder enviar la solicitud.',
+    };
+    const NOT_SENT = 'No se pudo enviar la solicitud. Intente de nuevo en unos minutos.';
+    const CHECK_DATA = 'Revise los datos marcados e intente de nuevo.';
+    const TOO_MANY = 'Se hicieron demasiados envíos. Espere unos minutos e intente de nuevo.';
+    const TIMEOUT = 'El envío tardó demasiado. Revise su conexión e intente de nuevo.';
+    const OFFLINE = 'No hay conexión con el servidor. Revise su internet e intente de nuevo.';
+
+    // Server rules, mirrored from EnrollmentPayload in fastapi_forms.py.
+    const REQUIRED_FIELDS = [
+      'guardian_name', 'relationship', 'phone', 'community', 'child_name',
+      'birth_date', 'grade', 'household_size', 'monthly_income', 'reason',
+    ];
+    const PHONE_CHARS = /^[0-9+() -]+$/;
+    const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+    function field(name: string): Field | null {
+      return form.elements.namedItem(name) as Field | null;
+    }
+
+    function todayISO(): string {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    function isRealPastDate(value: string): boolean {
+      const m = ISO_DATE.exec(value);
+      if (!m) return false;
+      const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+      const date = new Date(y, mo - 1, d);
+      const exists = date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d;
+      return exists && value <= todayISO();
+    }
+
+    // The browser will not offer future days in the picker; the check below is
+    // what actually blocks a typed one.
+    (field('birth_date') as HTMLInputElement).max = todayISO();
+
+    // ─── Inline errors ──────────────────────────────────────────────────────
+    function setFieldError(name: string, message: string) {
+      const el = field(name);
+      const out = document.getElementById(`${name}-error`);
+      if (!el || !out) return;
+      out.textContent = message;
+      el.setAttribute('aria-invalid', 'true');
+    }
+
+    function clearFieldError(name: string) {
+      const el = field(name);
+      const out = document.getElementById(`${name}-error`);
+      if (!el || !out) return;
+      out.textContent = '';
+      el.removeAttribute('aria-invalid');
+    }
+
+    function clearAllErrors() {
+      alertBox.textContent = '';
+      for (const el of Array.from(form.elements) as Field[]) {
+        if (el.name) clearFieldError(el.name);
+      }
+    }
+
+    // Show every error, then put the cursor on the first bad field in page order.
+    function showFieldErrors(errors: Record<string, string>) {
+      let first: Field | null = null;
+      for (const el of Array.from(form.elements) as Field[]) {
+        if (el.name && errors[el.name]) {
+          setFieldError(el.name, errors[el.name]);
+          first ??= el;
+        }
+      }
+      first?.focus();
+    }
+
+    // Typing in a field takes its own error away.
+    const clearOnEdit = (e: Event) => {
+      const name = (e.target as Field).name;
+      if (name) clearFieldError(name);
+    };
+    form.addEventListener('input', clearOnEdit);
+    form.addEventListener('change', clearOnEdit);
+
+    // ─── Validation ─────────────────────────────────────────────────────────
+    function readForm() {
+      const data: Record<string, string> = {};
+      for (const el of Array.from(form.elements) as Field[]) {
+        if (el.name && el.type !== 'checkbox') data[el.name] = el.value.trim();
+      }
+      const consent = (field('consent') as HTMLInputElement).checked;
+      return { data, consent };
+    }
+
+    function validate(data: Record<string, string>, consent: boolean): Record<string, string> {
+      const errors: Record<string, string> = {};
+
+      for (const name of REQUIRED_FIELDS) {
+        if (!data[name]) errors[name] = MESSAGES[name] ?? REQUIRED;
+      }
+      for (const [name, value] of Object.entries(data)) {
+        const max = (field(name) as HTMLInputElement | null)?.maxLength ?? -1;
+        if (!errors[name] && max > 0 && value.length > max) errors[name] = TOO_LONG;
+      }
+
+      if (!errors.phone) {
+        const digits = (data.phone.match(/[0-9]/g) ?? []).length;
+        if (!PHONE_CHARS.test(data.phone) || digits < 8 || digits > 15) errors.phone = MESSAGES.phone;
+      }
+      if (data.email && !errors.email && !EMAIL_SHAPE.test(data.email)) errors.email = MESSAGES.email;
+      if (!errors.birth_date && !isRealPastDate(data.birth_date)) errors.birth_date = MESSAGES.birth_date;
+      if (!errors.household_size) {
+        const n = Number(data.household_size);
+        if (!/^[0-9]+$/.test(data.household_size) || n < 1 || n > 20) errors.household_size = MESSAGES.household_size;
+      }
+      if (!consent) errors.consent = MESSAGES.consent;
+
+      return errors;
+    }
+
+    // ─── Server answers ─────────────────────────────────────────────────────
+    function showAlert(message: string) {
+      alertBox.textContent = message;
+      alertBox.scrollIntoView({ block: 'nearest' });
+    }
+
+    // A FastAPI 422 body is { detail: [{ loc: ['body', 'phone'], type, msg }] }.
+    // Map each entry to its field; anything unrecognised becomes one generic line.
+    function showServerValidation(body: unknown) {
+      const detail = (body as { detail?: unknown } | null)?.detail;
+      const errors: Record<string, string> = {};
+      if (Array.isArray(detail)) {
+        for (const item of detail) {
+          const loc: unknown[] = Array.isArray(item?.loc) ? item.loc : [];
+          const name = String(loc[loc.length - 1] ?? '');
+          if (!name || !field(name) || errors[name]) continue;
+          errors[name] =
+            item.type === 'missing' ? (MESSAGES[name] ?? REQUIRED)
+            : String(item.type).startsWith('string_too_long') ? TOO_LONG
+            : (MESSAGES[name] ?? CHECK_DATA);
+        }
+      }
+      if (Object.keys(errors).length) {
+        showFieldErrors(errors);
+      } else {
+        showAlert(CHECK_DATA);
+      }
+    }
+
+    function setSubmitting(on: boolean) {
+      submitBtn.disabled = on;
+      submitBtn.textContent = on ? 'Enviando…' : 'Enviar solicitud';
+      form.setAttribute('aria-busy', String(on));
+    }
+
+    let sending = false;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (sending) return;
+      clearAllErrors();
+
+      const { data, consent } = readForm();
+      const errors = validate(data, consent);
+      if (Object.keys(errors).length) {
+        showFieldErrors(errors);
+        return;
+      }
+
+      sending = true;
+      setSubmitting(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/metal-archive/enrollment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, household_size: Number(data.household_size), consent }),
+          signal: timeoutSignal(FORM_FETCH_TIMEOUT_MS),
+        });
+        if (res.ok) {
+          form.hidden = true;
+          success.hidden = false;
+          success.focus();
+        } else if (res.status === 422) {
+          showServerValidation(await res.json().catch(() => null));
+        } else if (res.status === 429) {
+          showAlert(TOO_MANY);
+        } else {
+          showAlert(NOT_SENT);
+        }
+      } catch (err) {
+        showAlert(isTimeoutError(err) ? TIMEOUT : OFFLINE);
+      } finally {
+        sending = false;
+        setSubmitting(false);
+      }
+    });
+
+    // For a family with another child: back to an empty form.
+    againBtn.addEventListener('click', () => {
+      form.reset();
+      clearAllErrors();
+      success.hidden = true;
+      form.hidden = false;
+      field('guardian_name')?.focus();
+    });
+  </script>
+
+  <style>
+    /* Page-scoped styles: colours and fonts come from the site tokens in
+       global.css (--bg, --content, --primary, --text-*), nothing is added there. */
+    .enroll-page { color-scheme: dark; min-height: 100vh; }
+    /* No 300ms double-tap-zoom delay on the controls. */
+    .enroll-input, .enroll-submit, .enroll-secondary, .enroll-check { touch-action: manipulation; }
+
+    .enroll {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem var(--gutter) 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .enroll-header { display: flex; flex-direction: column; gap: 0.75rem; }
+    .enroll-header h1 { font-size: 2rem; line-height: 1.15; text-wrap: balance; }
+    .enroll-lead { font-size: 1.05rem; color: var(--text-body); text-wrap: pretty; }
+    .enroll-note { font-size: 0.95rem; color: var(--text-footer); }
+
+    .enroll-card {
+      background: var(--content);
+      border: 1px solid var(--secondary);
+      border-radius: 1rem;
+      padding: 1.25rem;
+    }
+    @media (min-width: 640px) { .enroll-card { padding: 2rem; } }
+
+    .enroll-section { display: flex; flex-direction: column; gap: 1.1rem; }
+    .enroll-section + .enroll-section { margin-top: 2rem; }
+    .enroll-section h2 {
+      font-size: 1.25rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .enroll-privacy { font-size: 1rem; color: var(--text-body); }
+
+    .enroll-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .enroll-field label { color: var(--text-header); font-size: 1rem; font-weight: 500; }
+    .enroll-hint { font-size: 0.9rem; color: var(--text-footer); }
+    .enroll-error { font-size: 0.95rem; color: #fca5a5; }
+    .enroll-error:empty { display: none; }
+
+    /* 16px text stops iOS from zooming into the field; 48px is above the
+       44px minimum touch target. */
+    .enroll-input {
+      width: 100%;
+      min-height: 48px;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg);
+      color: var(--text-header);
+      font: inherit;
+      font-size: 1rem;
+      font-weight: 400;
+      border: 1px solid rgba(0, 115, 168, 0.6);
+      border-radius: 0.5rem;
+    }
+    .enroll-input--short { max-width: 8rem; }
+    .enroll-textarea { min-height: 8rem; resize: vertical; }
+    .enroll-input:focus-visible {
+      outline: 2px solid var(--text-header);
+      outline-offset: 2px;
+      border-color: var(--primary);
+    }
+    .enroll-input[aria-invalid="true"] { border-color: #dc2626; }
+
+    .enroll-check {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-height: 48px;
+      cursor: pointer;
+    }
+    .enroll-check input {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      accent-color: var(--primary);
+    }
+    .enroll-check input[aria-invalid="true"] { outline: 2px solid #dc2626; outline-offset: 2px; }
+    .enroll-check input:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; }
+
+    .enroll-alert {
+      margin-top: 1.5rem;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      color: #fca5a5;
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid #dc2626;
+      border-radius: 0.5rem;
+    }
+    .enroll-alert:empty { display: none; }
+
+    .enroll-submit,
+    .enroll-secondary {
+      min-height: 52px;
+      padding: 0.75rem 1.5rem;
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: var(--text-header);
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+    .enroll-submit {
+      width: 100%;
+      margin-top: 1.5rem;
+      background: var(--primary);
+      border: none;
+    }
+    .enroll-submit:hover:not(:disabled) { opacity: 0.88; }
+    .enroll-submit:disabled { opacity: 0.6; cursor: wait; }
+    .enroll-secondary { background: transparent; border: 1px solid var(--primary); }
+    .enroll-secondary:hover { background: var(--secondary); }
+
+    .enroll-success {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .enroll-success[hidden] { display: none; }
+    .enroll-success h2 { font-size: 1.5rem; }
+    .enroll-success p { font-size: 1.05rem; color: var(--text-body); }
+
+    @media (max-width: 600px) {
+      .enroll-header h1 { font-size: 1.7rem; }
+    }
+  </style>
+</body>
+</html>
