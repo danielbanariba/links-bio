@@ -563,6 +563,9 @@ body:has(.ma-footer) {
   --bar-h: 4rem;
   --player-h: 76px;
   --tabbar-h: 0px;
+  /* the docked mini video (16:9); the footer lifts its last lines by its height while it shows */
+  --mini-w: 240px;
+  --mini-h: calc(var(--mini-w) * 9 / 16);
   /* motion */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -704,7 +707,7 @@ body:has(.ma-footer) {
 .tabbar { display: none; }
 
 @media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  body:has(.tabbar) { --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px)); --player-h: 68px; }
+  body:has(.tabbar) { --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px)); --player-h: 68px; --mini-w: 176px; }
   .ma-bar__links { display: none; }
   .ma-bar__search { width: 44px; padding: 0; }
   .ma-bar__search-label {
@@ -872,7 +875,7 @@ body:has(.np-cover[style*='visibility: visible']) #now-playing-bar {
   right: var(--margin);
   bottom: calc(var(--player-h) + var(--tabbar-h) + 0.75rem);
   z-index: 90;
-  width: 240px;
+  width: var(--mini-w);
   aspect-ratio: 16 / 9;
   background: #000;
   overflow: hidden;
@@ -924,7 +927,7 @@ body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering']
   .np-right { display: none; }
   .np-timeline { display: none; }
   .np-controls { gap: 0; }
-  #mini-player { width: 176px; bottom: calc(var(--player-h) + var(--tabbar-h) + 0.5rem); }
+  #mini-player { bottom: calc(var(--player-h) + var(--tabbar-h) + 0.5rem); }
 }
 
 /* ─── Footer: the name across the last photograph ────────────────────────────*/
@@ -943,6 +946,13 @@ body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering']
   background: var(--surface);
 }
 main:has(.ask) + .ma-footer { margin-top: 0; }
+/* While the player is docked its mini video sits over the bottom-right of the page, so at the
+   maximum scroll it would hide the end of the wordmark and the legal line. The footer lifts
+   its last lines above it (the photo behind keeps running to the bar). */
+body:has(#now-playing-bar .np-cover[style*='visibility: visible']) .ma-footer,
+body:has(#now-playing-toggle:is([data-state='playing'], [data-state='buffering'])) .ma-footer {
+  padding-bottom: calc(clamp(1.25rem, 2.4vw, 2rem) + var(--mini-h) + 0.75rem);
+}
 .ma-footer__photo { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
 .ma-footer__photo::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / 0.55); }
 .ma-footer__photo img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
@@ -1137,8 +1147,11 @@ main:has(.ask) + .ma-footer { margin-top: 0; }
 .hero__bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
 .hero__img {
   /* The room: the cover pushed down to a dim, desaturated backdrop (a plain filter on the
-     image itself, no backdrop-filter). The light blur hides the softness of a 480p upscale. */
-  filter: brightness(0.32) saturate(0.75) blur(2.5px);
+     image itself, no backdrop-filter). The light blur hides the softness of a 480p upscale.
+     The brightness is set by the brightest cover that can be dealt: at 0.32 a pale one (Compadres
+     Recerdos, Diocletian) read as a grey room around the card, at 0.24 its whites stop at
+     about a quarter of full and the room stays dark. */
+  filter: brightness(0.24) saturate(0.75) blur(2.5px);
   position: absolute;
   left: 0;
   top: 50%;
@@ -1785,6 +1798,9 @@ body:has(#now-playing-toggle[data-state='playing']) .tl__row.track-active .tl__e
   line-height: 0.98;
   overflow-wrap: anywhere;
 }
+/* A name that is one long word carries a soft hyphen at its middle (title-fit.ts). Headings
+   are set to hyphens: none above, which also ignores soft hyphens, so this opts the name back in. */
+.page-head__title.fit { hyphens: manual; }
 .page-head__flag { margin-right: 0.28em; font-size: 0.62em; letter-spacing: 0; vertical-align: 0.1em; }
 .page-head__lead {
   margin-top: clamp(1rem, 2vw, 1.5rem);
@@ -1886,7 +1902,13 @@ html:not(.js) .finder__bar, html:not(.js) .finder__more, html:not(.js) .finder__
 .finder__field > svg { position: absolute; left: 1rem; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
 .finder__pick { position: relative; flex: 1 1 calc(50% - 0.375rem); min-width: 0; }
 @media (min-width: 560px) { .finder__pick { flex-basis: calc(33.333% - 0.5rem); } }
+/* From 1100px the five pills share one row under the search field, which keeps its own row until
+   1280px: on a single row, 1100 to 1279px left each pill about 144px, and "All countries" and
+   "Newest first" were cut to "All countr…" and "Newest f…". */
 @media (min-width: 1100px) {
+  .finder__pick { flex: 1 1 9rem; }
+}
+@media (min-width: 1280px) {
   .finder__field { flex: 2 1 16rem; }
   .finder__pick { flex: 1 1 8.5rem; }
 }
