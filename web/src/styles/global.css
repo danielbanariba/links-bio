@@ -1795,7 +1795,9 @@ a.np-name:hover { text-decoration: underline; }
      its error overlay, so the bar drops its own YouTube link here to make room
      for the close button. */
   .np-center { flex: 0 0 auto; }
-  .np-right { flex: 0 0 auto; }
+  /* 12px between next and close: two 44px buttons side by side are easy to
+     mis-hit, and close ends the music. */
+  .np-right { flex: 0 0 auto; margin-left: 12px; }
   .np-yt-link { display: none; }
 }
 @media (max-width: 480px) {
