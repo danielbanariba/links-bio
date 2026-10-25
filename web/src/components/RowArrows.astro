@@ -25,7 +25,6 @@ const { title } = Astro.props;
   // An end arrow is aria-disabled, not disabled: a disabled button that had focus
   // would drop it to <body>, while aria-disabled keeps the focus where it was.
   const bound = new WeakSet<Element>();
-  const syncOf = new WeakMap<Element, () => void>();
 
   function bindArrows(arrows: HTMLElement) {
     const row = arrows.closest('section')?.querySelector<HTMLElement>('.carousel-row');
@@ -49,16 +48,15 @@ const { title } = Astro.props;
       row.scrollBy({ left: Number(btn.dataset.rowScroll) * row.clientWidth * 0.9, behavior: reduce ? 'auto' : 'smooth' });
     });
     row.addEventListener('scroll', sync, { passive: true });
-    syncOf.set(arrows, sync);
+    // The row can change width with no window resize and no scroll (the desktop
+    // Now playing column opening narrows the page), so watch the row itself.
+    new ResizeObserver(sync).observe(row);
     sync();
   }
 
   function bindAll() {
     document.querySelectorAll<HTMLElement>('.row-arrows').forEach(bindArrows);
   }
-  window.addEventListener('resize', () => {
-    document.querySelectorAll('.row-arrows').forEach((el) => syncOf.get(el)?.());
-  });
   document.addEventListener('astro:page-load', bindAll);
   bindAll();
 </script>
