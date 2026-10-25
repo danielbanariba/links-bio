@@ -103,6 +103,22 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
 {isMetalArchive && <Player client:load transition:persist="metal-player" />}
 
 <script>
+  // Go to `url`. On a ClientRouter page (the archive) this is a client-side
+  // navigation, so the persisted Player island keeps playing; a full page load
+  // would destroy it. Pages without ClientRouter (the bio) load the page as before.
+  async function goTo(url: string) {
+    let navigate: ((to: string) => unknown) | null = null;
+    if (document.querySelector('[name="astro-view-transitions-enabled"]')) {
+      try {
+        navigate = (await import('astro:transitions/client')).navigate;
+      } catch {
+        navigate = null;
+      }
+    }
+    if (navigate) navigate(url);
+    else window.location.href = url;
+  }
+
   // Surprise Me: navigate to a random album. The album id list is inlined on
   // the home page; on other pages we fall back to a small fetch of the browse
   // index (already cached on browse) to pick a random id.
@@ -120,7 +136,7 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
       const inlined = (window as any).__albumIds as number[] | undefined;
       if (inlined && inlined.length) {
         const id = inlined[Math.floor(Math.random() * inlined.length)];
-        window.location.href = '/metal-archive/album/' + id;
+        goTo('/metal-archive/album/' + id);
         return;
       }
       try {
@@ -129,11 +145,11 @@ const tabClass = (active: boolean) => (active ? 'tabbar__item is-active' : 'tabb
         if (Array.isArray(data) && data.length) {
           const pick = data[Math.floor(Math.random() * data.length)];
           if (pick && pick.id != null) {
-            window.location.href = '/metal-archive/album/' + pick.id;
+            goTo('/metal-archive/album/' + pick.id);
           }
         }
       } catch {
-        window.location.href = '/metal-archive/browse';
+        goTo('/metal-archive/browse');
       }
     });
   }
