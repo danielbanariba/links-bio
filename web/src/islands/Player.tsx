@@ -236,15 +236,21 @@ export default function Player() {
     // The album page renders a big "now playing" hero AND the bottom bar, both
     // with play/pause + progress. We update EVERY matching element by class so
     // all control surfaces stay in lockstep no matter which one was pressed.
+    //
+    // The bar always shows the album that plays. The hero (everything outside the
+    // bar) belongs to the album of its page: it shows time and progress only while
+    // THAT album plays, and its own idle state (0:00, 0%, its length) otherwise.
+    const heroLive = () => isOpen() && pageIsPlayingAlbum(readNpData());
     const setAllProgress = (pct: string) => {
+      const live = heroLive();
+      const shown = (el: Element) => (live || el.closest('#now-playing-bar') ? pct : '0%');
       document.querySelectorAll<HTMLElement>('.js-progress-fill').forEach((el) => {
-        el.style.width = pct;
+        el.style.width = shown(el);
       });
       // Mirror the visual fill onto the accessible progressbar (read-only): the
       // role="progressbar" container exposes aria-valuenow for screen readers.
-      const now = String(Math.round(parseFloat(pct) || 0));
       document.querySelectorAll('.js-progressbar').forEach((el) => {
-        el.setAttribute('aria-valuenow', now);
+        el.setAttribute('aria-valuenow', String(Math.round(parseFloat(shown(el)) || 0)));
       });
     };
     const setPP = (state: 'playing' | 'paused' | 'buffering' | 'error') => {
@@ -276,10 +282,14 @@ export default function Player() {
       return `${m}:${sec < 10 ? '0' : ''}${sec}`;
     };
     const setTimes = (cur: number, dur: number) => {
-      document.querySelectorAll('.js-time-current').forEach((el) => { el.textContent = fmtTime(cur); });
-      if (dur > 0) {
-        document.querySelectorAll('.js-time-total').forEach((el) => { el.textContent = fmtTime(dur); });
-      }
+      const live = heroLive();
+      document.querySelectorAll('.js-time-current').forEach((el) => { el.textContent = live ? fmtTime(cur) : '0:00'; });
+      document.querySelectorAll<HTMLElement>('.js-time-total').forEach((el) => {
+        // The page renders the album's length ("37 min"); keep it to restore when idle.
+        if (el.dataset.idle === undefined) el.dataset.idle = el.textContent || '';
+        if (!live) el.textContent = el.dataset.idle;
+        else if (dur > 0) el.textContent = fmtTime(dur);
+      });
     };
     const setNpTitle = (name: string) => {
       if (!name) return;
@@ -593,6 +603,7 @@ export default function Player() {
     // so jumping to another track looks like the progress "didn't move".
     const npResetProgress = () => {
       setAllProgress('0%');
+      setTimes(0, 0);
     };
 
     // ─── the single source of truth for "make track N the active one" ───────
