@@ -1,23 +1,16 @@
 ---
-// Metal Archive home — redesign (2026).
-// Greeting + themed hero carousel (each slide tinted by its own album cover via
-// vibrant.ts -> --slide-color) over the neutral base, then discovery sections.
+// Metal Archive home: listen-first. A one-line heading, then rows of covers that
+// play in place. Each row is a play queue: the ▶ on a card queues the cards of
+// its own row (Carousel marks it data-queue) and the player goes on by itself.
 import {
-  getEditorPicks,
-  getHiddenGems,
+  getRecentAlbums,
+  getMostPlayed,
   getGenreShowcases,
-  getCountryRotation,
   getLiveRecordings,
-  getAllCountries,
-  getAllYears,
-  getGenreFacetGroups,
-  getAllAlbumIds,
-  getTopBands,
   slugify,
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
-import { countryFlag, countryLabel, genreLabel } from '../../lib/labels.js';
-import { getAlbumColor } from '../../lib/vibrant.js';
+import { genreLabel } from '../../lib/labels.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import Carousel from '../../components/Carousel.astro';
@@ -25,51 +18,12 @@ import AlbumCard from '../../components/AlbumCard.astro';
 import '../../styles/global.css';
 
 // ─── Data queries (all build-time) ───────────────────────────────────────────
-const editorPicks     = getEditorPicks();
-const hiddenGems      = getHiddenGems();
-const genreShowcases  = getGenreShowcases(5);    // top 5 genres by album count
-const countryRotation = getCountryRotation(6);   // 6 random countries + a sample album
-const liveRecordings  = getLiveRecordings(12);   // Daniel's own live sets — own section
-const allCountries    = getAllCountries();        // all distinct countries + counts
-const allYears        = getAllYears();            // all distinct years + counts
-// #20: grouped (not getAllGenres()) so a raw-value slug collision (e.g.
-// "Black Death Metal" vs "Black/Death Metal") can't silently produce two
-// cards for the same /metal-archive/genre/<slug> page -- the same defect
-// class the sitemap/getStaticPaths() fix for country already covers via
-// groupFacetsBySlug(), just not yet applied to this section.
-//
-// R3-009: getGenreFacetGroups() returns every group (sitemap.xml.ts and
-// genre/[genre].astro's getStaticPaths() both need the FULL list to build
-// every page, so the cap below is this page's own display concern, applied
-// after the full list, never inside getGenreFacetGroups() itself). The home
-// section used to render all ~292 groups; cap it to the top N by album
-// count, the same "top N by count" pattern already used for this page's
-// other home sections (getGenreShowcases(5), getTopBands(12)) -- 24 keeps
-// it the same order of magnitude as the ~78 real countries the "Browse by
-// country" grid below renders, and divides evenly into the grid's
-// 5-column desktop breakpoint.
-const GENRE_HOME_CAP  = 24;
-const genreGroups     = getGenreFacetGroups()     // all genres, grouped by slug
-  .slice()
-  .sort((a, b) => b.count - a.count)
-  .slice(0, GENRE_HOME_CAP);
-const allAlbumIds     = getAllAlbumIds();         // for Surprise Me random pick
-const topBands        = getTopBands(12);          // home "Bands" circular row
-
-// ─── Hero carousel — featured albums (fallback: hidden gems), each tinted by
-// its own cover's dominant color (cached by vibrant.ts -> zero runtime work). ──
-const heroSource = (editorPicks.length ? editorPicks : hiddenGems).slice(0, 5);
-const heroAlbums = await Promise.all(
-  heroSource.map(async (album) => ({ album, color: await getAlbumColor(album.thumb) })),
-);
-
-// Country flags + English labels come from lib/labels.ts — the single source
-// of truth. This file used to carry its own copy of the flag map (duplicated in
-// country/[country].astro), both keyed on the Spanish database names.
-
-// JSON for Surprise Me — inline so no extra fetch is needed.
-const albumIdsJson = JSON.stringify(allAlbumIds);
-const ogImage = heroSource[0]?.thumb;
+const ROW_SIZE = 12;
+const latest         = getRecentAlbums(0, ROW_SIZE);   // id 0 excludes nothing
+const mostPlayed     = getMostPlayed(ROW_SIZE);
+const genreShowcases = getGenreShowcases(5);           // top 5 genres by album count
+const liveRecordings = getLiveRecordings(ROW_SIZE);    // Daniel's own live sets
+const ogImage = latest[0]?.thumb;
 ---
 
 <!doctype html>
@@ -96,131 +50,18 @@ const ogImage = heroSource[0]?.thumb;
     <Navbar />
 
     <main id="main" tabindex="-1">
-      <!-- A real, descriptive h1 for the document outline. The time-of-day
-           greeting below ("Hello" / "Good morning") describes nothing about
-           the page and used to be the page's ONLY h1 — visually hidden so the
-           greeting keeps its current look as the visible heading-shaped text. -->
-      <h1 class="sr-only">Metal Archive — Underground metal catalog</h1>
-      <div class="wrap">
-        <!-- ─── Greeting (time-of-day set client-side; SSG can't know the
-             visitor's local hour) ──────────────────────────────────────────── -->
-        <header class="home-greeting">
-          <div>
-            <p class="home-greeting__hello" id="greeting">Hello</p>
-            <p class="home-greeting__sub">Underground metal catalog</p>
-          </div>
-          <div class="home-greeting__actions">
-            <a class="home-greeting__icon" href="/metal-archive/newsletter" aria-label="Newsletter">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </a>
-          </div>
-        </header>
-
-        <!-- ─── Hero carousel — each slide tinted by its own cover color ─────── -->
-        {heroAlbums.length > 0 && (
-          <section class="hero-carousel" aria-label="Featured albums">
-            <div class="hero-track" id="hero-track">
-              {heroAlbums.map((h, i) => (
-                <a
-                  class="hero-slide"
-                  style={`--slide-color: ${h.color};`}
-                  href={`/metal-archive/album/${h.album.id}`}
-                >
-                  {h.album.thumb
-                    ? <img class="hero-slide__bg" src={h.album.thumb} alt="" loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />
-                    : <div class="hero-slide__bg" style="background: var(--content);" aria-hidden="true"></div>
-                  }
-                  <div class="hero-slide__inner">
-                    <span class="hero-slide__eyebrow">✦ Featured</span>
-                    <span class="hero-slide__band">{h.album.band_name}</span>
-                    <span class="hero-slide__album">{h.album.album_title}</span>
-                    <span class="hero-slide__meta">
-                      {[genreLabel(h.album.genre), countryLabel(h.album.country), h.album.year].filter(Boolean).join(' · ')}
-                    </span>
-                    <span class="hero-slide__cta">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                      Play
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-            {heroAlbums.length > 1 && (
-              <div class="hero-dots" id="hero-dots">
-                {heroAlbums.map((_, i) => (
-                  <button class="hero-dot" type="button" aria-label={`Go to featured album ${i + 1}`}></button>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-      </div>
-
       <div class="wrap home-sections">
-        <!-- Search — discovery entry point; submits to browse (?q=) ─────────── -->
-        <section class="home-search">
-          <form class="home-search__form" action="/metal-archive/browse" method="get" role="search">
-            <svg class="home-search__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              class="home-search__input"
-              type="search"
-              name="q"
-              placeholder="Search bands, albums, genres..."
-              aria-label="Search bands, albums, genres"
-              autocomplete="off"
-            />
-            <button class="home-search__btn" type="submit">Search</button>
-          </form>
-        </section>
+        <h1 class="home-title">Metal Archive</h1>
+        <!-- Keeps the row titles (h3, from Carousel) nested under an h2. -->
+        <h2 class="sr-only">Albums to play</h2>
 
-        <!-- Visually-hidden section heading: everything from "Bands" through
-             the country rotation below is the curated discovery block. Keeps
-             the h3 section titles (Bands, Hidden Gems, per-genre, per-country)
-             properly nested under an h2 instead of jumping straight to h3. -->
-        <h2 class="sr-only">Discover</h2>
+        <Carousel title="Latest uploads" albums={latest} href="/metal-archive/browse" layout="scroll" />
 
-        <!-- Bands — circular avatars (representative cover as the avatar) ──────── -->
-        {topBands.length > 0 && (
-          <section class="carousel-deferred">
-            <div class="section-header">
-              <h3>Bands</h3>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="bands-row">
-              {topBands.map((b) => (
-                <a class="band-avatar" href={`/metal-archive/band/${slugify(b.band_name)}`}>
-                  <span class="band-avatar__img-wrap">
-                    {b.thumb
-                      ? <img class="band-avatar__img" src={b.thumb} alt={b.band_name} loading="lazy" decoding="async" />
-                      : <span class="band-avatar__img band-avatar__img--empty" aria-hidden="true"></span>
-                    }
-                  </span>
-                  <span class="band-avatar__name">{b.band_name}</span>
-                  <span class="band-avatar__count">{b.count} {b.count === 1 ? 'album' : 'albums'}</span>
-                </a>
-              ))}
-            </div>
-          </section>
+        {mostPlayed.length > 0 && (
+          <Carousel title="Most played" albums={mostPlayed} href="/metal-archive/browse?sort=views" layout="scroll" />
         )}
 
-        <!-- Hidden Gems — horizontal scroll row ─────────────────────────────── -->
-        {hiddenGems.length > 0 && (
-          <Carousel
-            title="Hidden Gems"
-            albums={hiddenGems}
-            href="/metal-archive/browse"
-            layout="scroll"
-            deferred={false}
-          />
-        )}
-
-        <!-- Genre showcases — one cover row per top genre ──────────────────── -->
+        <!-- One row per top genre; "See all" goes to that genre's page. -->
         {genreShowcases.map((showcase) => (
           <Carousel
             title={genreLabel(showcase.genre)}
@@ -231,220 +72,37 @@ const ogImage = heroSource[0]?.thumb;
           />
         ))}
 
-        <!-- Country rotation "Explore {country}" ───────────────────────────── -->
-        {countryRotation.length > 0 && (
-          <Carousel
-            title={`Explore ${countryLabel(countryRotation[0]?.country) || 'the world'}`}
-            albums={countryRotation.map((c) => c.album)}
-            layout="scroll"
-            deferred={true}
-          />
-        )}
-
-        <!-- Live Recordings — Daniel's OWN live sets, visually separate ─────── -->
+        <!-- Live recordings: Daniel's OWN live sets, in their own row. No "See all":
+             there is no page for them. Written out here (not through Carousel)
+             to keep the branded live cover, which Carousel has no prop for. -->
         {liveRecordings.length > 0 && (
-          <section class="section carousel-deferred live-section">
+          <section class="section carousel-deferred">
             <div class="section-header">
-              <div class="live-section__heading">
-                <h2>Live Recordings</h2>
-                <span class="live-section__badge">Live sets</span>
-              </div>
+              <h3>Live recordings</h3>
             </div>
-            <p class="live-section__note">
-              Personal live recordings — kept separate from the official album catalog.
-            </p>
-            <div class="carousel-row">
+            <div class="carousel-row" data-queue>
               {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
             </div>
           </section>
         )}
-
-        <!-- Browse-by sections ─────────────────────────────────────────────── -->
-        <hr class="home-divider" />
-
-        {genreGroups.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by genre</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="genre-grid">
-              {genreGroups.map((group) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/genre/${group.slug}`}
-                  title={`${group.count} ${group.count === 1 ? 'album' : 'albums'} in ${genreLabel(group.label)}`}
-                >
-                  <span class="facet-card__name">{genreLabel(group.label)}</span>
-                  <span class="facet-card__count">
-                    {group.count} {group.count === 1 ? 'album' : 'albums'}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {allCountries.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by country</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="country-grid">
-              {/* The href still slugifies the RAW database value, so existing
-                  country URLs keep working; only the visible label is English. */}
-              {allCountries.map((facet) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/country/${slugify(facet.value)}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albums'} from ${countryLabel(facet.value)}`}
-                >
-                  {countryFlag(facet.value) && (
-                    <span class="facet-card__flag" aria-hidden="true">
-                      {countryFlag(facet.value)}
-                    </span>
-                  )}
-                  <span class="facet-card__name">{countryLabel(facet.value)}</span>
-                  <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {allYears.length > 0 && (
-          <section class="carousel-deferred home-browse-by">
-            <div class="section-header">
-              <h2>Browse by year</h2>
-              <a href="/metal-archive/browse" class="section-header__link">See all →</a>
-            </div>
-            <div class="year-grid">
-              {allYears.map((facet) => (
-                <a
-                  class="facet-card"
-                  href={`/metal-archive/year/${facet.value}`}
-                  title={`${facet.count} ${facet.count === 1 ? 'album' : 'albums'} from ${facet.value}`}
-                >
-                  <span class="facet-card__name">{facet.value}</span>
-                  <span class="facet-card__count">
-                    {facet.count} {facet.count === 1 ? 'album' : 'albums'}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <!-- Surprise Me ────────────────────────────────────────────────────── -->
-        <div class="home-cta-row">
-          <button id="btn-random" class="btn-sorprendeme" type="button">
-            Surprise me
-          </button>
-        </div>
-
-        <script define:vars={{ albumIdsJson }} data-astro-rerun>
-          // define:vars forces this script inline (non-bundled), so it would NOT
-          // run when ClientRouter swaps the home page in from another page.
-          // data-astro-rerun makes it re-execute after every view transition that
-          // lands on a page containing it — so it runs on first load AND whenever
-          // we navigate (back) to home. The __bound guard avoids duplicate
-          // listeners; window.__albumIds is (re)published for the navbar Surprise Me.
-          (function () {
-            var ids = JSON.parse(albumIdsJson);
-            window.__albumIds = ids;
-            var btn = document.getElementById('btn-random');
-            if (!btn || btn.__bound) return;
-            btn.__bound = true;
-            btn.addEventListener('click', function () {
-              if (!ids.length) return;
-              var id = ids[Math.floor(Math.random() * ids.length)];
-              window.location.href = '/metal-archive/album/' + id;
-            });
-          })();
-        </script>
-
-        <!-- YouTube CTA ────────────────────────────────────────────────────── -->
-        <div class="home-cta-row home-cta-row--tight">
-          <a
-            class="btn-youtube"
-            href="https://www.youtube.com/channel/UCa5U18nMgHUsqg-zsE1779Q?sub_confirmation=1"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Subscribe on YouTube
-          </a>
-        </div>
-      </div><!-- /.wrap -->
+      </div>
     </main>
 
     <Footer />
 
-    <!-- Time-of-day greeting + hero carousel dot sync (vanilla, no framework) -->
     <script>
-      // With ClientRouter this <script> does not re-execute on navigation, and
-      // the home markup (greeting, carousel) is fresh after every swap — so we
-      // run the whole init on astro:page-load (fires on first load too). A
-      // per-element guard avoids re-binding dot clicks / re-observing slides if
-      // the same DOM is revisited without a swap.
+      // R3-003: the right-edge fade on .carousel-row is only wanted while scrolling
+      // further right would actually reveal more content, so .has-scroll-fade is
+      // toggled from the real scroll position. With ClientRouter this <script> does
+      // not re-execute on navigation, so the init runs on astro:page-load (which
+      // fires on the first load too); a per-row guard avoids re-binding.
       (function () {
-        function initHome() {
-          var g = document.getElementById('greeting');
-          if (g) {
-            var h = new Date().getHours();
-            g.textContent =
-              h < 6 ? 'Good evening' : h < 12 ? 'Good morning' : h < 19 ? 'Good afternoon' : 'Good evening';
-          }
-
-          var track = document.getElementById('hero-track');
-          var dotsWrap = document.getElementById('hero-dots');
-          if (!track || !dotsWrap || (track as any).__bound) return;
-          (track as any).__bound = true;
-          var slides = Array.prototype.slice.call(track.querySelectorAll('.hero-slide'));
-          var dots = Array.prototype.slice.call(dotsWrap.querySelectorAll('.hero-dot'));
-          if (!slides.length || !dots.length) return;
-
-          function setActive(i) {
-            for (var j = 0; j < dots.length; j++) dots[j].classList.toggle('is-active', j === i);
-          }
-          setActive(0);
-
-          dots.forEach(function (d, i) {
-            d.addEventListener('click', function () {
-              slides[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            });
-          });
-
-          if ('IntersectionObserver' in window) {
-            var io = new IntersectionObserver(
-              function (entries) {
-                entries.forEach(function (e) {
-                  if (e.isIntersecting) {
-                    var idx = slides.indexOf(e.target);
-                    if (idx >= 0) setActive(idx);
-                  }
-                });
-              },
-              { root: track, threshold: 0.6 },
-            );
-            slides.forEach(function (s) { io.observe(s); });
-          }
-        }
-        document.addEventListener('astro:page-load', initHome);
-
-        // R3-003: the right-edge fade on .carousel-row/.bands-row used to be
-        // permanent CSS, so it stayed visible even once a row had no more
-        // content to scroll to (and dimmed the last card's focus ring the
-        // whole time). .has-scroll-fade is only added while scrolling
-        // further right would actually reveal more content.
         function updateRowFade(row: Element) {
           var hasMore = row.scrollWidth - row.scrollLeft - row.clientWidth > 1;
           row.classList.toggle('has-scroll-fade', hasMore);
         }
         function initScrollFade() {
-          var rows = document.querySelectorAll('.carousel-row, .bands-row');
+          var rows = document.querySelectorAll('.carousel-row');
           rows.forEach(function (row) {
             updateRowFade(row);
             if ((row as any).__fadeBound) return;
@@ -453,7 +111,7 @@ const ogImage = heroSource[0]?.thumb;
           });
         }
         window.addEventListener('resize', function () {
-          document.querySelectorAll('.carousel-row, .bands-row').forEach(updateRowFade);
+          document.querySelectorAll('.carousel-row').forEach(updateRowFade);
         });
         document.addEventListener('astro:page-load', initScrollFade);
       })();
