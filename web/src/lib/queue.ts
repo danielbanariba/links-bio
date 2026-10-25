@@ -73,3 +73,21 @@ export function upNext<T extends QueueItem>(q: Queue<T>, count = 3): T[] {
   }
   return out;
 }
+
+/**
+ * The queue rebuilt from `items` (the cards of the same scope as they are now),
+ * still at the loaded album and still remembering the albums that failed to
+ * embed. A scope can gain cards after its queue was built ("Load more"), and the
+ * queue only holds what was rendered then.
+ * Null when there is nothing new to continue with: the loaded album is no longer
+ * in `items` (the scope was filtered or re-sorted), or no playable album follows it.
+ */
+export function extendQueue<T extends QueueItem>(q: Queue<T>, items: T[]): Queue<T> | null {
+  const current = q.items[q.index];
+  if (!current) return null;
+  const rebuilt = buildQueue(items, current.videoId);
+  // buildQueue starts at index 0 when the album is missing: that is not "extended".
+  if (!rebuilt || rebuilt.items[rebuilt.index].videoId !== current.videoId) return null;
+  const extended = { ...rebuilt, unplayable: q.unplayable };
+  return nextIndex(extended) >= 0 ? extended : null;
+}

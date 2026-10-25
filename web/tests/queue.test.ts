@@ -10,6 +10,7 @@ import {
   markUnplayable,
   upNext,
   withIndex,
+  extendQueue,
 } from '../src/lib/queue.ts';
 
 const card = (videoId: string) => ({ videoId, title: `album ${videoId}` });
@@ -98,4 +99,42 @@ test('up next lists the next three playable albums and never wraps', () => {
   assert.deepEqual(ids(upNext(q)), ['b', 'd', 'e']);
   assert.deepEqual(ids(upNext(withIndex(q, 4))), ['f']);
   assert.deepEqual(ids(upNext(withIndex(q, 5))), []);
+});
+
+// ─── extendQueue: "Load more" adds cards to a scope after its queue was built ───
+
+test('a queue at its last album continues with the cards the scope gained', () => {
+  // Defect: the queue only covers the 24 results rendered when the ▶ was
+  // pressed, so after "Load more" playback still ends at result 24.
+  const q = buildQueue(row('a', 'b', 'c'), 'c')!;
+  const longer = extendQueue(q, row('a', 'b', 'c', 'd', 'e'))!;
+  assert.equal(longer.index, 2);
+  assert.equal(longer.items[nextIndex(longer)].videoId, 'd');
+  assert.deepEqual(ids(upNext(longer)), ['d', 'e']);
+});
+
+test('the rebuilt queue still skips albums that failed to embed', () => {
+  // Defect: rebuilding from the cards with a fresh unplayable set, so an
+  // album that already errored is tried (and errors) again.
+  let q = buildQueue(row('a', 'b', 'c'), 'c')!;
+  q = markUnplayable(q, 'b');
+  const longer = extendQueue(q, row('a', 'b', 'c', 'd'))!;
+  assert.equal(longer.items[prevIndex(longer)].videoId, 'a');
+});
+
+test('nothing new after the loaded album means no extended queue', () => {
+  // Defect: returning a queue that still has no next, which the caller would
+  // take as "extended" and keep waiting on, instead of ending playback. New
+  // cards that already failed to embed do not count as new.
+  let q = buildQueue(row('a', 'b', 'c'), 'c')!;
+  assert.equal(extendQueue(q, row('a', 'b', 'c')), null);
+  q = markUnplayable(q, 'd');
+  assert.equal(extendQueue(q, row('a', 'b', 'c', 'd')), null);
+});
+
+test('a scope that no longer holds the loaded album does not move the queue', () => {
+  // Defect: buildQueue falls back to index 0 when the start album is missing,
+  // so a filter change would jump playback to the first result.
+  const q = buildQueue(row('a', 'b', 'c'), 'c')!;
+  assert.equal(extendQueue(q, row('x', 'y', 'z')), null);
 });

@@ -60,6 +60,7 @@ import {
   markUnplayable,
   withIndex,
   upNext,
+  extendQueue,
   type Queue,
 } from '../lib/queue.js';
 
@@ -138,6 +139,9 @@ export default function Player() {
   // The play queue (albums) and a video requested before the player could take
   // it (iframe still booting): loaded as soon as the player is ready.
   const queueRef = useRef<Queue<QItem> | null>(null);
+  // The [data-queue] element the queue was built from (null for any other source):
+  // it can gain cards after that ("Load more" on Browse).
+  const queueScopeRef = useRef<Element | null>(null);
   const pendingRef = useRef<PendingPlay | null>(null);
 
   // Refs to the now-playing bar nodes we mutate imperatively.
@@ -618,7 +622,9 @@ export default function Player() {
               // Single-video albums end here. Fill the bar (we reached the end)
               // rather than leaving it mid-track.
               setAllProgress('100%');
-              // Go on to the next album by itself; at the end of the queue stop.
+              // Go on to the next album by itself; at the end of the queue stop,
+              // unless its scope has gained cards since the queue was built.
+              topUpQueue();
               const q = queueRef.current;
               const n = q ? nextIndex(q) : -1;
               if (n >= 0) goTo(n);
@@ -776,6 +782,7 @@ export default function Player() {
       }
       setBarName(name);
       if (name) setNpTitle(name);
+      topUpQueue();
       paintUpNext();
       updateTransport();
     };
@@ -799,6 +806,21 @@ export default function Player() {
       else startItem(q.items[q.index]);   // first album: restart it
     };
 
+    // A queue only holds the cards its scope had when it was built, and a scope can
+    // gain more ("Load more" on Browse). At the end of the queue, rebuild it from
+    // the same scope element when that now has playable albums after the current
+    // one. A scope that left the page (a ClientRouter swap) can gain nothing.
+    // Returns true when the queue grew.
+    const topUpQueue = (): boolean => {
+      const q = queueRef.current;
+      const scope = queueScopeRef.current;
+      if (!q || nextIndex(q) >= 0 || !scope || !scope.isConnected) return false;
+      const longer = extendQueue(q, cardItems(scope));
+      if (!longer) return false;
+      queueRef.current = longer;
+      return true;
+    };
+
     // A video that cannot be embedded (YT errors 2/5/100/101/150): mark it and go
     // to the next playable album. Returns false at the end of the queue (or with
     // no queue), where the caller shows the "Video unavailable" overlay instead.
@@ -806,8 +828,9 @@ export default function Player() {
       const q = queueRef.current;
       if (!q || !q.items[q.index]) return false;
       const failed = q.items[q.index];
-      const marked = markUnplayable(q, failed.videoId);
-      queueRef.current = marked;
+      queueRef.current = markUnplayable(q, failed.videoId);
+      topUpQueue();
+      const marked = queueRef.current;
       const n = nextIndex(marked);
       if (n < 0) { paintUpNext(); updateTransport(); return false; }
       goTo(n);
@@ -825,6 +848,7 @@ export default function Player() {
     const startPageAlbum = (pageData: NpData, startSeconds: number, idx: number) => {
       const item = itemFromData(pageData);
       queueRef.current = buildQueue([item, ...cardItems(document)], item.videoId);
+      queueScopeRef.current = null;
       startItem(item, { startSeconds, trackIdx: idx });
     };
 
@@ -838,6 +862,7 @@ export default function Player() {
       dockRef.current?.setAttribute('inert', '');
       clearNotice();
       queueRef.current = null;
+      queueScopeRef.current = null;
       pendingRef.current = null;
       loadedVideoIdRef.current = '';
       playingTracksRef.current = [];
@@ -962,6 +987,9 @@ export default function Player() {
         setAllProgress(pct + '%');
         setTimes(cur, dur);
         syncCards();
+        // "Load more" may have added cards while the last album plays: Next and
+        // Up next should show them now, not only when it ends.
+        if (topUpQueue()) { paintUpNext(); updateTransport(); }
 
         // Auto-advance: if playback has crossed into the next track's range,
         // update the name + highlight (no seek — playback is already there).
@@ -1020,6 +1048,9 @@ export default function Player() {
         if (isOpen() && item.videoId === loadedVideoIdRef.current) { togglePlay(); return; }
         const scope = cardBtn.closest('[data-queue]') || document;
         queueRef.current = buildQueue(cardItems(scope), item.videoId);
+        // Only an element can be rebuilt later: `document` would silently turn into
+        // whatever page is open when the queue ends.
+        queueScopeRef.current = scope instanceof Element ? scope : null;
         startItem(item);
         return;
       }
