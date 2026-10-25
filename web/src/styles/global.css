@@ -1750,6 +1750,7 @@ a.np-name:hover { text-decoration: underline; }
   color: var(--text-footer);
   font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.2;   /* what the h2 rule gave it */
   letter-spacing: 0.1em;
   text-transform: uppercase;
   margin-bottom: 0.5rem;

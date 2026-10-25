@@ -1172,9 +1172,11 @@ export default function Player() {
           <a class="np-dock__title" ref={dockTitleRef} href="#"></a>
           <a class="np-dock__band" ref={dockBandRef} href="#"></a>
         </div>
-        <section class="np-upnext" ref={upNextSecRef} aria-label="Up next" hidden>
-          <h2 class="np-upnext__h">Up next</h2>
-          <ol class="np-upnext__list" ref={upNextListRef}></ol>
+        {/* A label, not a heading: this dock comes before <main> in the DOM, so an
+            h2 here would be read before the page's h1. */}
+        <section class="np-upnext" ref={upNextSecRef} hidden>
+          <p class="np-upnext__h" id="np-upnext-label">Up next</p>
+          <ol class="np-upnext__list" ref={upNextListRef} aria-labelledby="np-upnext-label"></ol>
         </section>
       </aside>
 
