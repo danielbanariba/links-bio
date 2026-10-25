@@ -491,6 +491,12 @@ export default function Player() {
       });
     };
 
+    // controls=0 leaves nothing in the video to operate, so the iframe is not a
+    // Tab stop. The bar has the controls; the video itself is only to watch.
+    const skipIframeInTabOrder = () => {
+      miniPlayerRef.current?.querySelector('iframe')?.setAttribute('tabindex', '-1');
+    };
+
     // ─── build the YT.Player ────────────────────────────────────────────────
     // Always built CUED (autoplay=0): playback starts only from onReady consuming
     // a still-pending request (pendingRef). An autoplay playerVar would start the
@@ -533,6 +539,7 @@ export default function Player() {
         },
         events: {
           onReady: () => {
+            skipIframeInTabOrder();   // the iframe surely exists by now
             hideAllOverlays();
             // A play requested while the iframe was still booting, at the
             // position it asked for. Nothing pending (never requested, or closed
@@ -586,6 +593,8 @@ export default function Player() {
           },
         },
       });
+      // Right after the constructor too, so a Tab before onReady cannot land in it.
+      skipIframeInTabOrder();
     };
 
     // ─── lazy-cue on page load ──────────────────────────────────────────────
