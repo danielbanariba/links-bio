@@ -9,6 +9,8 @@
 // youtube_video_id has nothing to play and renders no button.
 // `accent` (optional) tints the hover ring/glow with the album's dominant color;
 // defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
+// The cover is decorative (alt=""): the band and album text right under it is the
+// link's name, so a screen reader would otherwise read both twice.
 // `livePlaceholder` (optional) — when true, renders a branded placeholder instead
 // of the API-sourced thumbnail (used for Live Recordings cards on the home page).
 import type { Card } from '../lib/types.js';
@@ -42,7 +44,7 @@ const videoId = (album.youtube_video_id || '').trim();
           ? <img
               class="album-card__cover"
               src={album.thumb}
-              alt={`${album.band_name} — ${album.album_title}`}
+              alt=""
               loading={loading}
               decoding="async"
               width="400"

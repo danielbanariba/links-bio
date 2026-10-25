@@ -301,7 +301,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
                       <img
                         class="album-card__cover"
                         src={a.thumb}
-                        alt={`${a.band_name} — ${a.album_title}`}
+                        alt=""
                         loading="lazy"
                         decoding="async"
                         width="400"
