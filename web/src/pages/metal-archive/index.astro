@@ -15,6 +15,7 @@ import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import Carousel from '../../components/Carousel.astro';
 import AlbumCard from '../../components/AlbumCard.astro';
+import RowArrows from '../../components/RowArrows.astro';
 import '../../styles/global.css';
 
 // ─── Data queries (all build-time) ───────────────────────────────────────────
@@ -79,6 +80,7 @@ const ogImage = latest[0]?.thumb;
           <section class="section carousel-deferred">
             <div class="section-header">
               <h3>Live recordings</h3>
+              <div class="section-header__tools"><RowArrows title="Live recordings" /></div>
             </div>
             <div class="carousel-row" data-queue>
               {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
@@ -93,27 +95,42 @@ const ogImage = latest[0]?.thumb;
     <script>
       // R3-003: the right-edge fade on .carousel-row is only wanted while scrolling
       // further right would actually reveal more content, so .has-scroll-fade is
-      // toggled from the real scroll position. With ClientRouter this <script> does
-      // not re-execute on navigation, so the init runs on astro:page-load (which
-      // fires on the first load too); a per-row guard avoids re-binding.
+      // toggled from the real scroll position. The same position enables the row's
+      // prev/next arrows (RowArrows, in the row header): each one is disabled at its
+      // end. With ClientRouter this <script> does not re-execute on navigation, so
+      // the init runs on astro:page-load (which fires on the first load too); a
+      // per-row guard avoids re-binding, and the arrows use one delegated click.
       (function () {
-        function updateRowFade(row: Element) {
-          var hasMore = row.scrollWidth - row.scrollLeft - row.clientWidth > 1;
-          row.classList.toggle('has-scroll-fade', hasMore);
+        function updateRow(row: Element) {
+          var max = row.scrollWidth - row.clientWidth;
+          row.classList.toggle('has-scroll-fade', max - row.scrollLeft > 1);
+          var arrows = row.closest('section')?.querySelectorAll<HTMLButtonElement>('[data-row-scroll]');
+          arrows?.forEach(function (b) {
+            b.disabled = b.dataset.rowScroll === '-1' ? row.scrollLeft <= 1 : max - row.scrollLeft <= 1;
+          });
         }
         function initScrollFade() {
           var rows = document.querySelectorAll('.carousel-row');
           rows.forEach(function (row) {
-            updateRowFade(row);
+            updateRow(row);
             if ((row as any).__fadeBound) return;
             (row as any).__fadeBound = true;
-            row.addEventListener('scroll', function () { updateRowFade(row); }, { passive: true });
+            row.addEventListener('scroll', function () { updateRow(row); }, { passive: true });
           });
         }
         window.addEventListener('resize', function () {
-          document.querySelectorAll('.carousel-row').forEach(updateRowFade);
+          document.querySelectorAll('.carousel-row').forEach(updateRow);
+        });
+        document.addEventListener('click', function (e) {
+          var btn = (e.target as Element).closest<HTMLElement>('[data-row-scroll]');
+          var row = btn?.closest('section')?.querySelector('.carousel-row');
+          if (!btn || !row) return;
+          var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          // About one visible width, keeping a little of the last card for context.
+          row.scrollBy({ left: Number(btn.dataset.rowScroll) * row.clientWidth * 0.9, behavior: reduce ? 'auto' : 'smooth' });
         });
         document.addEventListener('astro:page-load', initScrollFade);
+        initScrollFade();   // a navigation can run this script after astro:page-load has fired
       })();
     </script>
   </body>

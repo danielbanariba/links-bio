@@ -732,6 +732,39 @@ img {
   color: var(--primary);
 }
 
+/* Row header tools: the scroll arrows and "See all". The arrows only exist for a
+   mouse or trackpad (a hidden scrollbar leaves no other cue); touch keeps swiping. */
+.section-header__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.row-arrows { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .row-arrows { display: inline-flex; gap: 0.4rem; }
+}
+.row-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.row-arrow:hover:not(:disabled) {
+  color: var(--text-header);
+  background: color-mix(in srgb, #fff 8%, transparent);
+  border-color: var(--accent-soft);
+}
+.row-arrow:disabled { opacity: 0.35; cursor: default; }
+.row-arrow:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+
 /* ─── Home: a short heading and rows of covers, nothing else ─────────────────
    Compact rhythm so the first row of covers sits inside the first screen. Each
    row is a <section class="section"> from Carousel; the flex gap owns the spacing. */
