@@ -1134,14 +1134,22 @@ export default function Player() {
       // "playing"/"buffering"), so it never interrupts audio still playing
       // across the navigation.
       clearPPError();
+      const data = readNpData();
+      const onPlayingAlbum = isOpen() && pageIsPlayingAlbum(data);
+      // The page we landed on IS the album that is playing: its hero button is
+      // fresh markup stuck at "paused" (play icon, "Play"), while the video is
+      // playing. The persisted bar toggle is the node setPP kept current, so
+      // copy its state to the new controls before they are labelled.
+      if (onPlayingAlbum) {
+        const state = document.getElementById('now-playing-toggle')?.getAttribute('data-state');
+        if (state) document.querySelectorAll('.js-pp').forEach((el) => el.setAttribute('data-state', state));
+      }
       // The hero button of the new page is fresh markup with the page's static
       // label; give it the one that matches its state.
       document.querySelectorAll('.js-pp').forEach(labelPP);
-      // If the page we just landed on IS the album currently playing, sync the
-      // active-row highlight (its rows are fresh markup after the swap) and the
-      // track name, which is only known from this page's tracklist.
-      const data = readNpData();
-      if (data && isOpen() && pageIsPlayingAlbum(data)) syncPlayingTrack(data);
+      // Sync the active-row highlight (its rows are fresh markup after the
+      // swap) and the track name, which is only known from this page's tracklist.
+      if (data && onPlayingAlbum) syncPlayingTrack(data);
     };
     document.addEventListener('astro:page-load', onPageLoad);
 
