@@ -302,7 +302,8 @@ img {
   will-change: transform;
 }
 
-.album-card:hover .album-card__art {
+.album-card:hover .album-card__art,
+.album-card-wrap:hover .album-card__art {
   /* Lift + glow only — NO scale (scaling the framed cover clipped the artwork
      on hover, and the brand guide bans scale on cards anyway). */
   transform: translateY(-6px);
@@ -324,7 +325,8 @@ img {
   transition: filter 0.28s ease;
 }
 
-.album-card:hover .album-card__cover {
+.album-card:hover .album-card__cover,
+.album-card-wrap:hover .album-card__cover {
   filter: brightness(1.08) saturate(1.05);
 }
 
@@ -405,9 +407,43 @@ img {
   white-space: nowrap;
 }
 
-/* "Open" affordance: cyan/accent circle, bottom-right, fades + slides in on
-   hover. An arrow (not a play triangle) — the card links to the album page, it
-   does not play in place, so it must not imply in-situ playback. */
+/* Card wrapper: the link and the play button are SIBLINGS (a <button> inside an
+   <a> is invalid). It is a size container so the button can sit in the
+   bottom-right corner of the square cover (100cqw = the cover's width) while the
+   text below the cover stays part of the link. */
+.album-card-wrap {
+  position: relative;
+  container-type: inline-size;
+}
+
+/* Play button over the cover: always visible (touch has no hover), 44px target.
+   The Player island handles its click (data-play-card). */
+.album-card__play {
+  position: absolute;
+  right: 0.6rem;
+  top: calc(100cqw - 2.75rem - 0.6rem);
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--card-accent, var(--accent));
+  color: var(--on-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.15s ease;
+}
+.album-card__play svg { margin-left: 2px; }   /* optical centring of the triangle */
+.album-card-wrap:hover .album-card__play { transform: translateY(-6px); }   /* rides with the cover lift */
+.album-card__play:hover { filter: brightness(1.12); }
+.album-card__play:focus-visible { outline-offset: 3px; }
+
+/* "Open" affordance: accent circle, bottom-right, fades + slides in on hover.
+   AlbumCard no longer renders it (its ▶ takes the corner); the Browse results
+   (islands/Search.tsx) still do, until they get their own ▶. */
 .album-card__open {
   position: absolute;
   right: 0.6rem;
@@ -466,10 +502,13 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .album-card__art,
   .album-card__cover,
-  .album-card__open {
+  .album-card__open,
+  .album-card__play {
     transition: opacity 0.2s ease;
   }
-  .album-card:hover .album-card__art { transform: none; }
+  .album-card:hover .album-card__art,
+  .album-card-wrap:hover .album-card__art,
+  .album-card-wrap:hover .album-card__play { transform: none; }
 }
 
 /* ─── Album grid (genre / country / year / browse / album pages) ──────────────
@@ -934,9 +973,6 @@ img {
    baked per-page at BUILD time on the <html> element (see vibrant.ts), so the
    halo + active-track tint are correct on first paint with zero client JS.
    ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Reserve space for the fixed now-playing bar (72px + breathing room). */
-body.album-detail { padding-bottom: 80px; }
 
 /* Album-color halo on the page background. --album-color falls back to the
    cyan brand if Vibrant produced nothing. */
@@ -1461,31 +1497,48 @@ a.band-pill:focus-visible {
   font-weight: 600;
 }
 
-/* ═══ Now-playing bar (ported from now_playing_bar.py) ═══════════════════════ */
-/* The bar is now GLOBAL + persistent across the whole metal-archive section
-   (rendered from the Navbar, transition:persist), so every archive page must
-   reserve space for it — not just the album detail page. :has() scopes the
-   padding to pages that actually render the bar (the bio never does), so the bio
-   is untouched. The mobile override (134px = tab bar + bar) lives in the
-   max-width media query below. */
-body:has(#now-playing-bar) { padding-bottom: 80px; }
+/* ═══ Player: now-playing bar + video dock ════════════════════════════════════
+   One persisted island (#np-root, display: contents). Before the first play the
+   bar is hidden and the dock is rendered OFF-SCREEN, never display:none: the
+   iframe has to exist to be cued so the first tap can play synchronously. The
+   first play sets #np-root[data-open] (state on a persisted element; <body> is
+   replaced on every navigation, but :has() sees the moved island):
+     < 1100px   the video docks full width directly above the bar, >= 200px tall
+     >= 1100px  a right "Now playing" column: video, album, band and Up next
+   YouTube's embed rules need the player >= 200x200 and visible while it plays,
+   so both layouts keep the video on screen, and the page reserves their space
+   (body padding below 1100px, margin on main + footer for the column). */
+:root {
+  --np-bar-h: 72px;
+  --np-tab-h: 0px;                              /* 58px where the phone tab bar shows */
+  --np-video-h: clamp(200px, 56.25vw, 280px);   /* docked video */
+  --np-col-w: 400px;                            /* desktop column */
+}
+#np-root { display: contents; }
+
+/* Space for the open bar + docked video (plus the phone tab bar). Before the first
+   play nothing is reserved beyond the tab bar's own padding. */
+body:has(#np-root[data-open]) {
+  padding-bottom: calc(var(--np-bar-h) + var(--np-tab-h) + var(--np-video-h) + 8px);
+}
 
 #now-playing-bar {
   position: fixed;
-  bottom: 0;
+  bottom: var(--np-tab-h);
   left: 0;
   right: 0;
-  height: 72px;
+  height: var(--np-bar-h);
   background: color-mix(in srgb, var(--accent) 22%, var(--glass-bg));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   backdrop-filter: blur(var(--glass-blur));
   border-top: 1px solid var(--glass-border);
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--accent-soft);
-  display: flex;
+  display: none;                                /* until the first play */
   align-items: center;
   padding: 0 1.5em;
   z-index: 100;
 }
+#np-root[data-open] #now-playing-bar { display: flex; }
 
 .np-left {
   display: flex;
@@ -1518,6 +1571,7 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   text-overflow: ellipsis;
   max-width: 220px;
 }
+a.np-name:hover { text-decoration: underline; }
 .np-artist {
   color: var(--text-footer);
   font-size: 0.75em;
@@ -1558,6 +1612,13 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
 .np-icon-btn:hover {
   color: var(--text-header);
   background: color-mix(in srgb, #fff 8%, transparent);
+}
+/* Prev/next with nowhere to go (no queue yet, or the last album). */
+.np-icon-btn:disabled,
+.stage__ctl:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 .np-toggle {
   position: relative;
@@ -1605,6 +1666,7 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 0.5em;
   min-width: 0;
 }
 .np-yt-link {
@@ -1621,23 +1683,41 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
    icon-button (revealed in the ≤767px media query). */
 .np-yt-icon { display: none; }
 
-/* ═══ Mini-player (ported from mini_player.py) ═══════════════════════════════ */
-#mini-player {
+/* ─── Video dock ─────────────────────────────────────────────────────────────
+   Closed: off-screen but rendered, at a size that already satisfies the 200x200
+   rule. Open (below 1100px): docked full width right above the bar. */
+#np-dock {
   position: fixed;
-  bottom: 96px;
-  left: 20px;
-  width: 240px;
-  height: 135px;
-  border-radius: 2px;
-  border: 1px solid var(--accent);
-  overflow: hidden;
-  z-index: 50;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  top: 0;
+  left: -10000px;
+  width: 360px;
+  z-index: 90;
   background: #000;
-  transition: width 0.3s ease, height 0.3s ease;
 }
-#mini-player.expanded { width: 480px; height: 270px; }
+#mini-player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  background: #000;
+  overflow: hidden;
+}
 #mini-player iframe { border: 0; pointer-events: none; }
+
+#np-root[data-open] #np-dock {
+  left: 0;
+  right: 0;
+  top: auto;
+  width: auto;
+  bottom: calc(var(--np-bar-h) + var(--np-tab-h));
+  height: var(--np-video-h);
+  border-top: 1px solid var(--glass-border);
+}
+#np-root[data-open] #mini-player { height: 100%; aspect-ratio: auto; }
+
+/* Album + band + Up next only exist in the desktop column. */
+.np-dock__meta,
+.np-upnext { display: none; }
 
 @keyframes mp-spin { to { transform: rotate(360deg); } }
 .mp-spinner {
@@ -1663,7 +1743,119 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   z-index: 2;
 }
 
-/* ─── Mobile: keep the player reachable (YouTube out + collapsible video) ─────*/
+/* ─── Desktop column (and short landscape phones, where a docked video would not
+   fit above the bars): the video leaves the bottom for a right-hand column that
+   starts below the sticky navbar (--np-top, measured by the Player) and ends at
+   the bar. The page narrows by the column's width so nothing is covered. ───── */
+@media (min-width: 1100px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  body:has(#np-root[data-open]) {
+    padding-bottom: calc(var(--np-bar-h) + var(--np-tab-h) + 8px);
+  }
+  /* Padding, not margin: several mains set width:100%, which would swallow a
+     margin. The extra --gutter keeps the page's own right gutter next to the
+     column. The footer is a plain block, so a margin ends it at the column. */
+  body:has(#np-root[data-open]) > main {
+    padding-right: calc(var(--np-col-w) + var(--gutter));
+  }
+  body:has(#np-root[data-open]) > .footer {
+    margin-right: var(--np-col-w);
+  }
+  /* The album page's .stage is a full-bleed band (the 100vw trick), which only
+     lines up when its container is centred in the viewport. With the column it
+     is not, so the band fills the narrowed content plus the page gutter, up to
+     the column's edge. */
+  body:has(#np-root[data-open]) .stage {
+    width: auto;
+    margin-left: 0;
+    margin-right: calc(-1 * var(--gutter));
+  }
+
+  #np-root[data-open] #np-dock {
+    left: auto;
+    right: 0;
+    top: var(--np-top, 60px);
+    width: var(--np-col-w);
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+    border-top: none;
+    border-left: 1px solid var(--glass-border);
+  }
+  #np-root[data-open] #mini-player {
+    flex: 0 0 auto;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-sm);
+  }
+  #np-root[data-open] .np-dock__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  #np-root[data-open] .np-upnext:not([hidden]) { display: block; }
+}
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) and (max-width: 1099px) {
+  :root { --np-col-w: min(400px, 46vw); }
+  #np-root[data-open] #np-dock { padding: 0; gap: 0; }
+  #np-root[data-open] #mini-player { height: 200px; aspect-ratio: auto; border-radius: 0; }
+  #np-root[data-open] .np-dock__meta,
+  #np-root[data-open] .np-upnext:not([hidden]) { display: none; }
+}
+
+.np-dock__title {
+  color: var(--text-header);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.np-dock__title:hover { text-decoration: underline; }
+.np-dock__band {
+  color: var(--accent-bright);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.np-dock__band:hover { color: var(--accent-bright); text-decoration: underline; }
+
+.np-upnext__h {
+  color: var(--text-footer);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.np-upnext__list { list-style: none; display: flex; flex-direction: column; gap: 0.2rem; }
+.np-up {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.35rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.np-up:hover { background: color-mix(in srgb, #fff 7%, transparent); }
+.np-up__cover { width: 44px; height: 44px; border-radius: 4px; object-fit: cover; flex: none; }
+.np-up__text { display: flex; flex-direction: column; min-width: 0; }
+.np-up__title,
+.np-up__band { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-up__title { color: var(--text-header); font-size: 0.85rem; font-weight: 500; }
+.np-up__band { color: var(--text-footer); font-size: 0.75rem; }
+
+/* ─── Mobile: bigger tap targets, and room for the name in a 72px bar ─────────*/
 @media (max-width: 767px) {
   #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
   #now-playing-bar .np-cover { width: 40px; height: 40px; }
@@ -1675,67 +1867,13 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   .np-icon-btn { width: 44px; height: 44px; }
   .np-toggle { width: 44px; height: 44px; }
 
-  /* The right-side YouTube link stays visible on mobile (it used to be hidden,
-     leaving no path out to the video). Collapse it to a compact icon-button
-     with a ≥44px tap target so it is always reachable in the bar. */
-  .now-playing-right { flex: 0 0 auto; }
-  .np-yt-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-pill);
-    color: var(--text-header);
-    gap: 0;
-  }
-  .np-yt-link:active { background: color-mix(in srgb, #fff 8%, transparent); }
-  .np-yt-icon { display: block; }
-  .np-yt-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
-  /* The mini-player (video iframe) becomes an on-demand bottom-sheet instead of
-     being hidden outright. It is shown by the Player (inline display:'' once an
-     album is cued) — so we no longer force display:none. Collapsed by default:
-     a slim strip docked above the bottom bar that, when tapped (the whole
-     #mini-player is data-mini-toggle), expands to a 16:9 video via .expanded.
-     Tapping it toggles toggleMiniSize() -> .expanded. */
-  #mini-player {
-    left: 0.6em;
-    right: 0.6em;
-    width: auto;
-    bottom: calc(58px + 72px + 0.5em);   /* above the now-playing bar + tab bar */
-    height: 40px;
-    transition: height 0.3s ease;
-  }
-  /* Collapsed affordance label ("Watch video") shown over the slim strip. */
-  #mini-player::after {
-    content: 'Watch video';
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-header);
-    font-size: 0.78em;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    background: color-mix(in srgb, var(--accent) 28%, #000);
-    pointer-events: none;   /* the parent #mini-player is the toggle target */
-    z-index: 1;             /* below mp-overlay (z-index:2) so loader/error/retry win */
-  }
-  #mini-player.expanded {
-    width: auto;
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-  #mini-player.expanded::after { content: none; }   /* hide the label when open */
+  /* The controls take their natural width so the album name gets the rest. The
+     video is now always on screen while playing, and "Open on YouTube" stays in
+     its error overlay, so the bar drops its own YouTube link here to make room
+     for the close button. */
+  .np-center { flex: 0 0 auto; }
+  .np-right { flex: 0 0 auto; }
+  .np-yt-link { display: none; }
 }
 @media (max-width: 480px) {
   #now-playing-name, #now-playing-artist { max-width: 140px; }
@@ -2724,13 +2862,14 @@ body:has(#now-playing-bar) { padding-bottom: 80px; }
   .tabbar__item.is-active,
   .tabbar__item:active { color: var(--accent-bright); }
 
-  /* Now-playing bar sits ABOVE the tab bar (mockups #4 / #6). */
-  #now-playing-bar { bottom: 58px; }
+  /* The now-playing bar and the docked video sit ABOVE the tab bar (mockups
+     #4 / #6): the player rules read its height from --np-tab-h. */
+  :root { --np-tab-h: 58px; }
 
   /* Reserve space so the fixed bars never cover content. :has() scopes the
-     padding to metal-archive pages only — the bio has neither bar. */
+     padding to metal-archive pages only — the bio has no tab bar. The open
+     player adds its own bar + video height (see the player block). */
   body:has(.tabbar) { padding-bottom: 58px; }
-  body:has(#now-playing-bar) { padding-bottom: 134px; }   /* 58 tab + 72 bar + 4 */
 }
 
 /* ─── Home: "Bands" circular avatar row (representative cover as the avatar) ── */

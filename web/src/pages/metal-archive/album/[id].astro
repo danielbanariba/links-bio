@@ -192,6 +192,7 @@ const hasVideo = !!(album.youtube_video_id && album.youtube_video_id.trim() !== 
 const npData = hasVideo
   ? {
       videoId: album.youtube_video_id,
+      albumId: album.id,
       youtubeUrl: album.youtube_url || '',
       albumColor,
       albumTitle: album.album_title,
@@ -326,9 +327,11 @@ const albumJsonLd = safeJsonLd({
               </div>
             </div>
 
-            <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004) -->
+            <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004).
+                 Prev/next move between ALBUMS in the play queue (this album first, then
+                 the other playable cards on this page); tracks are picked in the tracklist. -->
             <div class="stage__transport">
-              <button type="button" class="stage__ctl" aria-label="Previous track" data-np-prev="1">
+              <button type="button" class="stage__ctl" aria-label="Previous album" data-np-prev="1">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
               </button>
               <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
@@ -337,7 +340,7 @@ const albumJsonLd = safeJsonLd({
                 <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
                 <span class="ic ic-spinner" aria-hidden="true"></span>
               </button>
-              <button type="button" class="stage__ctl" aria-label="Next track" data-np-next="1">
+              <button type="button" class="stage__ctl" aria-label="Next album" data-np-next="1">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
               </button>
             </div>

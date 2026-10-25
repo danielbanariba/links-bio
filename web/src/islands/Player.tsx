@@ -7,36 +7,61 @@
 // `transition:persist`, so the SAME instance (and its YT.Player) survives every
 // navigation — audio keeps playing while the user browses, like a real music app.
 //
-// It owns the entire interactive surface: the hidden/expandable YT iframe
-// (#yt-player inside the mini-player), the now-playing bar, and the overlay
-// states (loader / error / timeout / buffering).
+// It owns the entire interactive surface: the YT iframe (#yt-player inside
+// #mini-player, which lives in the #np-dock), the now-playing bar, the "Up next"
+// list and the overlay states (loader / error / timeout / buffering).
 //
-// DATA MODEL (no props anymore):
-//   Each album page renders a JSON data island:
-//     <script type="application/json" id="metal-np-data">{ videoId, ... }</script>
-//   The island reads it on `astro:page-load` (initial load + every navigation).
+// PLAY FROM ANY CARD + QUEUE:
+//   Every AlbumCard with a video renders a <button data-play-card> next to its
+//   link. A click builds a QUEUE of albums from the nearest [data-queue] row or
+//   grid (else every [data-play-card] on the page), in DOM order, starting at
+//   the pressed card. When an album ends — or cannot be embedded (YT errors
+//   2/5/100/101/150) — the next one plays; at the end playback stops. Prev/next
+//   on the bar move between ALBUMS. The queue logic itself is pure: lib/queue.ts.
+//   The queue lives in this persisted island, so it survives navigation.
+//
+// VISIBILITY (YouTube embed rules: viewport >= 200x200 while playing, and the
+// player must be visible for autoplay): the dock and the bar are hidden until
+// the first play. The iframe is still RENDERED off-screen (never display:none)
+// so it can be cued. The same click handler that starts playback sets
+// #np-root[data-open], which makes the bar and the video visible; closing (x)
+// stops playback, removes data-open and clears the queue. The state lives on
+// that persisted element (not on <body>, which ClientRouter replaces).
+//
+// DATA MODEL:
+//   - An album page renders a JSON data island:
+//       <script type="application/json" id="metal-np-data">{ videoId, ... }</script>
+//     with the album, its tracklist and (via the tracklist) per-track seeking.
+//   - Cards carry the same facts as data attributes (video id, band, title...).
+//   Tracks are only known on the album page (or after playing from it), so the
+//   bar shows a track name only then; otherwise it shows the album.
 //
 // LIFECYCLE — CRITICAL because transition:persist means useEffect runs ONCE:
 //   - useEffect (once): load the YT API, attach the delegated document click
 //     handler, start the 1s progress interval, add the astro:page-load listener.
-//   - astro:page-load: read #metal-np-data; if NO player is built yet AND album
-//     data exists AND window.YT is ready, BUILD the player CUED with that videoId
-//     (cueing needs no user gesture). If a player already exists, DON'T touch it
-//     (keep current playback).
-//   - FIRST PLAY (click): the player is already built+cued, so seekTo()+playVideo()
-//     run SYNCHRONOUSLY inside the click handler — the user-gesture is preserved
+//   - astro:page-load: if NO player is built yet and the page has something to
+//     play (its album, else its first card) and window.YT is ready, BUILD the
+//     player CUED with that video (cueing needs no user gesture). If a player
+//     already exists, DON'T touch it (keep current playback).
+//   - PLAY (click): the player is already built+cued, so loadVideoById() runs
+//     SYNCHRONOUSLY inside the click handler — the user-gesture is preserved
 //     so autoplay is allowed. THIS IS THE #1 THING THAT BREAKS IF DONE WRONG.
-//   - SWITCH ALBUM (click on a different album's page): read THAT page's
-//     #metal-np-data and call loadVideoById() SYNCHRONOUSLY in the click handler
-//     (it loads+autoplays, gesture preserved), then repaint the now-playing bar.
 //
 // WHAT WAS PRESERVED EXACTLY:
-//   - playerVars, the YT error codes (2/5/100/101/150), the buffering spinner,
-//     the 1s progress tick (only while state===1) with per-track auto-advance,
-//     the 8s API-load timeout + retry, the class-based multi-surface sync, the
-//     share() feedback, and the mini-player expand toggle.
+//   - playerVars, the buffering spinner, the 1s progress tick (only while
+//     state===1) with per-track auto-advance, the 8s API-load timeout + retry,
+//     the class-based multi-surface sync and the share() feedback.
 
 import { useEffect, useRef } from 'preact/hooks';
+import {
+  buildQueue,
+  nextIndex,
+  prevIndex,
+  markUnplayable,
+  withIndex,
+  upNext,
+  type Queue,
+} from '../lib/queue.js';
 
 interface PlayerTrack {
   idx: number;
@@ -47,6 +72,7 @@ interface PlayerTrack {
 // Shape of the JSON the album page renders into #metal-np-data.
 interface NpData {
   videoId: string;
+  albumId?: number;
   youtubeUrl: string;
   albumColor: string;
   albumTitle: string;
@@ -54,6 +80,23 @@ interface NpData {
   coverThumb: string;
   tracks: PlayerTrack[];
 }
+
+// One album in the play queue. Built from a card's data attributes or from the
+// album page's NpData; carries everything the bar and "Up next" paint.
+interface QItem {
+  videoId: string;
+  albumId: string;
+  band: string;
+  title: string;
+  thumb: string;
+  href: string;
+  youtubeUrl: string;
+  color: string;
+}
+
+// Props spread onto the dock while it is closed: `inert` keeps the off-screen
+// iframe and its links out of the tab order and the accessibility tree.
+const INERT = { inert: true } as Record<string, unknown>;
 
 // Minimal YT typings — the IFrame API is loaded at runtime, no @types package.
 declare global {
@@ -79,8 +122,19 @@ export default function Player() {
   const loadedVideoIdRef = useRef<string>('');
   const playingTracksRef = useRef<PlayerTrack[]>([]);
 
+  // The play queue (albums) and a video requested before the player could take
+  // it (iframe still booting): loaded as soon as the player is ready.
+  const queueRef = useRef<Queue<QItem> | null>(null);
+  const pendingRef = useRef<NpData | null>(null);
+
   // Refs to the now-playing bar nodes we mutate imperatively.
-  const npNameRef = useRef<HTMLSpanElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLElement>(null);
+  const dockTitleRef = useRef<HTMLAnchorElement>(null);
+  const dockBandRef = useRef<HTMLAnchorElement>(null);
+  const upNextSecRef = useRef<HTMLElement>(null);
+  const upNextListRef = useRef<HTMLOListElement>(null);
+  const npNameRef = useRef<HTMLAnchorElement>(null);
   const npArtistRef = useRef<HTMLSpanElement>(null);
   const npCoverRef = useRef<HTMLImageElement>(null);
   const npYoutubeRef = useRef<HTMLAnchorElement>(null);
@@ -108,6 +162,56 @@ export default function Player() {
       } catch {
         return null;
       }
+    };
+
+    // ─── cards / page data → queue items ────────────────────────────────────
+    const ytWatchUrl = (id: string) => `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+    const itemFromCard = (el: HTMLElement): QItem | null => {
+      const d = el.dataset;
+      if (!d.videoId) return null;
+      return {
+        videoId: d.videoId,
+        albumId: d.albumId || '',
+        band: d.band || '',
+        title: d.title || '',
+        thumb: d.thumb || '',
+        href: d.href || '#',
+        youtubeUrl: ytWatchUrl(d.videoId),
+        color: '',
+      };
+    };
+    const itemFromData = (d: NpData): QItem => ({
+      videoId: d.videoId,
+      albumId: d.albumId != null ? String(d.albumId) : '',
+      band: d.bandName || '',
+      title: d.albumTitle || '',
+      thumb: d.coverThumb || '',
+      href: d.albumId != null ? `/metal-archive/album/${d.albumId}` : window.location.pathname,
+      youtubeUrl: d.youtubeUrl || ytWatchUrl(d.videoId),
+      color: d.albumColor || '',
+    });
+    const dataFromItem = (it: QItem): NpData => ({
+      videoId: it.videoId,
+      youtubeUrl: it.youtubeUrl,
+      albumColor: it.color,
+      albumTitle: it.title,
+      bandName: it.band,
+      coverThumb: it.thumb,
+      tracks: [],
+    });
+    // Every playable card under `scope`, in DOM order.
+    const cardItems = (scope: ParentNode): QItem[] =>
+      Array.from(scope.querySelectorAll<HTMLElement>('[data-play-card]'))
+        .map(itemFromCard)
+        .filter((i): i is QItem => !!i);
+    // What to cue on page load so the first tap can play synchronously: this
+    // page's album, else its first playable card. Null on pages with neither.
+    const cueSource = (): NpData | null => {
+      const data = readNpData();
+      if (data) return data;
+      const first = document.querySelector<HTMLElement>('[data-play-card]');
+      const item = first ? itemFromCard(first) : null;
+      return item ? dataFromItem(item) : null;
     };
 
     // ─── overlay helpers (loader / error / timeout) ─────────────────────────
@@ -221,13 +325,11 @@ export default function Player() {
     const armApiTimeout = () => {
       clearApiTimeout();
       if (window.YT && window.YT.Player) return;
-      // #3: buildPlayer() only reveals #mini-player on its SUCCESS path, so a
-      // visitor whose network/firewall/extension blocks youtube.com never saw
-      // the loader, the 8s timeout overlay, or its Retry button -- the parent
-      // stayed display:none the whole time. Reveal it (with the loader, same
-      // as cueFromPage()'s normal path) as soon as we know the API isn't
-      // ready yet, so the overlays below are actually reachable.
-      if (miniPlayerRef.current) miniPlayerRef.current.style.display = '';
+      // #3: a visitor whose network/firewall/extension blocks youtube.com must
+      // still reach the loader, the 8s timeout overlay and its Retry button.
+      // They live in the dock, which stays rendered (off-screen) before the
+      // first play and becomes visible when it starts, so arming them here is
+      // enough -- no separate reveal step.
       show(loaderRef.current);
       apiTimeoutRef.current = setTimeout(() => {
         // R3-005: whichever branch this takes, the loader must not be left
@@ -250,20 +352,103 @@ export default function Player() {
       document.getElementById('now-playing-bar')?.style.setProperty('--album-color', color);
     };
 
-    // ─── paint the now-playing bar for the album that just STARTED playing ───
-    // Updates cover, artist, the two YouTube links and the accent color so the
-    // persistent bar reflects whatever is currently playing (not the page being
-    // viewed). The bar starts EMPTY and is filled here on first play / switch.
-    const paintNowPlaying = (data: NpData) => {
-      if (npCoverRef.current) {
-        npCoverRef.current.src = data.coverThumb || '';
-        npCoverRef.current.style.visibility = data.coverThumb ? 'visible' : 'hidden';
+    // ─── paint the bar + dock for the album that just STARTED playing ────────
+    const currentItem = (): QItem | null => {
+      const q = queueRef.current;
+      return q ? q.items[q.index] || null : null;
+    };
+    // First line of the bar: the active track when the tracks are known (album
+    // page), else the album. The second line carries the band, plus the album
+    // when the first line is a track. The first line links to the album page.
+    const setBarName = (trackName: string) => {
+      const item = currentItem();
+      if (!item) return;
+      if (npNameRef.current) npNameRef.current.textContent = trackName || item.title;
+      if (npArtistRef.current) {
+        npArtistRef.current.textContent = trackName ? `${item.band} · ${item.title}` : item.band;
       }
-      if (npArtistRef.current) npArtistRef.current.textContent = data.bandName || '';
-      const href = data.youtubeUrl || '#';
-      if (npYoutubeRef.current) npYoutubeRef.current.href = href;
-      if (ytErrorLinkRef.current) ytErrorLinkRef.current.href = href;
-      themePlayer(data.albumColor || '');
+    };
+    const paintBar = (item: QItem) => {
+      if (npCoverRef.current) {
+        npCoverRef.current.src = item.thumb;
+        npCoverRef.current.style.visibility = item.thumb ? 'visible' : 'hidden';
+      }
+      if (npNameRef.current) npNameRef.current.href = item.href;
+      if (npYoutubeRef.current) npYoutubeRef.current.href = item.youtubeUrl;
+      if (ytErrorLinkRef.current) ytErrorLinkRef.current.href = item.youtubeUrl;
+      if (dockTitleRef.current) {
+        dockTitleRef.current.textContent = item.title;
+        dockTitleRef.current.href = item.href;
+      }
+      if (dockBandRef.current) {
+        dockBandRef.current.textContent = item.band;
+        dockBandRef.current.href = `/metal-archive/browse?q=${encodeURIComponent(item.band)}`;
+      }
+      themePlayer(item.color || '');
+      setBarName('');
+    };
+
+    // "Up next": the next 3 playable albums, each a button that jumps to it.
+    // Built with createElement/textContent: titles are data, never markup.
+    const paintUpNext = () => {
+      const list = upNextListRef.current;
+      if (!list) return;
+      list.textContent = '';
+      const q = queueRef.current;
+      const items = q ? upNext(q, 3) : [];
+      for (const it of items) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'np-up';
+        btn.setAttribute('data-np-jump', String(q ? q.items.indexOf(it) : -1));
+        btn.setAttribute('aria-label', `Play ${it.title} by ${it.band}`);
+        if (it.thumb) {
+          const img = document.createElement('img');
+          img.className = 'np-up__cover';
+          img.src = it.thumb;
+          img.alt = '';
+          img.width = 44;
+          img.height = 44;
+          btn.appendChild(img);
+        }
+        const text = document.createElement('span');
+        text.className = 'np-up__text';
+        const title = document.createElement('span');
+        title.className = 'np-up__title';
+        title.textContent = it.title;
+        const band = document.createElement('span');
+        band.className = 'np-up__band';
+        band.textContent = it.band;
+        text.append(title, band);
+        btn.appendChild(text);
+        const li = document.createElement('li');
+        li.appendChild(btn);
+        list.appendChild(li);
+      }
+      if (upNextSecRef.current) upNextSecRef.current.hidden = items.length === 0;
+    };
+
+    // Prev/next are album-level and only meaningful once a queue exists. Also
+    // re-run on every navigation: the album page's own copies are fresh markup.
+    const updateTransport = () => {
+      const q = queueRef.current;
+      const hasNext = !!q && nextIndex(q) >= 0;
+      document.querySelectorAll<HTMLButtonElement>('[data-np-next]').forEach((b) => { b.disabled = !hasNext; });
+      document.querySelectorAll<HTMLButtonElement>('[data-np-prev]').forEach((b) => { b.disabled = !q; });
+    };
+
+    // The column on desktop starts below the (sticky) navbar, whose height varies.
+    const syncDockTop = () => {
+      const nav = document.querySelector<HTMLElement>('.navbar');
+      if (nav && dockRef.current) dockRef.current.style.setProperty('--np-top', `${nav.offsetHeight}px`);
+    };
+    // The open/closed state lives on #np-root, a PERSISTED element: <body> is
+    // replaced by ClientRouter on every navigation, so a class there would be lost.
+    const isOpen = () => !!rootRef.current && rootRef.current.hasAttribute('data-open');
+    const openPlayer = () => {
+      rootRef.current?.setAttribute('data-open', '');
+      dockRef.current?.removeAttribute('inert');
+      syncDockTop();
     };
 
     // ─── build the YT.Player ────────────────────────────────────────────────
@@ -280,14 +465,10 @@ export default function Player() {
 
       loadedVideoIdRef.current = data.videoId;
       playingTracksRef.current = data.tracks || [];
-      // Reveal the mini-player now that it has real content (it starts hidden so
-      // pages with no album — browse, forms, facets — don't show an empty box)
-      // and tint it with the cued album's color. The now-playing BAR stays empty
-      // (default accent, "Select a track") until the user presses play, when
-      // paintNowPlaying fills it — see the click path.
-      if (miniPlayerRef.current) {
-        miniPlayerRef.current.style.display = '';
-        if (data.albumColor) miniPlayerRef.current.style.setProperty('--album-color', data.albumColor);
+      // Tint the player with the cued album's color. The dock and the bar stay
+      // hidden until the first play (startItem opens them), so nothing to reveal.
+      if (miniPlayerRef.current && data.albumColor) {
+        miniPlayerRef.current.style.setProperty('--album-color', data.albumColor);
       }
       // Point the error-overlay "Open on YouTube" link at the cued album now, so
       // a video that fails to EMBED on cue (before any play) still links out.
@@ -312,6 +493,13 @@ export default function Player() {
         events: {
           onReady: () => {
             hideAllOverlays();
+            // A play requested while the iframe was still booting.
+            const pend = pendingRef.current;
+            if (pend) {
+              pendingRef.current = null;
+              try { playerRef.current?.loadVideoById({ videoId: pend.videoId }); } catch { /* ignore */ }
+              return;
+            }
             // A gesture-driven first build asks for playback explicitly too,
             // covering browsers that ignore the autoplay playerVar.
             if (autoplay) {
@@ -320,7 +508,10 @@ export default function Player() {
           },
           onError: () => {
             // 2 invalid param, 5 HTML5 error, 100 removed/private,
-            // 101/150 embedding disabled. Any of these = unplayable here.
+            // 101/150 embedding disabled. Any of these = unplayable here:
+            // with a queue, skip to the next album; only when there is none
+            // (or it was the last one) show the overlay.
+            if (skipUnplayable()) return;
             hide(loaderRef.current);
             hide(timeoutRef.current);
             show(errorRef.current);
@@ -348,6 +539,10 @@ export default function Player() {
               // Single-video albums end here. Fill the bar (we reached the end)
               // rather than leaving it mid-track.
               setAllProgress('100%');
+              // Go on to the next album by itself; at the end of the queue stop.
+              const q = queueRef.current;
+              const n = q ? nextIndex(q) : -1;
+              if (n >= 0) goTo(n);
             }
           },
         },
@@ -356,15 +551,19 @@ export default function Player() {
 
     // ─── lazy-cue on page load ──────────────────────────────────────────────
     // Build the player CUED (no autoplay, no gesture needed) so the very first
-    // click can play synchronously. Only runs when nothing is built yet.
+    // click can play synchronously. Only runs when nothing is built yet. Cues
+    // the album of the page, else the page's first playable card. A play that
+    // arrived before any player existed (pendingRef) builds with autoplay.
     const cueFromPage = () => {
       if (playerRef.current) return;             // already have a player — leave playback alone
-      const data = readNpData();
-      if (!data) return;                          // page has no playable album
+      const pend = pendingRef.current;
+      const data = pend || cueSource();
+      if (!data) return;                          // nothing playable on this page
       if (!window.YT || !window.YT.Player) return; // API not ready yet — onYouTubeIframeAPIReady retries
       // Show the loader while the iframe boots; onReady/onError hide the overlays.
       show(loaderRef.current);
-      buildPlayer(data, false);
+      pendingRef.current = null;
+      buildPlayer(data, !!pend);
     };
 
     // ─── retry (re-inject the API script if the first load failed) ──────────
@@ -417,7 +616,7 @@ export default function Player() {
 
       const nameNode = rowEl.querySelector('[data-track-name]');
       const name = nameNode ? (nameNode.textContent || '').trim() : '';
-      if (npNameRef.current && name) npNameRef.current.textContent = name;
+      if (name) setBarName(name);
       setNpTitle(name);   // big hero title follows the active track
     };
 
@@ -432,48 +631,140 @@ export default function Player() {
       return true;
     };
 
-    // ─── switch to a DIFFERENT album (the page being viewed is not the one
-    //     playing). Loads + autoplays synchronously (gesture preserved) and
-    //     repaints the now-playing bar. `startSeconds` lets a track click on the
-    //     new album jump straight to that track. ────────────────────────────
-    const switchAlbum = (data: NpData, startSeconds: number, idx: number) => {
+    // ─── make an album from the queue the one that plays ───────────────────
+    // The single funnel for card ▶, the album page's Play, next/prev, auto-next,
+    // error skips and "Up next" jumps. Tracks (and the tracklist rows) are only
+    // known for the album of the page being viewed; any other album starts at 0
+    // and shows its album name.
+    //
+    // CRITICAL: openPlayer() and loadVideoById() run synchronously, so when this
+    // is reached from a click the user-gesture is preserved and the browser
+    // permits autoplay, and the video is already visible when playback starts.
+    const trackNameAt = (idx: number, tracks: PlayerTrack[]): string => {
+      if (idx < 0) return '';
+      const node = document.querySelector(`[data-track-idx="${idx}"] [data-track-name]`);
+      const fromRow = node ? (node.textContent || '').trim() : '';
+      return fromRow || (tracks[idx] ? tracks[idx].name || '' : '');
+    };
+    const startItem = (item: QItem, opts: { startSeconds?: number; trackIdx?: number } = {}) => {
+      const pageData = readNpData();
+      const onItsPage = !!pageData && pageData.videoId === item.videoId;
+      const tracks = onItsPage && pageData ? pageData.tracks || [] : [];
+      const idx = onItsPage ? (opts.trackIdx ?? (tracks.length ? 0 : -1)) : -1;
+      const startSeconds = opts.startSeconds ?? (idx >= 0 && tracks[idx] ? tracks[idx].seconds || 0 : 0);
+
+      openPlayer();
       const p = playerRef.current;
       if (p && typeof p.loadVideoById === 'function') {
         try {
-          p.loadVideoById({ videoId: data.videoId, startSeconds });
+          p.loadVideoById({ videoId: item.videoId, startSeconds });
         } catch { /* ignore — player not ready */ }
+      } else {
+        // No player yet, or its iframe is still booting: load it as soon as it can.
+        pendingRef.current = dataFromItem(item);
+        if (!p) cueFromPage();
       }
       // R3-004: loading a different video makes any previous error moot --
       // clear it the same way retryPlayer() does, instead of letting it
       // linger on the controls until the new video happens to error too.
       clearPPError();
-      loadedVideoIdRef.current = data.videoId;
-      playingTracksRef.current = data.tracks || [];
+      hide(errorRef.current);
+      loadedVideoIdRef.current = item.videoId;
+      playingTracksRef.current = tracks;
       currentIdxRef.current = idx;
       npResetProgress();
-      paintNowPlaying(data);
+      paintBar(item);
 
-      // Highlight + name from the page's tracklist (we are on the new album's
-      // page when switching, so its rows are in the DOM).
       clearActiveRows();
       let name = '';
       if (idx >= 0) {
-        const row = document.querySelector(`[data-track-idx="${idx}"]`);
-        if (row) {
-          markRowActive(row);
-          const nameNode = row.querySelector('[data-track-name]');
-          name = nameNode ? (nameNode.textContent || '').trim() : '';
-        }
+        markRowActive(document.querySelector(`[data-track-idx="${idx}"]`));
+        name = trackNameAt(idx, tracks);
       }
-      if (!name && data.tracks && data.tracks.length && idx >= 0 && data.tracks[idx]) {
-        name = data.tracks[idx].name || '';
+      setBarName(name);
+      if (name) setNpTitle(name);
+      paintUpNext();
+      updateTransport();
+    };
+
+    const goTo = (i: number) => {
+      const q = queueRef.current;
+      if (!q || !q.items[i]) return;
+      queueRef.current = withIndex(q, i);
+      startItem(q.items[i]);
+    };
+    const goNext = () => {
+      const q = queueRef.current;
+      const n = q ? nextIndex(q) : -1;
+      if (n >= 0) goTo(n);
+    };
+    const goPrev = () => {
+      const q = queueRef.current;
+      if (!q) return;
+      const n = prevIndex(q);
+      if (n >= 0) goTo(n);
+      else startItem(q.items[q.index]);   // first album: restart it
+    };
+
+    // A video that cannot be embedded (YT errors 2/5/100/101/150): mark it and go
+    // to the next playable album. Returns false at the end of the queue (or with
+    // no queue), where the caller shows the "Video unavailable" overlay instead.
+    const skipUnplayable = (): boolean => {
+      const q = queueRef.current;
+      if (!q || !q.items[q.index]) return false;
+      const marked = markUnplayable(q, q.items[q.index].videoId);
+      queueRef.current = marked;
+      const n = nextIndex(marked);
+      if (n < 0) { paintUpNext(); updateTransport(); return false; }
+      goTo(n);
+      return true;
+    };
+
+    // Play the album of the page being viewed: the queue is this album first,
+    // then the other playable cards on the page (the album's similar albums).
+    const startPageAlbum = (pageData: NpData, startSeconds: number, idx: number) => {
+      const item = itemFromData(pageData);
+      queueRef.current = buildQueue([item, ...cardItems(document)], item.videoId);
+      startItem(item, { startSeconds, trackIdx: idx });
+    };
+
+    // × on the bar: stop, hide the bar and the video, forget the queue.
+    const closePlayer = () => {
+      const p = playerRef.current;
+      if (p && typeof p.stopVideo === 'function') {
+        try { p.stopVideo(); } catch { /* ignore */ }
       }
-      if (name) {
-        if (npNameRef.current) npNameRef.current.textContent = name;
-        setNpTitle(name);
-      } else if (npNameRef.current) {
-        npNameRef.current.textContent = data.albumTitle || 'Now playing';
+      rootRef.current?.removeAttribute('data-open');
+      dockRef.current?.setAttribute('inert', '');
+      queueRef.current = null;
+      pendingRef.current = null;
+      loadedVideoIdRef.current = '';
+      playingTracksRef.current = [];
+      currentIdxRef.current = -1;
+      clearActiveRows();
+      npResetProgress();
+      hideAllOverlays();
+      setPP('paused');
+      paintUpNext();
+      updateTransport();
+    };
+
+    // Landed on the album that is playing: its tracklist is known now, so show
+    // and highlight the track the video is currently in (when it has timestamps).
+    const syncPlayingTrack = (data: NpData) => {
+      if (data.tracks && data.tracks.length) playingTracksRef.current = data.tracks;
+      const tracks = playingTracksRef.current;
+      let idx = currentIdxRef.current;
+      if (idx < 0 && tracks.some((t) => (t.seconds || 0) > 0)) {
+        let cur = 0;
+        try { cur = playerRef.current.getCurrentTime() || 0; } catch { /* ignore */ }
+        tracks.forEach((t, i) => { if ((t.seconds || 0) <= cur) idx = i; });
+        currentIdxRef.current = idx;
       }
+      if (idx < 0) return;
+      markRowActive(document.querySelector(`[data-track-idx="${idx}"]`));
+      const name = trackNameAt(idx, tracks);
+      if (name) { setBarName(name); setNpTitle(name); }
     };
 
     // Is the album on the CURRENT page the same one currently loaded/playing?
@@ -490,32 +781,6 @@ export default function Player() {
         return;
       }
       try { p.playVideo(); } catch { /* ignore */ }
-      // #6: the track-row / hero-button paths already paint the bar and
-      // announce the track via paintNowPlaying()/setNpTitle() on first play.
-      // This toggle skipped both, so a keyboard/screen-reader user whose
-      // first action is this prominent, labeled button got no feedback at
-      // all -- not even once playback actually started -- and the bar kept
-      // showing "Pick a track". Fall back to that same cue-and-announce path
-      // when nothing has been cued yet.
-      //
-      // R3-002: readNpData() reads the CURRENT PAGE's album, which is not
-      // necessarily what's loaded in the player -- after a client-side nav,
-      // currentIdxRef can still be -1 while a DIFFERENT album is cued or
-      // playing from before. Only take this fallback when nothing is loaded
-      // at all, or when the loaded video IS this page's album; otherwise the
-      // bar would be repainted with the wrong album's name/cover while the
-      // other one keeps playing underneath it.
-      if (currentIdxRef.current < 0) {
-        const data = readNpData();
-        const nothingLoaded = !loadedVideoIdRef.current;
-        const pageMatchesLoaded = !!data && data.videoId === loadedVideoIdRef.current;
-        if (nothingLoaded || pageMatchesLoaded) {
-          if (data) paintNowPlaying(data);
-          const name = (data && data.albumTitle) || 'Now playing';
-          if (npNameRef.current) npNameRef.current.textContent = name;
-          setNpTitle(name);
-        }
-      }
     };
 
     // Tracks of the PLAYING album (survives navigation), falling back to the
@@ -523,32 +788,6 @@ export default function Player() {
     const playingTrackCount = () => {
       if (playingTracksRef.current.length) return playingTracksRef.current.length;
       return document.querySelectorAll('[data-track-idx]').length;
-    };
-
-    const navTrack = (delta: number) => {
-      const count = playingTrackCount();
-      if (!count) return;
-      // From the "Select a track" state (idx -1), Next starts at 0 and Prev also
-      // starts at 0 rather than wrapping to a negative index.
-      const current = currentIdxRef.current < 0 ? (delta > 0 ? -1 : 0) : currentIdxRef.current;
-      let next = current + delta;
-      if (next < 0) next = 0;
-      if (next > count - 1) next = count - 1;
-
-      // Prefer the DOM row (we're on the playing album's page) so name/highlight
-      // come straight from markup. Otherwise seek using the stored track list —
-      // playback continues even though that album's rows aren't on this page.
-      if (selectTrackByIndex(next)) return;
-      const t = playingTracksRef.current[next];
-      if (!t) return;
-      const p = playerRef.current;
-      if (p && typeof p.seekTo === 'function') {
-        try { p.seekTo(t.seconds, true); p.playVideo(); } catch { /* ignore */ }
-      }
-      currentIdxRef.current = next;
-      npResetProgress();
-      if (npNameRef.current && t.name) npNameRef.current.textContent = t.name;
-      setNpTitle(t.name);
     };
 
     const playAlbum = () => {
@@ -590,8 +829,6 @@ export default function Player() {
         setTimeout(() => { label.textContent = prev; }, 1600);
       }
     };
-
-    const toggleMiniSize = () => { miniPlayerRef.current?.classList.toggle('expanded'); };
 
     // Start-second of a track in the PLAYING album by index (auto-advance).
     const trackSeconds = (idx: number): number | null => {
@@ -646,7 +883,7 @@ export default function Player() {
               name = t ? t.name : '';
             }
             if (name) {
-              if (npNameRef.current) npNameRef.current.textContent = name;
+              setBarName(name);
               setNpTitle(name);
             }
           }
@@ -664,63 +901,67 @@ export default function Player() {
       const t = e.target as Element;
       if (!t || !t.closest) return;
       // Retry sits inside #mini-player; handle first and stop so the click
-      // doesn't also resize the player.
+      // doesn't trigger anything else.
       const retry = t.closest('[data-mp-retry]');
       if (retry) { e.stopPropagation(); retryPlayer(); return; }
+
+      // ▶ on an album card: queue the card's row/grid (else every card on the
+      // page), starting at this card. It is a <button>, never inside the card's
+      // <a>, so no navigation to suppress.
+      const cardBtn = t.closest<HTMLElement>('[data-play-card]');
+      if (cardBtn) {
+        const item = itemFromCard(cardBtn);
+        if (!item) return;
+        const scope = cardBtn.closest('[data-queue]') || document;
+        queueRef.current = buildQueue(cardItems(scope), item.videoId);
+        startItem(item);
+        return;
+      }
 
       // Transport that does NOT start a NEW album just acts on the player.
       const toggle = t.closest('[data-np-toggle]');
       if (toggle) { togglePlay(); return; }
       const prev = t.closest('[data-np-prev]');
-      if (prev) { navTrack(-1); return; }
+      if (prev) { goPrev(); return; }
       const nxt = t.closest('[data-np-next]');
-      if (nxt) { navTrack(1); return; }
+      if (nxt) { goNext(); return; }
+      const jump = t.closest<HTMLElement>('[data-np-jump]');
+      if (jump) { goTo(parseInt(jump.getAttribute('data-np-jump') || '-1', 10)); return; }
+      const close = t.closest('[data-np-close]');
+      if (close) { closePlayer(); return; }
       const shareBtn = t.closest('[data-share]');
       if (shareBtn) { share(shareBtn); return; }
-      const mini = t.closest('[data-mini-toggle]');
-      if (mini) { toggleMiniSize(); return; }
 
-      // Play actions: a track row, the "play album" button, or the big main
-      // play/pause. These may target the CURRENT page's album (already cued) OR
-      // a DIFFERENT album (switch). Decide using the page's #metal-np-data.
+      // Play actions on an album page: a track row, the "play album" button, or
+      // the big main play/pause. They may target the album that is already
+      // loaded and open (seek / toggle) OR start it: the first play on this page,
+      // or a different album than the one loaded. Starting builds the queue.
       const row = t.closest('[data-track-idx]');
       const play = row ? null : t.closest('[data-play-album]');
       const main = row || play ? null : t.closest('[data-np-main]');
       if (!row && !play && !main) return;
 
       const pageData = readNpData();
-      const isSwitch = pageData && !pageIsPlayingAlbum(pageData);
+      const needsStart = !!pageData && (!pageIsPlayingAlbum(pageData) || !isOpen());
+      const hasTracks = !!(pageData && pageData.tracks && pageData.tracks.length);
 
       if (row) {
-        const idx = parseInt(row.getAttribute('data-track-idx') || '-1', 10);
-        const sec = parseInt(row.getAttribute('data-seconds') || '0', 10) || 0;
-        if (isSwitch && pageData) { switchAlbum(pageData, sec, idx); return; }
-        // Same album as the cued/playing one: fill the bar (first play) then seek.
-        if (pageData) paintNowPlaying(pageData);
+        if (needsStart && pageData) {
+          const idx = parseInt(row.getAttribute('data-track-idx') || '-1', 10);
+          const sec = parseInt(row.getAttribute('data-seconds') || '0', 10) || 0;
+          startPageAlbum(pageData, sec, idx);
+          return;
+        }
         playTrackAt(row);
         return;
       }
-      if (play) {
-        if (isSwitch && pageData) {
-          const startSeconds = pageData.tracks && pageData.tracks.length ? (pageData.tracks[0].seconds || 0) : 0;
-          switchAlbum(pageData, startSeconds, pageData.tracks && pageData.tracks.length ? 0 : -1);
-          return;
-        }
-        if (pageData) paintNowPlaying(pageData);
-        playAlbum();
+      if (needsStart && pageData) {
+        // Play album / the big main button: start THIS album from its first track.
+        startPageAlbum(pageData, hasTracks ? pageData.tracks[0].seconds || 0 : 0, hasTracks ? 0 : -1);
         return;
       }
-      if (main) {
-        // The big main button on a DIFFERENT album's page starts THAT album.
-        if (isSwitch && pageData) {
-          const startSeconds = pageData.tracks && pageData.tracks.length ? (pageData.tracks[0].seconds || 0) : 0;
-          switchAlbum(pageData, startSeconds, pageData.tracks && pageData.tracks.length ? 0 : -1);
-          return;
-        }
-        if (pageData) paintNowPlaying(pageData);
-        mainPlayPause();
-        return;
-      }
+      if (play) { playAlbum(); return; }
+      if (main) { mainPlayPause(); return; }
     };
     document.addEventListener('click', onClick, true);
 
@@ -730,6 +971,8 @@ export default function Player() {
     // NOT touch it — playback continues across navigation (the whole point).
     const onPageLoad = () => {
       cueFromPage();
+      updateTransport();
+      syncDockTop();
       // R3-004: the hero .js-pp button on the page we just swapped in is
       // fresh markup (default "paused"), but the PERSISTENT now-playing-bar
       // toggle is the same DOM node from before the swap and keeps whatever
@@ -740,12 +983,10 @@ export default function Player() {
       // across the navigation.
       clearPPError();
       // If the page we just landed on IS the album currently playing, sync the
-      // active-row highlight (its rows are fresh markup after the swap).
+      // active-row highlight (its rows are fresh markup after the swap) and the
+      // track name, which is only known from this page's tracklist.
       const data = readNpData();
-      if (data && pageIsPlayingAlbum(data) && currentIdxRef.current >= 0) {
-        const row = document.querySelector(`[data-track-idx="${currentIdxRef.current}"]`);
-        if (row) markRowActive(row);
-      }
+      if (data && isOpen() && pageIsPlayingAlbum(data)) syncPlayingTrack(data);
     };
     document.addEventListener('astro:page-load', onPageLoad);
 
@@ -771,8 +1012,13 @@ export default function Player() {
         s.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(s);
       }
-      if (readNpData()) armApiTimeout();
+      if (cueSource()) armApiTimeout();
     }
+    updateTransport();
+    syncDockTop();
+    // Closed, the dock is off-screen: keep it out of the tab order until a play.
+    if (!isOpen()) dockRef.current?.setAttribute('inert', '');
+    window.addEventListener('resize', syncDockTop);
 
     // ─── teardown ───────────────────────────────────────────────────────────
     // In practice this island persists (transition:persist) for the whole
@@ -780,6 +1026,7 @@ export default function Player() {
     return () => {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('astro:page-load', onPageLoad);
+      window.removeEventListener('resize', syncDockTop);
       clearApiTimeout();
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
@@ -792,78 +1039,89 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── render: mini-player (with overlays) + now-playing bar ────────────────
-  // On mobile the YouTube link shows as a compact icon and #mini-player becomes
-  // a collapsible bottom-sheet (no longer display:none ≤767px — see global.css).
-  //
-  // No props now: the bar starts EMPTY ("Pick a track", no cover) and is
-  // filled by paintNowPlaying() on first play. --album-color is unset until then
-  // (CSS falls back to the amber accent), then set imperatively per album.
+  // ─── render: dock (video + overlays + Up next) + now-playing bar ───────────
+  // Everything sits in #np-root (display: contents). Before the first play the
+  // dock is rendered off-screen (the iframe must exist to be cued) and the bar
+  // is hidden; the first play sets #np-root[data-open]. The bar starts EMPTY and
+  // is filled by paintBar() on every album start. --album-color is unset until
+  // then (CSS falls back to the amber accent).
   return (
-    <>
-      <div id="mini-player" ref={miniPlayerRef} data-mini-toggle="1" style={{ display: 'none' }}>
-        <div id="yt-player" ref={ytHostRef} style={{ width: '100%', height: '100%' }} />
+    <div id="np-root" ref={rootRef}>
+      <aside id="np-dock" ref={dockRef} aria-label="Now playing video" {...INERT}>
+        <div id="mini-player" ref={miniPlayerRef}>
+          <div id="yt-player" ref={ytHostRef} style={{ width: '100%', height: '100%' }} />
 
-        <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
-          <div class="mp-spinner" />
-          <span style={{ color: 'var(--text-body)', fontSize: '0.72em', marginTop: '0.6em' }}>
-            Loading player...
-          </span>
+          <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
+            <div class="mp-spinner" />
+            <span style={{ color: 'var(--text-body)', fontSize: '0.72em', marginTop: '0.6em' }}>
+              Loading player...
+            </span>
+          </div>
+
+          <div id="mini-player-error" class="mp-overlay" ref={errorRef} style={{ display: 'none' }}>
+            <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
+              Video unavailable
+            </span>
+            <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
+              This video cannot be played here.
+            </span>
+            <a
+              ref={ytErrorLinkRef}
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--primary)', fontSize: '0.75em', textDecoration: 'none', marginTop: '0.6em', fontWeight: 600 }}
+            >
+              Open on YouTube ↗
+            </a>
+          </div>
+
+          <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
+            <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
+              The player is taking a while to load.
+            </span>
+            <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
+              Check your internet connection.
+            </span>
+            <button
+              type="button"
+              data-mp-retry="1"
+              style={{
+                background: 'var(--primary)', color: 'var(--text-header)', border: 'none',
+                cursor: 'pointer', fontSize: '0.72em', padding: '0.4em 1em',
+                borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
+              }}
+            >
+              Retry
+            </button>
+          </div>
         </div>
 
-        <div id="mini-player-error" class="mp-overlay" ref={errorRef} style={{ display: 'none' }}>
-          <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
-            Video unavailable
-          </span>
-          <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
-            This video cannot be played here.
-          </span>
-          <a
-            ref={ytErrorLinkRef}
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--primary)', fontSize: '0.75em', textDecoration: 'none', marginTop: '0.6em', fontWeight: 600 }}
-          >
-            Open on YouTube ↗
-          </a>
+        {/* Desktop column only (hidden below 1100px by CSS): who is playing + what is next. */}
+        <div class="np-dock__meta">
+          <a class="np-dock__title" ref={dockTitleRef} href="#"></a>
+          <a class="np-dock__band" ref={dockBandRef} href="#"></a>
         </div>
-
-        <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
-          <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
-            The player is taking a while to load.
-          </span>
-          <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
-            Check your internet connection.
-          </span>
-          <button
-            type="button"
-            data-mp-retry="1"
-            style={{
-              background: 'var(--primary)', color: 'var(--text-header)', border: 'none',
-              cursor: 'pointer', fontSize: '0.72em', padding: '0.4em 1em',
-              borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+        <section class="np-upnext" ref={upNextSecRef} aria-label="Up next" hidden>
+          <h2 class="np-upnext__h">Up next</h2>
+          <ol class="np-upnext__list" ref={upNextListRef}></ol>
+        </section>
+      </aside>
 
       <div id="now-playing-bar">
-        {/* left: cover + track/band */}
+        {/* left: cover + album (or track) / band */}
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />
           <div class="np-text">
-            <span id="now-playing-name" ref={npNameRef} class="np-name">Pick a track</span>
+            <a id="now-playing-name" ref={npNameRef} class="np-name" href="#"></a>
             <span id="now-playing-artist" ref={npArtistRef} class="np-artist"></span>
           </div>
         </div>
 
-        {/* center: transport + progress */}
+        {/* center: transport + progress. Prev/next move between albums in the queue. */}
         <div class="np-center">
           <div class="np-controls">
-            <button type="button" class="np-icon-btn" aria-label="Previous track" data-np-prev="1">
+            <button type="button" class="np-icon-btn" aria-label="Previous album" data-np-prev="1">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
             </button>
             <button type="button" id="now-playing-toggle" class="np-toggle js-pp" aria-label="Play or pause" data-np-toggle="1" data-state="paused">
@@ -871,7 +1129,7 @@ export default function Player() {
               <svg class="ic ic-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
               <span class="ic ic-spinner" aria-hidden="true"></span>
             </button>
-            <button type="button" class="np-icon-btn" aria-label="Next track" data-np-next="1">
+            <button type="button" class="np-icon-btn" aria-label="Next album" data-np-next="1">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
             </button>
           </div>
@@ -881,7 +1139,8 @@ export default function Player() {
         </div>
 
         {/* right: youtube link — full label on desktop, compact icon button on
-            mobile (the label is hidden ≤767px, the icon stays tappable ≥44px). */}
+            mobile (the label is hidden ≤767px, the icon stays tappable ≥44px) —
+            and the close button. */}
         <div class="now-playing-right np-right">
           <a
             id="now-playing-youtube"
@@ -895,6 +1154,9 @@ export default function Player() {
             <svg class="np-yt-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
             <span class="np-yt-label">Watch on YouTube ↗</span>
           </a>
+          <button type="button" class="np-icon-btn np-close" aria-label="Close player" data-np-close="1">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
         </div>
       </div>
 
@@ -902,6 +1164,6 @@ export default function Player() {
           the now-playing title changes (setNpTitle writes here). Visually
           hidden; lives in the persistent render so it survives navigation. */}
       <span class="sr-only" aria-live="polite" id="np-live"></span>
-    </>
+    </div>
   );
 }

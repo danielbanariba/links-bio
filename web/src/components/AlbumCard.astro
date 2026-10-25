@@ -1,7 +1,12 @@
 ---
-// AlbumCard: zero-JS, cover-first gallery card (Bandcamp-style).
-// The artwork is the protagonist: a large square cover that scales and reveals
-// an "open" affordance on hover; band/album text sits cleanly below.
+// AlbumCard: cover-first gallery card (Bandcamp-style) with a play button.
+// The artwork is the protagonist: a large square cover; band/album text sits
+// cleanly below. The card itself is a plain link to the album page.
+// The play button is a SIBLING of that link (a <button> inside an <a> is
+// invalid HTML) laid over the cover. The persistent Player island handles its
+// click through the data attributes: the queue is the nearest [data-queue] row
+// or grid, or every [data-play-card] on the page. A card with no
+// youtube_video_id has nothing to play and renders no button.
 // `accent` (optional) tints the hover ring/glow with the album's dominant color;
 // defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
 // `livePlaceholder` (optional) — when true, renders a branded placeholder instead
@@ -20,42 +25,52 @@ const href = `/metal-archive/album/${album.id}`;
 // Inline custom property only when an accent is passed; the CSS falls back to
 // the cyan brand otherwise.
 const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
+const videoId = (album.youtube_video_id || '').trim();
 ---
 
-<a class="album-card" href={href} style={accentStyle}>
-  <div class="album-card__art">
-    {livePlaceholder
-      ? (
-        <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-          <span class="live-cover__band">{album.band_name}</span>
-          <span class="live-cover__badge">LIVE</span>
-        </div>
-      )
-      : album.thumb
-        ? <img
-            class="album-card__cover"
-            src={album.thumb}
-            alt={`${album.band_name} — ${album.album_title}`}
-            loading={loading}
-            decoding="async"
-            width="400"
-            height="400"
-          />
-        : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-    }
-    <!-- Hover affordance: "open" arrow in the album accent, revealed bottom-right.
-         NOT a play button — the card is a zero-JS link to the album page, where
-         the global Player takes over; an "open" arrow avoids promising in-situ
-         playback the card cannot deliver. -->
-    <span class="album-card__open" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 17 17 7" />
-        <path d="M8 7h9v9" />
-      </svg>
-    </span>
-  </div>
-  <div class="album-card__body">
-    <div class="album-card__band">{album.band_name}</div>
-    <div class="album-card__album">{album.album_title}</div>
-  </div>
-</a>
+<div class="album-card-wrap">
+  <a class="album-card" href={href} style={accentStyle}>
+    <div class="album-card__art">
+      {livePlaceholder
+        ? (
+          <div class="album-card__cover album-card__cover--live" aria-hidden="true">
+            <span class="live-cover__band">{album.band_name}</span>
+            <span class="live-cover__badge">LIVE</span>
+          </div>
+        )
+        : album.thumb
+          ? <img
+              class="album-card__cover"
+              src={album.thumb}
+              alt={`${album.band_name} — ${album.album_title}`}
+              loading={loading}
+              decoding="async"
+              width="400"
+              height="400"
+            />
+          : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+      }
+    </div>
+    <div class="album-card__body">
+      <div class="album-card__band">{album.band_name}</div>
+      <div class="album-card__album">{album.album_title}</div>
+    </div>
+  </a>
+  {videoId && (
+    <button
+      type="button"
+      class="album-card__play"
+      style={accentStyle}
+      aria-label={`Play ${album.album_title} by ${album.band_name}`}
+      data-play-card
+      data-video-id={videoId}
+      data-album-id={String(album.id)}
+      data-band={album.band_name}
+      data-title={album.album_title}
+      data-thumb={album.thumb || ''}
+      data-href={href}
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
+    </button>
+  )}
+</div>
