@@ -304,6 +304,20 @@ export function getRecentAlbums(excludeId: number, limit = 7): Card[] {
   return rows.map(toCard);
 }
 
+// Most-played albums for the home's "Most played" row: highest `views` first,
+// the newer album (higher id) winning a tie. Albums with no views yet (0/NULL)
+// and Daniel's own live sets are left out.
+export function getMostPlayed(limit = 12): Card[] {
+  const rows: any[] = db
+    .prepare(
+      `SELECT ${CARD_COLS} FROM albums
+       WHERE views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT ?`
+    )
+    .all(limit);
+  return rows.map(toCard);
+}
+
 // ─── Slug helper — single source of truth for band/genre/country URLs ─────────
 // Imported by BOTH the getStaticPaths that GENERATE facet/band paths and the
 // pages that RENDER links to them, so the two can never drift out of sync.
