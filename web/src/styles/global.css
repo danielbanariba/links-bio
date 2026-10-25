@@ -633,6 +633,16 @@ img {
   color: var(--primary);
 }
 
+/* The page you are on (aria-current="page"): accent colour plus an underline, so
+   the mark does not depend on colour alone. Later than :hover at equal specificity,
+   so the current link keeps its colour under the pointer. */
+.navbar__links a[aria-current="page"] {
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.4em;
+}
+
 /* Surprise Me button — mirrors the Reflex "Sorpréndeme" outline button */
 .navbar__surprise {
   display: inline-flex;
