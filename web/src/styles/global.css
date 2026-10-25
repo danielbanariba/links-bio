@@ -742,6 +742,17 @@ img {
 .section-header__link:hover {
   color: var(--primary);
 }
+/* Phones and touch: "See all" was 21px tall. Padding makes the tap area 44px and the
+   negative margin takes the same space back, so the header keeps its height. */
+@media (max-width: 767px), (pointer: coarse) {
+  .section-header__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 0.5rem;
+    margin: -0.75rem -0.5rem;
+  }
+}
 
 /* Row header tools: the scroll arrows and "See all". The arrows only exist for a
    mouse or trackpad (a hidden scrollbar leaves no other cue); touch keeps swiping. */
@@ -1711,6 +1722,10 @@ a.np-name:hover { text-decoration: underline; }
   padding: 0.6em;
   background: #000;
   z-index: 2;
+}
+/* The overlay's Retry button was 52x21 on a phone; padding stays, the box grows. */
+@media (max-width: 767px), (pointer: coarse) {
+  .mp-retry { min-height: 44px; min-width: 44px; }
 }
 
 /* ─── Desktop column (and short landscape phones, where a docked video would not

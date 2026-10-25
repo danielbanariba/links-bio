@@ -1212,7 +1212,7 @@ export default function Player() {
 
           <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
             <div class="mp-spinner" />
-            <span style={{ color: 'var(--text-body)', fontSize: '0.72em', marginTop: '0.6em' }}>
+            <span style={{ color: 'var(--text-body)', fontSize: '0.75em', marginTop: '0.6em' }}>
               Loading player...
             </span>
           </div>
@@ -1221,7 +1221,7 @@ export default function Player() {
             <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
               Video unavailable
             </span>
-            <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em', textAlign: 'center' }}>
+            <span style={{ color: 'var(--text-footer)', fontSize: '0.75em', marginTop: '0.3em', textAlign: 'center' }}>
               This video cannot be played here.
             </span>
             <a
@@ -1239,15 +1239,16 @@ export default function Player() {
             <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
               The player is taking a while to load.
             </span>
-            <span style={{ color: 'var(--text-footer)', fontSize: '0.7em', marginTop: '0.3em' }}>
+            <span style={{ color: 'var(--text-footer)', fontSize: '0.75em', marginTop: '0.3em' }}>
               Check your internet connection.
             </span>
             <button
               type="button"
+              class="mp-retry"
               data-mp-retry="1"
               style={{
                 background: 'var(--primary)', color: 'var(--text-header)', border: 'none',
-                cursor: 'pointer', fontSize: '0.72em', padding: '0.4em 1em',
+                cursor: 'pointer', fontSize: '0.75em', padding: '0.4em 1em',
                 borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
               }}
             >
