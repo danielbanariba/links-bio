@@ -103,6 +103,10 @@ interface PendingPlay {
   startSeconds: number;
 }
 
+// The glyph of a card's play button: ▶ while idle, ⏸ while that album plays.
+const PLAY_PATH = 'M7 5v14l12-7z';
+const PAUSE_PATH = 'M7 5h4v14H7zM14 5h4v14h-4z';
+
 // Props spread onto the dock while it is closed: `inert` keeps the off-screen
 // iframe and its links out of the tab order and the accessibility tree.
 const INERT = { inert: true } as Record<string, unknown>;
@@ -470,6 +474,23 @@ export default function Player() {
       syncDockTop();
     };
 
+    // A card's ▶ shows ⏸ (and says "Pause ...") while ITS album plays; every other
+    // card, and every card while paused, shows ▶. Only buttons that change are
+    // touched, so it is cheap to run each second, which also covers cards rendered
+    // later (search results, a page swap).
+    const syncCards = () => {
+      let state = -1;
+      try { state = playerRef.current.getPlayerState(); } catch { /* not ready */ }
+      const id = state === 1 || state === 3 ? loadedVideoIdRef.current : '';
+      document.querySelectorAll<HTMLElement>('[data-play-card]').forEach((b) => {
+        const on = !!id && b.dataset.videoId === id;
+        if (b.hasAttribute('data-playing') === on) return;
+        b.toggleAttribute('data-playing', on);
+        b.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${b.dataset.title} by ${b.dataset.band}`);
+        b.querySelector('path')?.setAttribute('d', on ? PAUSE_PATH : PLAY_PATH);
+      });
+    };
+
     // ─── build the YT.Player ────────────────────────────────────────────────
     // Always built CUED (autoplay=0): playback starts only from onReady consuming
     // a still-pending request (pendingRef). An autoplay playerVar would start the
@@ -543,6 +564,7 @@ export default function Player() {
             setPP('error');
           },
           onStateChange: (e: any) => {
+            syncCards();
             if (e.data === 1 || e.data === 3) {
               hide(errorRef.current);
               hide(timeoutRef.current);
@@ -699,6 +721,7 @@ export default function Player() {
       playingTracksRef.current = tracks;
       currentIdxRef.current = idx;
       npResetProgress();
+      syncCards();
       paintBar(item);
 
       clearActiveRows();
@@ -770,6 +793,7 @@ export default function Player() {
       currentIdxRef.current = -1;
       clearActiveRows();
       npResetProgress();
+      syncCards();
       hideAllOverlays();
       setPP('paused');
       paintUpNext();
@@ -886,6 +910,7 @@ export default function Player() {
         const pct = Math.min(100, (cur / dur) * 100);
         setAllProgress(pct + '%');
         setTimes(cur, dur);
+        syncCards();
 
         // Auto-advance: if playback has crossed into the next track's range,
         // update the name + highlight (no seek — playback is already there).
@@ -940,6 +965,8 @@ export default function Player() {
       if (cardBtn) {
         const item = itemFromCard(cardBtn);
         if (!item) return;
+        // The album that is already loaded: pause/resume it, never restart it.
+        if (isOpen() && item.videoId === loadedVideoIdRef.current) { togglePlay(); return; }
         const scope = cardBtn.closest('[data-queue]') || document;
         queueRef.current = buildQueue(cardItems(scope), item.videoId);
         startItem(item);
@@ -1005,6 +1032,7 @@ export default function Player() {
     const onPageLoad = () => {
       cueFromPage();
       updateTransport();
+      syncCards();
       syncDockTop();
       // R3-004: the hero .js-pp button on the page we just swapped in is
       // fresh markup (default "paused"), but the PERSISTENT now-playing-bar

@@ -437,6 +437,7 @@ img {
   transition: transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.15s ease;
 }
 .album-card__play svg { margin-left: 2px; }   /* optical centring of the triangle */
+.album-card__play[data-playing] svg { margin-left: 0; }   /* the pause bars are symmetric */
 .album-card-wrap:hover .album-card__play { transform: translateY(-6px); }   /* rides with the cover lift */
 .album-card__play:hover { filter: brightness(1.12); }
 .album-card__play:focus-visible { outline-offset: 3px; }
