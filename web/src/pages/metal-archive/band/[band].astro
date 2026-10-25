@@ -12,6 +12,7 @@ import { ClientRouter } from 'astro:transitions';
 import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording, slugify } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
+import { inkOnAccent } from '../../../lib/onAccent.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -79,7 +80,7 @@ const bandJsonLd = safeJsonLd({
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${bandColor};`}>
+<html lang="en" style={`--album-color: ${bandColor}; --on-accent: ${inkOnAccent(bandColor)};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

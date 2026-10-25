@@ -15,6 +15,7 @@ import { ClientRouter } from 'astro:transitions';
 import { getGenreFacetGroups, getAlbumsByGenres } from '../../../lib/db.js';
 import { genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
+import { inkOnAccent } from '../../../lib/onAccent.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
@@ -62,7 +63,7 @@ const ogImage = repCover || undefined;
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${genreColor};`}>
+<html lang="en" style={`--album-color: ${genreColor}; --on-accent: ${inkOnAccent(genreColor)};`}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
