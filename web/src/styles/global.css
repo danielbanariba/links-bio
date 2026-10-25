@@ -2545,11 +2545,15 @@ a.np-name:hover { text-decoration: underline; }
    regardless of width, and (pointer: coarse) excludes a mouse-driven window
    that happens to be short. */
 @media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  /* Minimal top on metal-archive: drop the cramped link list (the tab bar takes
-     over primary nav) and centre the brand. */
-  .navbar--ma .navbar__links { display: none; }
+  /* Minimal top on metal-archive: drop the cramped text links (the tab bar takes
+     over primary nav). The Surprise me button stays as the one compact icon
+     button, a 44px target, with the brand on the left. It is the same element
+     the desktop navbar uses, so it keeps its handler. */
+  .navbar--ma .navbar__links a { display: none; }
+  .navbar--ma .navbar__surprise-label { display: none; }
+  .navbar--ma .navbar__surprise { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .navbar--ma .navbar__search { display: none; }   /* the Search tab takes over */
-  .navbar--ma { justify-content: center; }
+  .navbar--ma { justify-content: space-between; padding-block: 0.5rem; }
 
   /* Bottom tab bar */
   .tabbar {
