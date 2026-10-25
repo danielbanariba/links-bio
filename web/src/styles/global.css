@@ -914,6 +914,10 @@ img {
    ═══════════════════════════════════════════════════════════════════════════ */
 .stage {
   position: relative;
+  /* The hero is sized from the stage's own width, not the viewport: the desktop
+     column (np-dock) narrows the page by 400px, so vw-based sizes left the text
+     column 87-320px wide and broke words mid-way. cqw below measures this box. */
+  container-type: inline-size;
   /* F10 (Oct 2026 UI audit): plain 100vw overflows the real viewport by the
      vertical scrollbar's width (vw includes it, clientWidth doesn't) — an
      8px overflow measured on both desktop and mobile. --scrollbar-w is
@@ -991,7 +995,7 @@ img {
   line-height: 1.05;
   letter-spacing: -0.02em;
   color: var(--title-white);          /* REQ-002: pure white */
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;          /* break a word only when it cannot fit on a line of its own */
 }
 
 /* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
@@ -1203,19 +1207,34 @@ img {
   .stage__inner {
     flex-direction: row;
     align-items: center;
-    gap: clamp(2rem, 5vw, 4rem);
-    padding-inline: clamp(1.5rem, 5vw, 3rem);
+    gap: clamp(2rem, 5cqw, 4rem);
+    padding-inline: clamp(1.5rem, 5cqw, 3rem);
   }
-  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42vw, 560px); }  /* REQ-001 ~35-45% */
+  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42cqw, 560px); }  /* REQ-001 ~35-45% */
   .stage__cover {
     border-radius: var(--radius-lg);
     box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 60px var(--accent-glow);
   }
   .stage__cover-wrap::after { display: none; }
   .stage__panel { flex: 1 1 0; min-width: 0; padding: 0; }
-  .stage__title { font-size: clamp(2.4rem, 4.2vw, 3.8rem); }
+  .stage__title { font-size: clamp(2.4rem, 4.2cqw, 3.8rem); }
   .stage__transport { justify-content: flex-start; }
   .stage__actions { justify-content: flex-start; }
+}
+
+/* With the desktop column open (same media as the column, see "Desktop column"
+   below) the stage can be as narrow as 700px, too narrow for a 340px cover beside
+   the text (the title would break mid-word): stack them. Below 1100px the video
+   docks at the bottom and the stage keeps its width, so nothing moves on play. */
+@media (min-width: 1100px), (min-width: 768px) and (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  @container (max-width: 839px) {
+    body:has(#np-root[data-open]) .stage__inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.5rem;
+    }
+    body:has(#np-root[data-open]) .stage__panel { flex: none; width: 100%; }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
