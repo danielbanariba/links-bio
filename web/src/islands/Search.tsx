@@ -23,6 +23,7 @@ interface BrowseEntry {
   release_type: string | null;
   views: number | null;
   thumb: string;
+  youtube_video_id: string | null;
 }
 
 interface SearchProps {
@@ -282,46 +283,63 @@ export default function Search({ genres, countries, years, totalCount, initial }
       )}
 
       {/* ── Album grid ────────────────────────────────────────────────── */}
+      {/* data-queue: the ▶ of a result queues the results as shown here, in this
+          order, so "next" goes on to the next displayed result. The cards are the
+          same markup as components/AlbumCard.astro. */}
       {!showEmpty && (
-        <div class="album-grid search-grid">
+        <div class="album-grid search-grid" data-queue>
           {visible.map((a) => {
             const meta = getCardMeta(a.year, a.country);
+            const videoId = (a.youtube_video_id || '').trim();
+            const href = `/metal-archive/album/${a.id}`;
             return (
-            <a key={a.id} class="album-card" href={`/metal-archive/album/${a.id}`}>
-              <div class="album-card__art">
-                {a.thumb
-                  ? (
-                    <img
-                      class="album-card__cover"
-                      src={a.thumb}
-                      alt={`${a.band_name} — ${a.album_title}`}
-                      loading="lazy"
-                      decoding="async"
-                      width="400"
-                      height="400"
-                    />
-                  )
-                  : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-                }
-                <span class="album-card__open" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M7 17 17 7" />
-                    <path d="M8 7h9v9" />
-                  </svg>
-                </span>
-              </div>
-              <div class="album-card__body">
-                <div class="album-card__band">{a.band_name}</div>
-                <div class="album-card__album">{a.album_title}</div>
-                {meta.showRow && (
-                  <div class="album-card__meta">
-                    {meta.showYear && <span>{a.year}</span>}
-                    {meta.showSeparator && <span aria-hidden="true"> · </span>}
-                    {meta.showCountry && <span>{countryLabel(a.country)}</span>}
-                  </div>
-                )}
-              </div>
-            </a>
+            <div key={a.id} class="album-card-wrap">
+              <a class="album-card" href={href}>
+                <div class="album-card__art">
+                  {a.thumb
+                    ? (
+                      <img
+                        class="album-card__cover"
+                        src={a.thumb}
+                        alt={`${a.band_name} — ${a.album_title}`}
+                        loading="lazy"
+                        decoding="async"
+                        width="400"
+                        height="400"
+                      />
+                    )
+                    : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
+                  }
+                </div>
+                <div class="album-card__body">
+                  <div class="album-card__band">{a.band_name}</div>
+                  <div class="album-card__album">{a.album_title}</div>
+                  {meta.showRow && (
+                    <div class="album-card__meta">
+                      {meta.showYear && <span>{a.year}</span>}
+                      {meta.showSeparator && <span aria-hidden="true"> · </span>}
+                      {meta.showCountry && <span>{countryLabel(a.country)}</span>}
+                    </div>
+                  )}
+                </div>
+              </a>
+              {videoId && (
+                <button
+                  type="button"
+                  class="album-card__play"
+                  aria-label={`Play ${a.album_title} by ${a.band_name}`}
+                  data-play-card=""
+                  data-video-id={videoId}
+                  data-album-id={String(a.id)}
+                  data-band={a.band_name}
+                  data-title={a.album_title}
+                  data-thumb={a.thumb || ''}
+                  data-href={href}
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
+                </button>
+              )}
+            </div>
             );
           })}
         </div>

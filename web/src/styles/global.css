@@ -441,34 +441,6 @@ img {
 .album-card__play:hover { filter: brightness(1.12); }
 .album-card__play:focus-visible { outline-offset: 3px; }
 
-/* "Open" affordance: accent circle, bottom-right, fades + slides in on hover.
-   AlbumCard no longer renders it (its ▶ takes the corner); the Browse results
-   (islands/Search.tsx) still do, until they get their own ▶. */
-.album-card__open {
-  position: absolute;
-  right: 0.6rem;
-  bottom: 0.6rem;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-header);
-  background: var(--card-accent);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(8px) scale(0.85);
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
-  pointer-events: none;
-}
-
-.album-card:hover .album-card__open,
-.album-card:focus-visible .album-card__open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
 .album-card__body {
   padding: 0.7rem 0.15rem 0;
 }
@@ -502,7 +474,6 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .album-card__art,
   .album-card__cover,
-  .album-card__open,
   .album-card__play {
     transition: opacity 0.2s ease;
   }

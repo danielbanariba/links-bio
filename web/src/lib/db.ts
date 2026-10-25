@@ -588,7 +588,7 @@ export function getBandStats(bandName: string): {
 export function getBrowseIndex(): BrowseEntry[] {
   const rows: any[] = db
     .prepare(
-      `SELECT id, band_name, album_title, genre, country, year, release_type, views, album_artwork_url
+      `SELECT id, band_name, album_title, genre, country, year, release_type, views, album_artwork_url, youtube_video_id
        FROM albums ORDER BY band_name`
     )
     .all();
@@ -602,5 +602,6 @@ export function getBrowseIndex(): BrowseEntry[] {
     release_type: r.release_type ?? null,
     views: r.views ?? null,
     thumb: thumb(r.album_artwork_url),
+    youtube_video_id: r.youtube_video_id ?? null,
   }));
 }

@@ -72,4 +72,6 @@ export interface BrowseEntry {
   release_type: string | null;
   views: number | null;
   thumb: string;
+  // The album's YouTube video: the Browse results show a ▶ only when it is set.
+  youtube_video_id: string | null;
 }
