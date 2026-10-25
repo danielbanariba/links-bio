@@ -779,12 +779,14 @@ img {
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.row-arrow:hover:not(:disabled) {
+.row-arrow:hover:not([aria-disabled="true"]) {
   color: var(--text-header);
   background: color-mix(in srgb, #fff 8%, transparent);
   border-color: var(--accent-soft);
 }
-.row-arrow:disabled { opacity: 0.35; cursor: default; }
+/* aria-disabled, not disabled: the button stays focusable, so keyboard focus is not
+   lost when the arrow reaches the end of the row while it is focused. */
+.row-arrow[aria-disabled="true"] { opacity: 0.35; cursor: default; }
 .row-arrow:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
 
 /* ─── Home: a short heading and rows of covers, nothing else ─────────────────

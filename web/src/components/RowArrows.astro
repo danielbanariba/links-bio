@@ -21,6 +21,9 @@ const { title } = Astro.props;
   // arrives later are bound on astro:page-load (which also fires on the first load).
   // The extra direct call covers a navigation that runs this script after that event
   // has already fired. A WeakSet makes the binding idempotent.
+  //
+  // An end arrow is aria-disabled, not disabled: a disabled button that had focus
+  // would drop it to <body>, while aria-disabled keeps the focus where it was.
   const bound = new WeakSet<Element>();
   const syncOf = new WeakMap<Element, () => void>();
 
@@ -34,13 +37,13 @@ const { title } = Astro.props;
       const max = row.scrollWidth - row.clientWidth;
       buttons.forEach((b) => {
         const atEnd = b.dataset.rowScroll === '-1' ? row.scrollLeft <= 1 : max - row.scrollLeft <= 1;
-        b.disabled = atEnd;
+        b.setAttribute('aria-disabled', atEnd ? 'true' : 'false');
       });
     };
 
     arrows.addEventListener('click', (e) => {
       const btn = (e.target as Element).closest<HTMLButtonElement>('[data-row-scroll]');
-      if (!btn) return;
+      if (!btn || btn.getAttribute('aria-disabled') === 'true') return;
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
       // About one visible width, keeping a little of the last card for context.
       row.scrollBy({ left: Number(btn.dataset.rowScroll) * row.clientWidth * 0.9, behavior: reduce ? 'auto' : 'smooth' });
