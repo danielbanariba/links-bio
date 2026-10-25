@@ -1607,6 +1607,32 @@ a.np-name:hover { text-decoration: underline; }
    icon-button (revealed in the ≤767px media query). */
 .np-yt-icon { display: none; }
 
+/* "Skipped <album>: not available on YouTube": a short notice that sits above
+   the player and never over the video. Below 1100px that is above the docked
+   video (the dock is --np-video-h tall, right on top of the bar); the desktop
+   rule below moves it to the bar's edge, left of the column. No clicks, no
+   animation: the Player hides it again by itself. */
+.np-notice {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(100% + var(--np-video-h) + 8px);
+  width: fit-content;
+  max-width: calc(100% - 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0.5rem 0.9rem;
+  background: var(--bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  color: var(--text-header);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
 /* ─── Video dock ─────────────────────────────────────────────────────────────
    Closed: off-screen but rendered, at a size that already satisfies the 200x200
    rule. Open (below 1100px): docked full width right above the bar. */
@@ -1722,6 +1748,11 @@ a.np-name:hover { text-decoration: underline; }
     min-width: 0;
   }
   #np-root[data-open] .np-upnext:not([hidden]) { display: block; }
+  /* The video is in the column, so the notice only has to clear the bar. */
+  .np-notice {
+    bottom: calc(100% + 8px);
+    right: calc(var(--np-col-w) + var(--gutter));
+  }
 }
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) and (max-width: 1099px) {
   :root { --np-col-w: min(400px, 46vw); }

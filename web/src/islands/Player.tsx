@@ -161,6 +161,8 @@ export default function Player() {
   const errorRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<HTMLDivElement>(null);
   const ytErrorLinkRef = useRef<HTMLAnchorElement>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // ─── read the current page's album data island (#metal-np-data) ──────────
@@ -308,6 +310,7 @@ export default function Player() {
       const live = document.getElementById('np-live');
       if (live) live.textContent = text;
     };
+    const nowPlayingText = (item: QItem) => `Now playing: ${item.title} by ${item.band}`;
     const setNpTitle = (name: string) => {
       if (!name) return;
       document.querySelectorAll('.js-np-title').forEach((el) => { el.textContent = name; });
@@ -384,6 +387,24 @@ export default function Player() {
       document.getElementById('now-playing-bar')?.style.setProperty('--album-color', color);
     };
 
+    // ─── short notice above the player ──────────────────────────────────────
+    // Non-blocking: it is never over the video, takes no clicks and goes away by
+    // itself. Screen readers get the same words through #np-live (see announce),
+    // so the visible copy is aria-hidden instead of being read twice.
+    const NOTICE_MS = 5000;
+    const clearNotice = () => {
+      if (noticeTimerRef.current) { clearTimeout(noticeTimerRef.current); noticeTimerRef.current = null; }
+      if (noticeRef.current) noticeRef.current.hidden = true;
+    };
+    const showNotice = (text: string) => {
+      const el = noticeRef.current;
+      if (!el) return;
+      clearNotice();
+      el.textContent = text;
+      el.hidden = false;
+      noticeTimerRef.current = setTimeout(clearNotice, NOTICE_MS);
+    };
+
     // ─── paint the bar + dock for the album that just STARTED playing ────────
     const currentItem = (): QItem | null => {
       const q = queueRef.current;
@@ -420,7 +441,7 @@ export default function Player() {
       setBarName('');
       // Every way an album starts (card, next/prev, auto-next, jump) paints here,
       // so this is the one place that tells a screen reader the album changed.
-      announce(`Now playing: ${item.title} by ${item.band}`);
+      announce(nowPlayingText(item));
     };
 
     // "Up next": the next 3 playable albums, each a button that jumps to it.
@@ -722,6 +743,7 @@ export default function Player() {
       const startSeconds = opts.startSeconds ?? (idx >= 0 && tracks[idx] ? tracks[idx].seconds || 0 : 0);
 
       openPlayer();
+      clearNotice();   // an older "skipped" notice is about a previous album
       const p = playerRef.current;
       if (p && typeof p.loadVideoById === 'function') {
         try {
@@ -783,11 +805,18 @@ export default function Player() {
     const skipUnplayable = (): boolean => {
       const q = queueRef.current;
       if (!q || !q.items[q.index]) return false;
-      const marked = markUnplayable(q, q.items[q.index].videoId);
+      const failed = q.items[q.index];
+      const marked = markUnplayable(q, failed.videoId);
       queueRef.current = marked;
       const n = nextIndex(marked);
       if (n < 0) { paintUpNext(); updateTransport(); return false; }
       goTo(n);
+      // The next album starts on its own: say why the one the listener picked did
+      // not play. One announcement carries both facts (goTo just announced the
+      // new album and this replaces it).
+      const skipped = `Skipped ${failed.title}: not available on YouTube`;
+      showNotice(skipped);
+      announce(`${skipped}. ${nowPlayingText(marked.items[n])}`);
       return true;
     };
 
@@ -807,6 +836,7 @@ export default function Player() {
       }
       rootRef.current?.removeAttribute('data-open');
       dockRef.current?.setAttribute('inert', '');
+      clearNotice();
       queueRef.current = null;
       pendingRef.current = null;
       loadedVideoIdRef.current = '';
@@ -1116,6 +1146,7 @@ export default function Player() {
       document.removeEventListener('astro:page-load', onPageLoad);
       window.removeEventListener('resize', syncDockTop);
       clearApiTimeout();
+      clearNotice();
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         try { playerRef.current.destroy(); } catch { /* ignore */ }
@@ -1199,6 +1230,10 @@ export default function Player() {
       </aside>
 
       <div id="now-playing-bar">
+        {/* "Skipped <album>: not available on YouTube" for a few seconds. Hidden
+            from assistive tech: the same words go through #np-live. */}
+        <p class="np-notice" ref={noticeRef} aria-hidden="true" hidden></p>
+
         {/* left: cover + album (or track) / band */}
         <div class="np-left">
           <img id="now-playing-cover" class="np-cover" ref={npCoverRef} src="" alt="" style={{ visibility: 'hidden' }} />
