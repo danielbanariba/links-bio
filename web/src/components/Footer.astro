@@ -2,6 +2,14 @@
 // Footer: Xerox Underground brand + minimal copyright.
 // The domain shown here used to be "xeroxunderground.com", which does not
 // resolve — visitors who typed it landed nowhere. It now shows the real one.
+//
+// It also hosts the persistent Player island. Every archive page renders the
+// footer right after <main>, so the player's controls come after the page in
+// DOM and tab order (they are fixed to the viewport, so their place on screen
+// does not depend on where they sit in the markup).
+import Player from '../islands/Player.tsx';
+
+const isMetalArchive = Astro.url.pathname.startsWith('/metal-archive');
 ---
 <footer class="footer">
   <span class="footer__brand">METAL ARCHIVE</span>
@@ -10,3 +18,12 @@
   &nbsp;·&nbsp;
   <a href="/" style="color: var(--text-footer);">danielbanariba.com</a>
 </footer>
+
+{/*
+  Global persistent YouTube player — rendered once per metal-archive page but
+  the SAME instance survives client-side navigation via transition:persist, so
+  audio keeps playing while the user browses. It is data-driven: each album page
+  exposes its album via a #metal-np-data JSON island that the Player reads on
+  astro:page-load. Scoped to the archive (not the bio) via isMetalArchive.
+*/}
+{isMetalArchive && <Player client:load transition:persist="metal-player" />}
