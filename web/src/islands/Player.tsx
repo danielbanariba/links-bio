@@ -94,6 +94,15 @@ interface QItem {
   color: string;
 }
 
+// A play requested before the player could take it. Playback starts only from
+// onReady consuming this, so a close (x) that clears it cancels the start; and
+// startSeconds is the position the request asked for (a tracklist row), which
+// a later row click may still move while the iframe boots.
+interface PendingPlay {
+  data: NpData;
+  startSeconds: number;
+}
+
 // Props spread onto the dock while it is closed: `inert` keeps the off-screen
 // iframe and its links out of the tab order and the accessibility tree.
 const INERT = { inert: true } as Record<string, unknown>;
@@ -125,7 +134,7 @@ export default function Player() {
   // The play queue (albums) and a video requested before the player could take
   // it (iframe still booting): loaded as soon as the player is ready.
   const queueRef = useRef<Queue<QItem> | null>(null);
-  const pendingRef = useRef<NpData | null>(null);
+  const pendingRef = useRef<PendingPlay | null>(null);
 
   // Refs to the now-playing bar nodes we mutate imperatively.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -452,9 +461,10 @@ export default function Player() {
     };
 
     // ─── build the YT.Player ────────────────────────────────────────────────
-    // `autoplay` distinguishes a lazy cue (initial page load, no gesture) from
-    // a gesture-driven first build that should start playing immediately.
-    const buildPlayer = (data: NpData, autoplay: boolean) => {
+    // Always built CUED (autoplay=0): playback starts only from onReady consuming
+    // a still-pending request (pendingRef). An autoplay playerVar would start the
+    // video at iframe load, before onReady, where a close (x) cannot stop it.
+    const buildPlayer = (data: NpData) => {
       const el = ytHostRef.current;
       if (!el) return;
       if (!data.videoId || !window.YT || !window.YT.Player) return;
@@ -488,23 +498,20 @@ export default function Player() {
           fs: 0,
           showinfo: 0,
           enablejsapi: 1,
-          autoplay: autoplay ? 1 : 0,
+          autoplay: 0,
         },
         events: {
           onReady: () => {
             hideAllOverlays();
-            // A play requested while the iframe was still booting.
+            // A play requested while the iframe was still booting, at the
+            // position it asked for. Nothing pending (never requested, or closed
+            // with the x meanwhile) leaves the player cued and silent.
             const pend = pendingRef.current;
-            if (pend) {
-              pendingRef.current = null;
-              try { playerRef.current?.loadVideoById({ videoId: pend.videoId }); } catch { /* ignore */ }
-              return;
-            }
-            // A gesture-driven first build asks for playback explicitly too,
-            // covering browsers that ignore the autoplay playerVar.
-            if (autoplay) {
-              try { playerRef.current?.playVideo(); } catch { /* ignore */ }
-            }
+            if (!pend) return;
+            pendingRef.current = null;
+            try {
+              playerRef.current?.loadVideoById({ videoId: pend.data.videoId, startSeconds: pend.startSeconds });
+            } catch { /* ignore */ }
           },
           onError: () => {
             // 2 invalid param, 5 HTML5 error, 100 removed/private,
@@ -553,17 +560,17 @@ export default function Player() {
     // Build the player CUED (no autoplay, no gesture needed) so the very first
     // click can play synchronously. Only runs when nothing is built yet. Cues
     // the album of the page, else the page's first playable card. A play that
-    // arrived before any player existed (pendingRef) builds with autoplay.
+    // arrived before any player existed (pendingRef) builds with ITS album and
+    // stays pending: onReady starts it, unless a close (x) cleared it first.
     const cueFromPage = () => {
       if (playerRef.current) return;             // already have a player — leave playback alone
       const pend = pendingRef.current;
-      const data = pend || cueSource();
+      const data = pend ? pend.data : cueSource();
       if (!data) return;                          // nothing playable on this page
       if (!window.YT || !window.YT.Player) return; // API not ready yet — onYouTubeIframeAPIReady retries
       // Show the loader while the iframe boots; onReady/onError hide the overlays.
       show(loaderRef.current);
-      pendingRef.current = null;
-      buildPlayer(data, !!pend);
+      buildPlayer(data);
     };
 
     // ─── retry (re-inject the API script if the first load failed) ──────────
@@ -608,6 +615,10 @@ export default function Player() {
         } catch {
           // swallow — a not-yet-ready player simply ignores the gesture
         }
+      } else if (pendingRef.current) {
+        // The iframe is still booting and a start is pending: move it to this row,
+        // so onReady plays from here and not from the earlier request.
+        pendingRef.current.startSeconds = sec;
       }
       clearActiveRows();
       markRowActive(rowEl);
@@ -660,8 +671,9 @@ export default function Player() {
           p.loadVideoById({ videoId: item.videoId, startSeconds });
         } catch { /* ignore — player not ready */ }
       } else {
-        // No player yet, or its iframe is still booting: load it as soon as it can.
-        pendingRef.current = dataFromItem(item);
+        // No player yet, or its iframe is still booting: load it as soon as it can,
+        // at the requested position and with the album's tracks.
+        pendingRef.current = { data: { ...dataFromItem(item), tracks }, startSeconds };
         if (!p) cueFromPage();
       }
       // R3-004: loading a different video makes any previous error moot --
@@ -678,7 +690,8 @@ export default function Player() {
       clearActiveRows();
       let name = '';
       if (idx >= 0) {
-        markRowActive(document.querySelector(`[data-track-idx="${idx}"]`));
+        const row = document.querySelector(`[data-track-idx="${idx}"]`);
+        if (row) markRowActive(row);
         name = trackNameAt(idx, tracks);
       }
       setBarName(name);
@@ -762,7 +775,8 @@ export default function Player() {
         currentIdxRef.current = idx;
       }
       if (idx < 0) return;
-      markRowActive(document.querySelector(`[data-track-idx="${idx}"]`));
+      const row = document.querySelector(`[data-track-idx="${idx}"]`);
+      if (row) markRowActive(row);
       const name = trackNameAt(idx, tracks);
       if (name) { setBarName(name); setNpTitle(name); }
     };

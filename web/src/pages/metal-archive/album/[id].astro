@@ -188,10 +188,13 @@ const canonical = `https://danielbanariba.com/metal-archive/album/${album.id}`;
 // reads this on astro:page-load to lazy-cue / switch albums. Only emitted when
 // there is a playable video, so pages without one expose no #metal-np-data and
 // the Player leaves any current playback untouched.
-const hasVideo = !!(album.youtube_video_id && album.youtube_video_id.trim() !== '');
+// Trimmed exactly like AlbumCard trims its data-video-id, so the Player's dedupe
+// and "this page is the playing album" checks compare equal strings.
+const videoId = (album.youtube_video_id || '').trim();
+const hasVideo = videoId !== '';
 const npData = hasVideo
   ? {
-      videoId: album.youtube_video_id,
+      videoId,
       albumId: album.id,
       youtubeUrl: album.youtube_url || '',
       albumColor,
