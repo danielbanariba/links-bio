@@ -899,11 +899,15 @@ export default function Player() {
     const pageIsPlayingAlbum = (data: NpData | null): boolean =>
       !!data && !!loadedVideoIdRef.current && data.videoId === loadedVideoIdRef.current;
 
+    // YT player state: 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued, -1
+    // unstarted. -1 as well while the player does not exist or is not ready.
+    const playerState = (): number => {
+      try { return playerRef.current.getPlayerState(); } catch { return -1; }
+    };
     const togglePlay = () => {
       const p = playerRef.current;
       if (!p) return;
-      let state = -1;
-      try { state = p.getPlayerState(); } catch { /* ignore */ }
+      const state = playerState();
       if (state === 1) {
         try { p.pauseVideo(); } catch { /* ignore */ }
         return;
@@ -1044,8 +1048,13 @@ export default function Player() {
       if (cardBtn) {
         const item = itemFromCard(cardBtn);
         if (!item) return;
-        // The album that is already loaded: pause/resume it, never restart it.
-        if (isOpen() && item.videoId === loadedVideoIdRef.current) { togglePlay(); return; }
+        // The album that is already loaded: pause/resume it, never restart it. Only
+        // while it is playing, paused or buffering (YT states 1/2/3): after an error,
+        // the load-timeout overlay or the end, the ▶ starts it again, as a retry.
+        if (isOpen() && item.videoId === loadedVideoIdRef.current && [1, 2, 3].includes(playerState())) {
+          togglePlay();
+          return;
+        }
         const scope = cardBtn.closest('[data-queue]') || document;
         queueRef.current = buildQueue(cardItems(scope), item.videoId);
         // Only an element can be rebuilt later: `document` would silently turn into
