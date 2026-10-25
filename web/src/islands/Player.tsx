@@ -301,14 +301,17 @@ export default function Player() {
         else if (dur > 0) el.textContent = fmtTime(dur);
       });
     };
+    // The polite live region keeps the player from being "mute" for screen
+    // readers. The node lives in the persistent render below (#np-live) so it
+    // survives navigation. Callers write it once per change, never per tick.
+    const announce = (text: string) => {
+      const live = document.getElementById('np-live');
+      if (live) live.textContent = text;
+    };
     const setNpTitle = (name: string) => {
       if (!name) return;
       document.querySelectorAll('.js-np-title').forEach((el) => { el.textContent = name; });
-      // Announce the new track in the polite live region so the player is no
-      // longer "mute" for screen readers. The node lives in the persistent
-      // render below (#np-live) so it survives navigation.
-      const live = document.getElementById('np-live');
-      if (live) live.textContent = `Now playing: ${name}`;
+      announce(`Now playing: ${name}`);
     };
 
     // ─── active-row highlight (visual .track-active + a11y aria-current) ─────
@@ -415,6 +418,9 @@ export default function Player() {
       }
       themePlayer(item.color || '');
       setBarName('');
+      // Every way an album starts (card, next/prev, auto-next, jump) paints here,
+      // so this is the one place that tells a screen reader the album changed.
+      announce(`Now playing: ${item.title} by ${item.band}`);
     };
 
     // "Up next": the next 3 playable albums, each a button that jumps to it.
