@@ -1585,6 +1585,16 @@ a.np-name:hover { text-decoration: underline; }
   #now-playing-progress.np-loading { animation: none; }
 }
 
+/* Reduced motion, the parts no component block above covers: the page's smooth
+   scrolling, the bar's progress fill easing and the bar's play button growing on
+   hover. It sits after .np-toggle so its :hover rule wins at equal specificity. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .np-progress-fill { transition: none; }
+  .np-toggle { transition: none; }
+  .np-toggle:hover { transform: none; }
+}
+
 .np-right {
   flex: 1 1 0;
   display: flex;
