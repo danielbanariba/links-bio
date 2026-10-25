@@ -5,9 +5,10 @@
 // Every card is in the HTML, so URLs, crawlers and a browser without JavaScript see
 // the whole list. With JavaScript the script below hides all but the first `pageSize`
 // (the `hidden` attribute) and shows a "Show more" button that reveals the next
-// `pageSize` per press. A grid that fits in one page gets no button. The button's
-// wrapper starts `hidden` and the script shows it, so without JavaScript there is
-// no button that does nothing.
+// `pageSize` per press. The revealed count is kept in the history entry, so Back and
+// reload reopen the grid as far as it was. A grid that fits in one page gets no button.
+// The button's wrapper starts `hidden` and the script shows it, so without JavaScript
+// there is no button that does nothing.
 //
 // The Player island builds its queue from the cards in the DOM, hidden ones
 // included, so the music keeps going through the whole list.
@@ -38,6 +39,7 @@ const paged = albums.length > pageSize;
   // The extra direct call covers a navigation that runs this script after that event
   // has already fired. A WeakSet makes the binding idempotent.
   const bound = new WeakSet<Element>();
+  const SHOWN_KEY = 'albumGridShown';
 
   function bindGrid(grid: HTMLElement) {
     const step = Number(grid.dataset.paged);
@@ -48,6 +50,12 @@ const paged = albums.length > pageSize;
 
     const cards = Array.from(grid.children) as HTMLElement[];
     let shown = step;
+    // Back and reload put the scroll back against the full list, so the grid has to reopen
+    // as far as it was. The count lives in this history entry: ClientRouter rewrites the
+    // entry with `{ ...history.state, scrollX, scrollY }`, so the extra key survives, and a
+    // forward visit creates a fresh entry without it (back to `step`).
+    const saved = history.state?.[SHOWN_KEY];
+    if (Number.isInteger(saved)) shown = Math.min(Math.max(saved, step), cards.length);
     const render = () => {
       cards.forEach((card, i) => { card.hidden = i >= shown; });
       const left = cards.length - shown;
@@ -58,6 +66,7 @@ const paged = albums.length > pageSize;
     button.addEventListener('click', () => {
       const firstNew = cards[shown];
       shown = Math.min(shown + step, cards.length);
+      history.replaceState({ ...(history.state ?? {}), [SHOWN_KEY]: shown }, '');
       render();
       // The new cards open up above the button, and the last batch removes it:
       // keyboard focus moves to the first new card rather than to <body>.
