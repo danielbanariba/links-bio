@@ -3,7 +3,7 @@
 // year param is a string in the URL; convert to number for DB query.
 import { ClientRouter } from 'astro:transitions';
 import { getAllYears, getAlbumsByYear } from '../../../lib/db.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
+import AlbumGrid from '../../../components/AlbumGrid.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
@@ -70,9 +70,7 @@ const ogImage = albums[0]?.thumb || undefined;
       </header>
 
       {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
+        ? <AlbumGrid albums={albums} />
         : <p style="color: var(--text-footer);">No albums from this year yet.</p>
       }
     </main>

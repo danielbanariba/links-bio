@@ -2007,6 +2007,9 @@ a.np-name:hover { text-decoration: underline; }
   padding-top: 0.5rem;
 }
 
+.search-load-more[hidden] { display: none; }   /* display:flex above would win over [hidden] */
+.search-load-more--grid { padding-top: 2rem; }   /* facet pages: room under the last row */
+
 .btn-load-more {
   background: transparent;
   border: 1px solid var(--primary);

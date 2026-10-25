@@ -16,7 +16,7 @@ import { getGenreFacetGroups, getAlbumsByGenres } from '../../../lib/db.js';
 import { genreLabel } from '../../../lib/labels.js';
 import { getAlbumColor } from '../../../lib/vibrant.js';
 import { inkOnAccent } from '../../../lib/onAccent.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
+import AlbumGrid from '../../../components/AlbumGrid.astro';
 import Navbar from '../../../components/Navbar.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
@@ -96,9 +96,7 @@ const ogImage = repCover || undefined;
       </header>
 
       {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
+        ? <AlbumGrid albums={albums} />
         : <p style="color: var(--text-footer);">No albums in this genre yet.</p>
       }
     </main>
