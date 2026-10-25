@@ -1826,7 +1826,7 @@ a.np-name:hover { text-decoration: underline; }
 }
 
 .search-select {
-  flex: 1 1 140px;
+  flex: 1 1 120px;
   /* F4 (Oct 2026 UI audit): without min-width:0, a flex item's automatic
      minimum size is its content's intrinsic width — for a <select> that can
      be wider than its longest <option> text, which overflowed the mobile
@@ -1900,19 +1900,24 @@ a.np-name:hover { text-decoration: underline; }
   color: var(--text-header);
 }
 
-@media (min-width: 640px) {
-  .search-controls {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .search-input-wrap {
-    flex: 1 1 280px;
-  }
-
+/* Phones: the playing video docks over the lower half of the screen, so the
+   controls have to be short or no result shows above it. The five filters become
+   one swipeable row, and the h1 + count line replace the subtitle. */
+@media (max-width: 639px) {
+  .browse-page { padding-top: 1rem; }
+  .browse-header { margin-bottom: 0.75rem; }
+  .browse-title { font-size: 1.6rem; margin: 0; }
+  .browse-subtitle { display: none; }
+  .search-island { gap: 0.75rem; }
   .search-filters {
-    flex: 2 1 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.4rem;
+    scrollbar-width: none;
   }
+  .search-filters::-webkit-scrollbar { display: none; }
+  .search-select { flex: 0 0 8.25rem; width: 8.25rem; min-height: 44px; }
+  .search-input { min-height: 44px; }
 }
 
 /* ─── Form pages (submit / promo / newsletter) ───────────────────────────── */
