@@ -617,8 +617,11 @@ export default function Player() {
         }
       } else if (pendingRef.current) {
         // The iframe is still booting and a start is pending: move it to this row,
-        // so onReady plays from here and not from the earlier request.
-        pendingRef.current.startSeconds = sec;
+        // so onReady plays from here and not from the earlier request. Only a
+        // request for THIS page's album is ours to move: a pending start for any
+        // other album keeps its own position.
+        const page = readNpData();
+        if (page && pendingRef.current.data.videoId === page.videoId) pendingRef.current.startSeconds = sec;
       }
       clearActiveRows();
       markRowActive(rowEl);
@@ -956,11 +959,16 @@ export default function Player() {
       if (!row && !play && !main) return;
 
       const pageData = readNpData();
-      const needsStart = !!pageData && (!pageIsPlayingAlbum(pageData) || !isOpen());
-      const hasTracks = !!(pageData && pageData.tracks && pageData.tracks.length);
+      // A row or play button only means something on the page of a playable album.
+      // A page with a tracklist but no video id has no #metal-np-data and nothing to
+      // start: acting on its rows would seek the OTHER album that is loaded, or move
+      // that album's pending start.
+      if (!pageData) return;
+      const needsStart = !pageIsPlayingAlbum(pageData) || !isOpen();
+      const hasTracks = !!(pageData.tracks && pageData.tracks.length);
 
       if (row) {
-        if (needsStart && pageData) {
+        if (needsStart) {
           const idx = parseInt(row.getAttribute('data-track-idx') || '-1', 10);
           const sec = parseInt(row.getAttribute('data-seconds') || '0', 10) || 0;
           startPageAlbum(pageData, sec, idx);
@@ -969,7 +977,7 @@ export default function Player() {
         playTrackAt(row);
         return;
       }
-      if (needsStart && pageData) {
+      if (needsStart) {
         // Play album / the big main button: start THIS album from its first track.
         startPageAlbum(pageData, hasTracks ? pageData.tracks[0].seconds || 0 : 0, hasTracks ? 0 : -1);
         return;
