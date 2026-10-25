@@ -570,13 +570,14 @@ img {
 .logo-semi  { color: #bbbbbb; }   /* LogoColor.PUNTO_Y_COMA */
 
 /* Search on top of the archive pages: takes the room between the brand and the
-   links, and drops to its own row when they do not fit together. Phones hide it
-   (see MOBILE CHROME): the tab bar's Search tab is their entry point. */
+   links, and shrinks (never below 120px) so the navbar stays one row from 1100px,
+   where the links are on show. Phones hide it (see MOBILE CHROME): the tab bar's
+   Search tab is their entry point. */
 .navbar__search {
   display: flex;
   align-items: center;
-  flex: 1 1 220px;
-  min-width: 200px;
+  flex: 1 1 120px;
+  min-width: 120px;
   max-width: 440px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -594,6 +595,7 @@ img {
   color: var(--text-header);
   font-family: inherit;
   font-size: 1rem;   /* >= 16px: WebKit zooms the page on a focused smaller input */
+  text-overflow: ellipsis;   /* a long placeholder in a narrow field ends in an ellipsis */
 }
 .navbar__search-input::placeholder { color: var(--text-footer); }
 .navbar__search-btn {
@@ -2547,15 +2549,15 @@ a.np-name:hover { text-decoration: underline; }
    phones. (max-height: 500px) targets a phone's short landscape dimension
    regardless of width, and (pointer: coarse) excludes a mouse-driven window
    that happens to be short. */
-@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  /* Minimal top on metal-archive: drop the cramped text links (the tab bar takes
-     over primary nav). The Surprise me button stays as the one compact icon
-     button, a 44px target, with the brand on the left. It is the same element
-     the desktop navbar uses, so it keeps its handler. */
+@media (max-width: 1099px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  /* Compact top on metal-archive: drop the text links (the tab bar takes over
+     primary nav). Below 1100px they do not fit beside the brand on one row; from
+     1100px the desktop navbar holds them. The Surprise me button stays as the one
+     compact icon button, a 44px target, with the brand on the left. It is the
+     same element the desktop navbar uses, so it keeps its handler. */
   .navbar--ma .navbar__links a { display: none; }
   .navbar--ma .navbar__surprise-label { display: none; }
   .navbar--ma .navbar__surprise { width: 44px; height: 44px; justify-content: center; padding: 0; }
-  .navbar--ma .navbar__search { display: none; }   /* the Search tab takes over */
   .navbar--ma { justify-content: space-between; padding-block: 0.5rem; }
 
   /* Bottom tab bar */
@@ -2612,6 +2614,19 @@ a.np-name:hover { text-decoration: underline; }
      padding to metal-archive pages only — the bio has no tab bar. The open
      player adds its own bar + video height (see the player block). */
   body:has(.tabbar) { padding-bottom: 58px; }
+}
+
+/* Phones only: the header has no room for the search field, so the Search tab
+   takes over. From 768px the field stays in the header beside the brand. */
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .navbar--ma .navbar__search { display: none; }
+}
+
+/* The tab bar also serves tablets and small windows (768-1099px), where its
+   phone-sized labels (9.6px) are too small to read. */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .tabbar__item { font-size: 0.75rem; }
+  .tabbar__item svg { width: 22px; height: 22px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
