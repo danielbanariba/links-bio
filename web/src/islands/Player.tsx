@@ -257,13 +257,19 @@ export default function Player() {
         el.setAttribute('aria-valuenow', String(Math.round(parseFloat(shown(el)) || 0)));
       });
     };
+    // The label says what pressing the control does, so it replaces aria-pressed
+    // (a toggle whose name already flips would be announced twice over). The
+    // state comes from the control's own data-state: "buffering" is transitional
+    // toward playing, "error" means nothing is playing, same as "paused".
+    const labelPP = (el: Element) => {
+      const s = el.getAttribute('data-state');
+      el.setAttribute('aria-label', s === 'playing' || s === 'buffering' ? 'Pause' : 'Play');
+      el.removeAttribute('aria-pressed');
+    };
     const setPP = (state: 'playing' | 'paused' | 'buffering' | 'error') => {
       document.querySelectorAll('.js-pp').forEach((el) => {
         el.setAttribute('data-state', state);
-        // aria-pressed reflects whether playback is active so the SR announces
-        // play/pause. "buffering" is transitional toward playing -> pressed.
-        // "error" means nothing is playing, same as "paused".
-        el.setAttribute('aria-pressed', state === 'playing' || state === 'buffering' ? 'true' : 'false');
+        labelPP(el);
       });
     };
     // R3-004: the ONLY way a .js-pp control may show data-state="error" is
@@ -276,7 +282,7 @@ export default function Player() {
     const clearPPError = () => {
       document.querySelectorAll('.js-pp[data-state="error"]').forEach((el) => {
         el.setAttribute('data-state', 'paused');
-        el.setAttribute('aria-pressed', 'false');
+        labelPP(el);
       });
     };
     const fmtTime = (s: number) => {
@@ -1052,6 +1058,9 @@ export default function Player() {
       // "playing"/"buffering"), so it never interrupts audio still playing
       // across the navigation.
       clearPPError();
+      // The hero button of the new page is fresh markup with the page's static
+      // label; give it the one that matches its state.
+      document.querySelectorAll('.js-pp').forEach(labelPP);
       // If the page we just landed on IS the album currently playing, sync the
       // active-row highlight (its rows are fresh markup after the swap) and the
       // track name, which is only known from this page's tracklist.
@@ -1086,6 +1095,9 @@ export default function Player() {
     }
     updateTransport();
     syncDockTop();
+    // The first astro:page-load can fire before this island hydrates: label the
+    // controls of the page we hydrated on now, too.
+    document.querySelectorAll('.js-pp').forEach(labelPP);
     // Closed, the dock is off-screen: keep it out of the tab order until a play.
     if (!isOpen()) dockRef.current?.setAttribute('inert', '');
     window.addEventListener('resize', syncDockTop);
@@ -1196,7 +1208,7 @@ export default function Player() {
             <button type="button" class="np-icon-btn" aria-label="Previous album" data-np-prev="1">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
             </button>
-            <button type="button" id="now-playing-toggle" class="np-toggle js-pp" aria-label="Play or pause" data-np-toggle="1" data-state="paused">
+            <button type="button" id="now-playing-toggle" class="np-toggle js-pp" aria-label="Play" data-np-toggle="1" data-state="paused">
               <svg class="ic ic-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
               <svg class="ic ic-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
               <span class="ic ic-spinner" aria-hidden="true"></span>
