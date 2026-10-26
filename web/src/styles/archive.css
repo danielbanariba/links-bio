@@ -148,6 +148,8 @@ body.ma-shell.album-detail-bg { background: var(--ma-deep); }
 .ma-circle:hover { background: rgb(0 0 0 / 0.5); color: var(--ma-text); }
 .ma-circle:active { transform: scale(0.92); }
 .ma-circle .ma-i { width: 20px; height: 20px; }
+/* A filled glyph (▶, ⏸) drawn with the icon box's size. */
+.ma-i--fill { fill: currentColor; stroke: none; }
 
 .ma-btn {
   display: inline-flex;
@@ -300,6 +302,191 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
 
 /* Grids of cards (genre, country, year, band, album and Browse pages). */
 .ma-shell .album-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 20px; }
+
+/* ─── Home (pages/metal-archive/index.astro, Row.astro) ──────────────────────────
+   A hero, then rows that scroll sideways edge to edge of the centre column. The
+   hero has two faces, swapped by its data-state: the latest upload ("idle") and
+   whatever the Player has loaded ("playing"). */
+.ma-home { padding-bottom: 56px; }
+
+.ma-hero { position: relative; isolation: isolate; padding: 24px var(--gutter) 24px; }
+.ma-hero[data-state='idle'] .ma-hero__now,
+.ma-hero[data-state='playing'] .ma-hero__idle { display: none; }
+.ma-hero__bg { display: none; }
+.ma-hero__inner { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 36px; align-items: end; }
+.ma-hero__art {
+  position: relative;
+  display: block;
+  width: 240px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--ma-fill);
+  box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.8);
+  cursor: pointer;
+  transition: transform 240ms var(--ma-spring);
+}
+.ma-hero__art .ma-art,
+.ma-hero__now-art { position: absolute; inset: 0; }
+.ma-hero__art:hover { transform: translateY(-3px) scale(1.01); }
+.ma-hero__art:active { transform: scale(0.98); }
+.ma-kicker { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 500; color: var(--ma-text-2); }
+.ma-kicker__dot { padding: 0 2px; }
+.ma-hero__title {
+  margin: 10px 0 0;
+  font-size: 46px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ma-text);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.ma-hero__band { display: inline-block; margin-top: 8px; font-size: 21px; font-weight: 500; color: var(--accent-bright); }
+.ma-hero__band:hover { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
+.ma-hero__meta { margin: 8px 0 0; font-size: 14.5px; color: var(--ma-text-2); }
+.ma-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.ma-hero__actions .ma-btn { height: 48px; }
+/* The play/pause toggle shows the action it will take. */
+.ma-pp .ma-pp__pause,
+.ma-pp:is([data-state='playing'], [data-state='buffering']) .ma-pp__play { display: none; }
+.ma-pp:is([data-state='playing'], [data-state='buffering']) .ma-pp__pause { display: block; }
+
+.ma-row { margin-top: 34px; scroll-margin-top: calc(var(--ma-top-h) + 12px); }
+.ma-row__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 var(--gutter); }
+.ma-row__title { margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.02em; color: var(--ma-text); }
+.ma-row__tools { display: flex; align-items: center; gap: 12px; }
+.ma-row__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ma-text-3);
+  white-space: nowrap;
+  transition: color 160ms;
+}
+.ma-row__more:hover { color: var(--accent-bright); }
+.ma-row__track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 168px;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 8px var(--gutter) 12px;
+  scroll-padding: 0 var(--gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.ma-row__track::-webkit-scrollbar { display: none; }
+.ma-row__track--tiles { grid-auto-columns: 232px; }
+.ma-row .row-arrow { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--ma-fill); color: var(--ma-text-2); }
+.ma-row .row-arrow:hover:not([aria-disabled='true']) { background: var(--ma-fill-2); color: var(--ma-text); }
+.ma-row .row-arrow:focus-visible { outline: 2.5px solid var(--accent-bright); outline-offset: 3px; }
+
+/* Genre and country tiles: a field of colour with three covers fanned in the corner. */
+.ma-tile {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  scroll-snap-align: start;
+  aspect-ratio: 16 / 10;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--tile);
+  color: #fff;
+  transition: transform 240ms var(--ma-spring), box-shadow 240ms;
+}
+.ma-tile:hover { color: #fff; }
+.ma-tile__name { position: relative; z-index: 4; display: block; max-width: 72%; font-size: 19px; line-height: 1.15; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
+.ma-tile__count { position: relative; z-index: 4; display: block; margin-top: 4px; font-size: 13.5px; font-weight: 500; color: rgb(255 255 255 / 0.92); }
+.ma-tile__stack { position: absolute; right: -4%; bottom: -14%; width: 58%; aspect-ratio: 1; }
+.ma-tile__stack img {
+  position: absolute;
+  width: 60%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 10px 22px -6px rgb(0 0 0 / 0.6);
+  transition: transform 300ms var(--ma-spring);
+}
+.ma-tile__stack img:nth-child(1) { right: 42%; bottom: 14%; transform: rotate(-17deg); }
+.ma-tile__stack img:nth-child(2) { right: 20%; bottom: 26%; transform: rotate(-3deg); z-index: 1; }
+.ma-tile__stack img:nth-child(3) { right: -2%; bottom: 12%; transform: rotate(13deg); z-index: 2; }
+.ma-tile:active { transform: scale(0.97); }
+@media (hover: hover) {
+  .ma-tile:hover { transform: translateY(-4px); box-shadow: 0 22px 40px -22px rgb(0 0 0 / 0.9); }
+  .ma-tile:hover .ma-tile__stack img:nth-child(1) { transform: rotate(-24deg) translate(-8px, -2px); }
+  .ma-tile:hover .ma-tile__stack img:nth-child(2) { transform: rotate(-3deg) translateY(-8px); }
+  .ma-tile:hover .ma-tile__stack img:nth-child(3) { transform: rotate(20deg) translate(6px, -2px); }
+}
+
+/* Band cards: a round picture, the name and "N albums · genre" centred under it. */
+.ma-bcard { display: block; min-width: 0; scroll-snap-align: start; border-radius: 12px; text-align: center; }
+.ma-bcard__art {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 16px 30px -20px rgb(0 0 0 / 0.85);
+  transition: transform 260ms var(--ma-spring);
+}
+.ma-bcard__art > .ma-art { position: absolute; inset: 0; }
+.ma-bcard__name,
+.ma-bcard__sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-bcard__name { margin-top: 12px; font-size: 15px; font-weight: 600; color: var(--ma-text); }
+.ma-bcard__sub { margin-top: 2px; font-size: 13.5px; color: var(--ma-text-2); }
+.ma-bcard:hover .ma-bcard__art { transform: translateY(-5px) scale(1.02); }
+.ma-bcard:active .ma-bcard__art { transform: scale(0.96); }
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .ma-hero__inner { grid-template-columns: 200px minmax(0, 1fr); gap: 28px; }
+  .ma-hero__art { width: 200px; }
+  .ma-hero__title { font-size: 38px; }
+}
+
+/* Phone: the hero's cover fills the screen's width under a see-through top bar,
+   fading into the page; the text sits on its lower edge. */
+@media (max-width: 767px) {
+  .ma-hero { margin-top: calc(-1 * var(--ma-top-h)); padding: 0 0 6px; overflow: hidden; }
+  .ma-hero__bg { position: relative; display: block; height: 390px; background: var(--ma-fill);
+    -webkit-mask-image: linear-gradient(180deg, #000 52%, rgb(0 0 0 / 0.45) 78%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 52%, rgb(0 0 0 / 0.45) 78%, transparent 100%); }
+  .ma-hero__bg > span,
+  .ma-hero__bg .ma-art { position: absolute; inset: 0; }
+  .ma-hero__bg .ma-art__img { object-position: center 30%; }
+  .ma-hero__bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: linear-gradient(180deg, rgb(0 0 0 / 0.62) 0%, rgb(0 0 0 / 0.22) 15%, transparent 28%, transparent 50%, rgb(0 0 0 / 0.35) 100%);
+  }
+  .ma-hero__inner { position: relative; z-index: 6; display: block; margin-top: -116px; padding: 0 var(--gutter); }
+  .ma-hero__art { display: none !important; }
+  .ma-hero__title { font-size: 32px; }
+  .ma-hero__band { margin-top: 6px; font-size: 18px; }
+  .ma-hero__meta { font-size: 14px; }
+  .ma-hero__actions { flex-wrap: nowrap; gap: 10px; margin-top: 18px; }
+  .ma-hero__actions .ma-btn { height: 50px; padding: 0 20px; }
+  .ma-hero__actions .ma-btn--accent { flex: 1; }
+
+  .ma-row { margin-top: 30px; }
+  .ma-row__title { font-size: 21px; }
+  .ma-row__track { grid-auto-columns: 148px; gap: 14px; }
+  .ma-row__track--tiles { grid-auto-columns: 200px; }
+  .ma-tile { aspect-ratio: 1.35; padding: 12px 13px; }
+  .ma-tile__name { max-width: 86%; font-size: 18px; }
+  .ma-tile__count { font-size: 12.5px; }
+}
 
 /* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
 .ma-side { display: none; }

@@ -1,6 +1,6 @@
 ---
 // Prev/next arrows for a horizontal cover row. They live in the row's header, inside
-// the same <section> as the .carousel-row they scroll. The script below wires every
+// the same <section> as the [data-row-track] they scroll (components/Row.astro). The script below wires every
 // instance on whatever page renders it, so no page needs script of its own. Pointer
 // devices only (CSS): touch swipes.
 interface Props { title: string }
@@ -27,7 +27,7 @@ const { title } = Astro.props;
   const bound = new WeakSet<Element>();
 
   function bindArrows(arrows: HTMLElement) {
-    const row = arrows.closest('section')?.querySelector<HTMLElement>('.carousel-row');
+    const row = arrows.closest('section')?.querySelector<HTMLElement>('[data-row-track]');
     if (!row || bound.has(arrows)) return;
     bound.add(arrows);
 

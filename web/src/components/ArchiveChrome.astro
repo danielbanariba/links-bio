@@ -103,35 +103,10 @@ const isSub = !isHome && !onBrowse;
   // on astro:page-load (the first load too). Before that event, astro:after-swap
   // fills Recent so a navigation never shows the sidebar without it.
   import { loadRecent, browserStorage, RECENT_EVENT, type RecentEntry } from '../lib/recent.js';
-  import { coverMode } from '../lib/coverDisplay.js';
+  import { coverArtElement } from '../lib/coverArtDom.js';
   import { readNow, NOW_EVENT } from '../lib/now.js';
 
   // ─── Recent: built with createElement/textContent, entries are stored data ───
-  function artFor(src: string): HTMLElement {
-    const box = document.createElement('span');
-    const mode = coverMode(src);
-    box.className = `ma-art ma-recent__art${mode === 'frame' ? ' ma-art--frame' : ''}`;
-    if (mode === 'none') return box;
-    const img = (cls: string) => {
-      const el = document.createElement('img');
-      el.className = cls;
-      el.src = src;
-      el.alt = '';
-      el.decoding = 'async';
-      el.loading = 'lazy';
-      return el;
-    };
-    if (mode === 'square') {
-      box.append(img('ma-art__img'));
-    } else {
-      const frame = document.createElement('span');
-      frame.className = 'ma-art__frame';
-      frame.append(img('ma-art__img'));
-      box.append(img('ma-art__bg'), frame);
-    }
-    return box;
-  }
-
   function eq(): HTMLElement {
     const el = document.createElement('span');
     el.className = 'ma-eq';
@@ -149,7 +124,7 @@ const isSub = !isHome && !onBrowse;
     const band = document.createElement('small');
     band.textContent = e.band;
     text.append(title, band);
-    a.append(artFor(e.cover), text);
+    a.append(coverArtElement(e.cover, 'ma-recent__art'), text);
     if (e.id === playingId) {
       a.classList.add('is-playing');
       a.append(eq());

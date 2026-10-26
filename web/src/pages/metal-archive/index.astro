@@ -1,35 +1,86 @@
 ---
-// Metal Archive home: listen-first. A one-line heading, then rows of covers that
-// play in place. Each row is a play queue: the ▶ on a card queues the cards of
-// its own row (Carousel marks it data-queue) and the player goes on by itself.
+// Metal Archive home, as in the prototype: a hero, then rows that scroll sideways.
+//   - The hero shows the latest upload. Once something plays it shows THAT album
+//     instead ("Now playing"), with a play/pause toggle: the script at the bottom
+//     follows the Player (lib/now.ts) and swaps the text and the cover. Its idle
+//     ▶ and Latest uploads share one queue, so pressing play on the hero goes on
+//     through the latest uploads.
+//   - Rows: Latest uploads, Most played, Browse by genre (tiles), Bands to dig
+//     into, the top country's albums, Browse by country (tiles), Live recordings.
+//     Every album row is its own play queue (Row.astro).
+//   - The page's accent is the hero album's colour, until something plays (the
+//     Player's accent wins, T10).
 import {
   getRecentAlbums,
   getMostPlayed,
-  getGenreShowcases,
   getLiveRecordings,
+  getAlbum,
+  getTracks,
+  getBandsToDigInto,
+  getFacetTiles,
+  getAllCountries,
+  getAlbumsByCountry,
   slugify,
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
-import { genreLabel } from '../../lib/labels.js';
+import { countryLabel, genreLabel, fromCountry } from '../../lib/labels.js';
+import { heroMeta, formatUploadDay } from '../../lib/cardMeta.js';
+import { displayTitle } from '../../lib/title.js';
+import { playAttrs, bandHref } from '../../lib/cardPlay.js';
+import { getAlbumAccent } from '../../lib/vibrant.js';
+import { accentHtmlAttrs } from '../../lib/accent.js';
+import { GLYPH_PLAY, GLYPH_PAUSE } from '../../lib/icons.js';
 import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
-import Carousel from '../../components/Carousel.astro';
+import Row from '../../components/Row.astro';
 import AlbumCard from '../../components/AlbumCard.astro';
-import RowArrows from '../../components/RowArrows.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import Icon from '../../components/Icon.astro';
 import '../../styles/global.css';
 import '../../styles/archive.css';
 
-// ─── Data queries (all build-time) ───────────────────────────────────────────
+// ─── Data (all build-time) ───────────────────────────────────────────────────
 const ROW_SIZE = 12;
-const latest         = getRecentAlbums(0, ROW_SIZE);   // id 0 excludes nothing
-const mostPlayed     = getMostPlayed(ROW_SIZE);
-const genreShowcases = getGenreShowcases(5);           // top 5 genres by album count
-const liveRecordings = getLiveRecordings(ROW_SIZE);    // Daniel's own live sets
-const ogImage = latest[0]?.thumb;
+const latest = getRecentAlbums(0, ROW_SIZE); // id 0 excludes nothing
+const mostPlayed = getMostPlayed(ROW_SIZE);
+const genreTiles = getFacetTiles('genre', 8);
+const countryTiles = getFacetTiles('country', 8);
+const bands = getBandsToDigInto(ROW_SIZE);
+const liveRecordings = getLiveRecordings(ROW_SIZE); // Daniel's own live sets
+
+// The country with the most albums gets a row; Latest uploads already shows the
+// newest, so this row goes on from the first album Latest does not show.
+const topCountry = getAllCountries()[0];
+const latestIds = new Set(latest.map((a) => a.id));
+const countryRow = topCountry
+  ? getAlbumsByCountry(topCountry.value).filter((a) => !latestIds.has(a.id)).slice(0, ROW_SIZE)
+  : [];
+
+// Hero: the latest upload.
+const hero = latest[0];
+const heroFull = hero ? getAlbum(hero.id) : null;
+const heroTitle = hero ? displayTitle(hero.album_title) : '';
+const heroSrc = hero ? hero.cover || hero.thumb : '';
+const heroAttrs = hero ? await playAttrs(hero) : null;
+const heroLine = hero
+  ? heroMeta({ ...hero, tracks: getTracks(hero.id).length, minutes: heroFull?.duration_minutes })
+  : '';
+const heroDay = formatUploadDay(heroFull?.upload_date);
+const heroAccent = hero?.youtube_video_id
+  ? await getAlbumAccent({ videoId: hero.youtube_video_id, thumbUrl: hero.thumb })
+  : null;
+
+// Tile colours by rank, as in the prototype: ten hues that all keep white text
+// above 5.2:1, so a row of tiles never turns into ten shades of brown.
+const GENRE_TILES = ['#4d7000', '#0068a6', '#9f4500', '#865900', '#a8353a', '#716400', '#007558', '#9e366f', '#724aab', '#00717a'];
+const COUNTRY_TILES = ['#716400', '#4d7000', '#865900', '#9f4500', '#a8353a', '#9e366f', '#007558', '#724aab', '#0068a6', '#00717a'];
+const albums = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'album' : 'albums'}`;
+
+const ogImage = hero?.thumb;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" {...accentHtmlAttrs(heroAccent)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -51,75 +102,204 @@ const ogImage = latest[0]?.thumb;
   <body class="ma-shell ma">
     <ArchiveChrome />
 
-    <main id="main" tabindex="-1">
-      <div class="wrap home-sections">
-        <h1 class="home-title">Metal Archive</h1>
-        <!-- Keeps the row titles (h3, from Carousel) nested under an h2. -->
-        <h2 class="sr-only">Albums to play</h2>
+    <main id="main" tabindex="-1" class="ma-home">
+      <h1 class="sr-only">Metal Archive</h1>
 
-        <Carousel title="Latest uploads" albums={latest} href="/metal-archive/browse" layout="scroll" />
-
-        {mostPlayed.length > 0 && (
-          <Carousel title="Most played" albums={mostPlayed} href="/metal-archive/browse?sort=views" layout="scroll" />
-        )}
-
-        <!-- One row per top genre; "See all" goes to that genre's page. -->
-        {genreShowcases.map((showcase) => (
-          <Carousel
-            title={genreLabel(showcase.genre)}
-            albums={showcase.albums}
-            href={`/metal-archive/genre/${slugify(showcase.genre)}`}
-            layout="scroll"
-            deferred={true}
-          />
-        ))}
-
-        <!-- Live recordings: Daniel's OWN live sets, in their own row. No "See all":
-             there is no page for them. Written out here (not through Carousel)
-             to keep the branded live cover, which Carousel has no prop for. -->
-        {liveRecordings.length > 0 && (
-          <section class="section carousel-deferred">
-            <div class="section-header">
-              <h3>Live recordings</h3>
-              <div class="section-header__tools"><RowArrows title="Live recordings" /></div>
+      <!-- data-queue: the hero's ▶ plays on through Latest uploads. -->
+      <div data-queue>
+        {hero && (
+          <section class="ma-hero" data-hero data-state="idle" aria-labelledby="ma-hero-h">
+            <div class="ma-hero__bg" aria-hidden="true">
+              <span class="ma-hero__idle"><CoverArt src={heroSrc} loading="eager" /></span>
+              <span class="ma-hero__now" data-hero-bg></span>
             </div>
-            <div class="carousel-row" data-queue>
-              {liveRecordings.map((a) => <AlbumCard album={a} loading="lazy" livePlaceholder={true} />)}
+            <div class="ma-hero__inner">
+              <!-- The cover is a second ▶ for the pointer; the "Play album" button
+                   is the one in the tab order and the accessibility tree. -->
+              {heroAttrs
+                ? (
+                  <button type="button" class="ma-hero__art ma-hero__idle" tabindex="-1" aria-hidden="true" {...heroAttrs}>
+                    <CoverArt src={heroSrc} loading="eager" />
+                  </button>
+                )
+                : <span class="ma-hero__art ma-hero__idle"><CoverArt src={heroSrc} loading="eager" /></span>}
+              <button type="button" class="ma-hero__art ma-hero__now js-pp" data-np-toggle tabindex="-1" aria-hidden="true" data-state="paused">
+                <span class="ma-hero__now-art" data-hero-art></span>
+              </button>
+
+              <div class="ma-hero__text">
+                <p class="ma-kicker ma-hero__idle">
+                  Latest upload{heroDay && <><span class="ma-kicker__dot" aria-hidden="true">·</span>{heroDay}</>}
+                </p>
+                <p class="ma-kicker ma-hero__now">
+                  <span class="ma-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Now playing
+                </p>
+                <h2 class="ma-hero__title" id="ma-hero-h" data-hero-title>{heroTitle}</h2>
+                <a class="ma-hero__band" href={bandHref(hero.band_name)} data-hero-band>{hero.band_name}</a>
+                {/* Kept in the DOM when empty: the playing album's line fills it. */}
+                <p class="ma-hero__meta" data-hero-meta hidden={!heroLine}>{heroLine}</p>
+                <div class="ma-hero__actions">
+                  {heroAttrs && (
+                    <button type="button" class="ma-btn ma-btn--accent ma-hero__idle" {...heroAttrs} data-keep-label>
+                      <svg class="ma-i ma-i--fill" data-glyph viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
+                      Play album
+                    </button>
+                  )}
+                  <button type="button" class="ma-btn ma-btn--accent ma-hero__now ma-pp js-pp" data-np-toggle data-state="paused">
+                    <svg class="ma-i ma-i--fill ma-pp__play" viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
+                    <svg class="ma-i ma-i--fill ma-pp__pause" viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PAUSE} /></svg>
+                    <span class="ma-pp__play">Play</span><span class="ma-pp__pause">Pause</span>
+                  </button>
+                  <a class="ma-btn ma-btn--glass" href={`/metal-archive/album/${hero.id}`} data-hero-info>
+                    <Icon name="info" />Album info
+                  </a>
+                </div>
+              </div>
             </div>
           </section>
         )}
+
+        <Row id="latest" title="Latest uploads" more={{ label: 'See all', href: '/metal-archive/browse' }} queue={false}>
+          {latest.map((a) => <AlbumCard album={a} />)}
+        </Row>
       </div>
+
+      {mostPlayed.length > 0 && (
+        <Row id="most-played" title="Most played" more={{ label: 'See all', href: '/metal-archive/browse?sort=views' }}>
+          {mostPlayed.map((a) => <AlbumCard album={a} />)}
+        </Row>
+      )}
+
+      {genreTiles.length > 0 && (
+        <Row id="genre-tiles" title="Browse by genre" more={{ label: 'See all', href: '/metal-archive/browse#genres' }} queue={false} tiles>
+          {genreTiles.map((t, i) => (
+            <a class="ma-tile" href={`/metal-archive/genre/${t.slug}`} style={`--tile: ${GENRE_TILES[i % GENRE_TILES.length]}`}>
+              <span class="ma-tile__name">{genreLabel(t.value)}</span>
+              <span class="ma-tile__count">{albums(t.count)}</span>
+              <span class="ma-tile__stack" aria-hidden="true">
+                {t.covers.map((src) => <img src={src} alt="" loading="lazy" decoding="async" width="400" height="400" draggable="false" />)}
+              </span>
+            </a>
+          ))}
+        </Row>
+      )}
+
+      {bands.length > 0 && (
+        <Row id="bands" title="Bands to dig into" queue={false}>
+          {bands.map((b) => (
+            <a class="ma-bcard" href={`/metal-archive/band/${slugify(b.band_name)}`}>
+              <span class="ma-bcard__art"><CoverArt src={b.cover} /></span>
+              <span class="ma-bcard__name">{b.band_name}</span>
+              <span class="ma-bcard__sub">{[albums(b.albums), genreLabel(b.genre)].filter(Boolean).join(' · ')}</span>
+            </a>
+          ))}
+        </Row>
+      )}
+
+      {topCountry && countryRow.length > 0 && (
+        <Row
+          id="top-country"
+          title={fromCountry(topCountry.value)}
+          more={{ label: `All ${topCountry.count.toLocaleString('en-US')}`, href: `/metal-archive/country/${slugify(topCountry.value)}` }}
+        >
+          {countryRow.map((a) => <AlbumCard album={a} />)}
+        </Row>
+      )}
+
+      {countryTiles.length > 0 && (
+        <Row id="country-tiles" title="Browse by country" more={{ label: 'See all', href: '/metal-archive/browse#countries' }} queue={false} tiles>
+          {countryTiles.map((t, i) => (
+            <a class="ma-tile" href={`/metal-archive/country/${t.slug}`} style={`--tile: ${COUNTRY_TILES[i % COUNTRY_TILES.length]}`}>
+              <span class="ma-tile__name">{countryLabel(t.value)}</span>
+              <span class="ma-tile__count">{albums(t.count)}</span>
+              <span class="ma-tile__stack" aria-hidden="true">
+                {t.covers.map((src) => <img src={src} alt="" loading="lazy" decoding="async" width="400" height="400" draggable="false" />)}
+              </span>
+            </a>
+          ))}
+        </Row>
+      )}
+
+      <!-- Daniel's OWN live sets, kept out of the rows above (db.ts NOT_LIVE). No
+           "See all": there is no page for them. -->
+      {liveRecordings.length > 0 && (
+        <Row id="live" title="Live recordings">
+          {liveRecordings.map((a) => <AlbumCard album={a} livePlaceholder={true} />)}
+        </Row>
+      )}
     </main>
 
     <Footer />
 
     <script>
-      // R3-003: the right-edge fade on .carousel-row is only wanted while scrolling
-      // further right would actually reveal more content, so .has-scroll-fade is
-      // toggled from the real scroll position. (The row arrows wire themselves: see
-      // RowArrows.astro.) With ClientRouter this <script> does not re-execute on
-      // navigation, so the init runs on astro:page-load (which fires on the first
-      // load too); a per-row guard avoids re-binding.
-      (function () {
-        function updateRow(row: Element) {
-          var max = row.scrollWidth - row.clientWidth;
-          row.classList.toggle('has-scroll-fade', max - row.scrollLeft > 1);
-        }
-        function initScrollFade() {
-          var rows = document.querySelectorAll('.carousel-row');
-          rows.forEach(function (row) {
-            updateRow(row);
-            if ((row as any).__fadeBound) return;
-            (row as any).__fadeBound = true;
-            row.addEventListener('scroll', function () { updateRow(row); }, { passive: true });
+      // The hero follows the Player: while an album is loaded (playing or paused)
+      // it shows that album, with a play/pause toggle; closed, it goes back to the
+      // latest upload. Text goes in through textContent; the cover is rebuilt only
+      // when the album changes. This module runs once per document, so it acts on
+      // whichever hero the current page has, on load and on every navigation.
+      import { readNow, NOW_EVENT } from '../../lib/now.js';
+      import { coverArtElement } from '../../lib/coverArtDom.js';
+
+      interface HeroText { title: string; band: string; bandHref: string; meta: string; info: string }
+      const idleText = new WeakMap<HTMLElement, HeroText>();
+
+      function paintHero() {
+        const hero = document.querySelector<HTMLElement>('[data-hero]');
+        if (!hero) return;
+        const pick = <T extends HTMLElement>(k: string) => hero.querySelector<T>(`[data-hero-${k}]`);
+        const title = pick('title');
+        const band = pick<HTMLAnchorElement>('band');
+        const meta = pick('meta');
+        const info = pick<HTMLAnchorElement>('info');
+        if (!title || !band || !meta || !info) return;
+        if (!idleText.has(hero)) {
+          idleText.set(hero, {
+            title: title.textContent ?? '',
+            band: band.textContent ?? '',
+            bandHref: band.getAttribute('href') ?? '',
+            meta: meta.textContent ?? '',
+            info: info.getAttribute('href') ?? '',
           });
         }
-        window.addEventListener('resize', function () {
-          document.querySelectorAll('.carousel-row').forEach(updateRow);
-        });
-        document.addEventListener('astro:page-load', initScrollFade);
-        initScrollFade();   // a navigation can run this script after astro:page-load has fired
-      })();
+        const now = readNow();
+        const text: HeroText = now
+          ? {
+              title: now.title,
+              band: now.band,
+              bandHref: now.bandHref || `/metal-archive/browse?q=${encodeURIComponent(now.band)}`,
+              meta: now.meta,
+              info: now.href,
+            }
+          : idleText.get(hero)!;
+        title.textContent = text.title;
+        band.textContent = text.band;
+        band.setAttribute('href', text.bandHref);
+        meta.textContent = text.meta;
+        meta.hidden = !text.meta;
+        info.setAttribute('href', text.info);
+
+        if (now && hero.dataset.now !== now.id) {
+          pick('art')?.replaceChildren(coverArtElement(now.cover, '', 'eager'));
+          pick('bg')?.replaceChildren(coverArtElement(now.cover, '', 'eager'));
+          hero.dataset.now = now.id;
+        }
+        if (!now) delete hero.dataset.now;
+        hero.dataset.state = now ? 'playing' : 'idle';
+
+        // The toggles of a hero that just arrived start at "paused"; the bar's
+        // toggle persists across navigation and knows the real state.
+        const state = document.getElementById('now-playing-toggle')?.getAttribute('data-state');
+        if (state) {
+          hero.querySelectorAll('.js-pp').forEach((el) => {
+            el.setAttribute('data-state', state);
+            el.setAttribute('aria-label', state === 'playing' || state === 'buffering' ? 'Pause' : 'Play');
+          });
+        }
+      }
+
+      document.addEventListener(NOW_EVENT, paintHero);
+      document.addEventListener('astro:page-load', paintHero);
+      paintHero();
     </script>
   </body>
 </html>

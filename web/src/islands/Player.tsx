@@ -569,7 +569,11 @@ export default function Player() {
         const on = !!id && b.dataset.videoId === id;
         if (b.hasAttribute('data-playing') === on) return;
         b.toggleAttribute('data-playing', on);
-        b.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${b.dataset.title} by ${b.dataset.band}`);
+        // data-keep-label: a button whose visible text is its name ("Play album"
+        // in the home hero); a generated label would no longer contain that text.
+        if (!b.hasAttribute('data-keep-label')) {
+          b.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${b.dataset.title} by ${b.dataset.band}`);
+        }
         // [data-glyph] marks the ▶ inside a cover button, which may hold other
         // drawings (the live recordings' microphone).
         (b.querySelector('[data-glyph] path') || b.querySelector('path'))?.setAttribute('d', on ? PAUSE_PATH : PLAY_PATH);
