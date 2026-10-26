@@ -13,7 +13,8 @@ import subprocess
 from pathlib import Path
 
 import requests
-from mcp.server.fastmcp import FastMCP
+# mcp 2.x renamed FastMCP to MCPServer; mcp.server.fastmcp no longer exists.
+from mcp.server import MCPServer
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VENV_BIN = PROJECT_ROOT / "env" / "bin"
@@ -39,7 +40,7 @@ METAL_ARCHIVE_PATHS = [
 YOUTUBE_OAUTH_VARS = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"]
 REQUIRED_ENV_VARS = ["GMAIL_ADDRESS", "GMAIL_APP_PASSWORD"]
 
-mcp = FastMCP("links-bio")
+mcp = MCPServer("links-bio")
 
 
 def _run(cmd: list, timeout: int = 30) -> dict:

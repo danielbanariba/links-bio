@@ -3,13 +3,13 @@
 -r requirements.txt
 
 # Project MCP server (.mcp.json runs mcp/server.py with env/bin/python).
-# >=1.28.1 clears the PYSEC-2026-3481/3482/3483 advisories (T12 audit);
-# <2 because mcp 2.x renamed FastMCP, which mcp/server.py imports.
-mcp>=1.28.1,<2
+# 2.x renamed FastMCP to MCPServer (mcp/server.py imports the new name), so
+# the floor is the 2.x line; <3 so a future major cannot break the import.
+mcp>=2.3.0,<3
 
 # Lint (env/bin/ruff, also used by the MCP lint_project tool).
-ruff==0.15.11
+ruff==0.17.2
 
 # Test suite: pytest plus httpx for starlette's TestClient.
-pytest>=9.1,<10
+pytest>=9.1.1,<10
 httpx>=0.28.1,<0.29

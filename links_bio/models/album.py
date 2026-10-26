@@ -2,6 +2,8 @@ import sqlmodel
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import DateTime
+
 
 class Album(sqlmodel.SQLModel, table=True):
     __tablename__ = "albums"
@@ -26,4 +28,8 @@ class Album(sqlmodel.SQLModel, table=True):
     duration_minutes: Optional[int] = sqlmodel.Field(default=None)
     views: int = sqlmodel.Field(default=0, index=True)
     featured: bool = sqlmodel.Field(default=False, index=True)
-    upload_date: datetime = sqlmodel.Field(default_factory=datetime.now, index=True)
+    # Naive, as stored since day one. A bare `datetime` field would be a
+    # UTC-aware column under sqlmodel >= 0.0.45, so the type is explicit.
+    upload_date: datetime = sqlmodel.Field(
+        default_factory=datetime.now, index=True, sa_type=DateTime(timezone=False)
+    )
