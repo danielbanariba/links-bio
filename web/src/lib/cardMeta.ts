@@ -33,3 +33,41 @@ export function formatCardMeta({ country, year, genre }: CardMetaInput): string 
   ];
   return parts.filter(Boolean).join(' · ');
 }
+
+export interface HeroMetaInput extends CardMetaInput {
+  tracks?: number | null;
+  minutes?: number | null;
+}
+
+/**
+ * The home hero's line, as in the prototype: "Deathcore · United States · 2016 ·
+ * 9 tracks · 41 min". Genre first (the hero is about one album, and the genre is
+ * what a listener decides on), then the tracklist's size. Same rules for what is
+ * missing as formatCardMeta; 0 tracks or 0 minutes means unknown.
+ */
+export function heroMeta({ genre, country, year, tracks, minutes }: HeroMetaInput): string {
+  const rawGenre = genre?.trim() ?? '';
+  const parts = [
+    rawGenre === NO_GENRE ? '' : genreLabel(rawGenre),
+    countryLabel(country?.trim()),
+    year ? String(year) : '',
+    tracks ? `${tracks} ${tracks === 1 ? 'track' : 'tracks'}` : '',
+    minutes ? `${Math.round(minutes)} min` : '',
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "30 Jul 2026" from the database's "2026-07-30 01:00:08.000000". Read from the
+ * text, not through Date, so the day never moves with the build machine's time
+ * zone. '' when the value is missing or not a date.
+ */
+export function formatUploadDay(value: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? '');
+  if (!m) return '';
+  const month = MONTHS[Number(m[2]) - 1];
+  const day = Number(m[3]);
+  return month && day >= 1 && day <= 31 ? `${day} ${month} ${m[1]}` : '';
+}

@@ -11,6 +11,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { thumb } from './thumb.js';
 import { coverUrl } from './coverStore.js';
+import { pickCollage } from './coverDisplay.js';
 import type { Album, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
 
 const candidates = [
@@ -319,6 +320,73 @@ export function getMostPlayed(limit = 12): Card[] {
     .all(limit);
   // The right panel prints the count ("9,131 views"), so it rides along.
   return rows.map((r) => ({ ...toCard(r), views: r.views }));
+}
+
+// "Bands to dig into" on the home: bands with 2+ studio albums (so each has a
+// band page), the most played first by the summed views of those albums. Live
+// sets count neither toward the two albums nor toward the views: they are
+// Daniel's recordings, not the band's catalog. The picture is the most played
+// album's square crop when one exists.
+export interface DigBand {
+  band_name: string;
+  albums: number;
+  genre: string | null;
+  cover: string;
+}
+
+export function getBandsToDigInto(limit = 12): DigBand[] {
+  const bands = db
+    .prepare(
+      `SELECT band_name, COUNT(id) AS albums, COALESCE(SUM(views), 0) AS total_views FROM albums
+       WHERE band_name IS NOT NULL AND band_name != '' AND ${NOT_LIVE}
+       GROUP BY band_name HAVING albums >= 2
+       ORDER BY total_views DESC, band_name LIMIT ?`
+    )
+    .all(limit) as Array<{ band_name: string; albums: number }>;
+  const albumsOf = db.prepare(
+    `SELECT ${CARD_COLS} FROM albums WHERE band_name = ? AND ${NOT_LIVE} ORDER BY views DESC, id DESC`
+  );
+  return bands.map((b) => {
+    const cards = (albumsOf.all(b.band_name) as any[]).map(toCard);
+    const best = cards[0];
+    return {
+      band_name: b.band_name,
+      albums: b.albums,
+      genre: cards.find((c) => c.genre && c.genre !== 'Género desconocido')?.genre ?? null,
+      cover: pickCollage(cards, 1)[0] ?? (best ? best.cover || best.thumb : ''),
+    };
+  });
+}
+
+// The home's "Browse by genre" / "Browse by country" tiles: the biggest facets
+// (grouped by slug, as their pages are), each with three covers from its most
+// played albums. "Metal" and the sync's no-genre placeholder are catch-alls that
+// say nothing about a sound, so they get no tile (their pages still exist).
+export interface FacetTile {
+  slug: string;
+  value: string; // the raw value of the facet's dominant spelling
+  count: number;
+  covers: string[];
+}
+
+const NOT_A_TILE = new Set(['Metal', 'Género desconocido']);
+
+export function getFacetTiles(kind: 'genre' | 'country', limit = 8): FacetTile[] {
+  const column = kind === 'genre' ? 'genre' : 'country';
+  const groups = groupFacetsBySlug(kind === 'genre' ? getAllGenres() : getAllCountries())
+    .filter((g) => !NOT_A_TILE.has(g.label))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, limit);
+  return groups.map((g) => {
+    const rows = db
+      .prepare(
+        `SELECT ${CARD_COLS} FROM albums
+         WHERE ${column} IN (${g.values.map(() => '?').join(',')}) AND ${NOT_LIVE}
+         ORDER BY views DESC, id DESC LIMIT 60`
+      )
+      .all(...g.values) as any[];
+    return { slug: g.slug, value: g.label, count: g.count, covers: pickCollage(rows.map(toCard), 3) };
+  });
 }
 
 // ─── Slug helper — single source of truth for band/genre/country URLs ─────────

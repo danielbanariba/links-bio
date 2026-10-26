@@ -7,7 +7,7 @@
 // these tests pin the decisions that keep the string clean.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatCardMeta } from '../src/lib/cardMeta.ts';
+import { formatCardMeta, heroMeta, formatUploadDay } from '../src/lib/cardMeta.ts';
 
 test('formatCardMeta orders country, year, genre and translates the raw country', () => {
   // "Estados Unidos" is what the YouTube sync writes; the card must show the English label.
@@ -40,4 +40,37 @@ test('formatCardMeta treats blank strings as missing', () => {
 test('formatCardMeta returns an empty string when nothing is known, so the caller renders no line', () => {
   assert.equal(formatCardMeta({ country: null, year: null, genre: null }), '');
   assert.equal(formatCardMeta({}), '');
+});
+
+// heroMeta: the home hero's line, genre first as in the prototype, then the
+// tracklist's size.
+test('heroMeta puts the genre first and adds the tracks and minutes', () => {
+  assert.equal(
+    heroMeta({ genre: 'Deathcore', country: 'Estados Unidos', year: 2016, tracks: 9, minutes: 41 }),
+    'Deathcore · United States · 2016 · 9 tracks · 41 min',
+  );
+});
+
+test('heroMeta drops what is unknown instead of printing a placeholder, 0 tracks or 0 min', () => {
+  assert.equal(
+    heroMeta({ genre: 'Género desconocido', country: 'Honduras', year: 0, tracks: 0, minutes: null }),
+    'Honduras',
+  );
+});
+
+test('heroMeta says "1 track", not "1 tracks"', () => {
+  assert.equal(heroMeta({ genre: 'Grindcore', tracks: 1, minutes: 3 }), 'Grindcore · 1 track · 3 min');
+});
+
+test('formatUploadDay turns the database timestamp into "30 Jul 2026"', () => {
+  // Fails on a month table off by one, or on the raw timestamp reaching the page.
+  assert.equal(formatUploadDay('2026-07-30 01:00:08.000000'), '30 Jul 2026');
+  assert.equal(formatUploadDay('2025-01-05'), '5 Jan 2025');
+});
+
+test('formatUploadDay returns an empty string for a missing or malformed date', () => {
+  assert.equal(formatUploadDay(null), '');
+  assert.equal(formatUploadDay(''), '');
+  assert.equal(formatUploadDay('yesterday'), '');
+  assert.equal(formatUploadDay('2026-13-01'), '');
 });
