@@ -1,6 +1,8 @@
-// Build-time dominant color extraction via node-vibrant.
-// Reads/writes .vibrant-cache.json so unchanged covers skip re-extraction on
-// incremental rebuilds.
+// Build-time cover colour extraction. The colour itself comes from
+// lib/coverColor.ts (sharp, a port of node-vibrant's pick; node-vibrant was
+// dropped in T10b). This file decides WHERE it comes from and caches it:
+// .vibrant-cache.json (the name predates T10b) lets unchanged covers skip
+// re-extraction on incremental rebuilds.
 //
 // WHERE the colour comes from (T10): the square crop the covers step cut out of
 // the video frame (public/covers/<videoId>.webp, read from disk), because that is
@@ -10,21 +12,18 @@
 // colorCacheKey() keys a crop by its video id AND its box, so a re-crop (a T9b
 // override) gets a fresh colour; a frame is keyed by its URL, as before.
 //
-// WHY cache: 1298+ albums × Vibrant decode = several seconds on first build,
-// but only new/changed covers need re-processing on subsequent builds.
-//
-// WHY sharp decode (not Vibrant.from(url) directly): node-vibrant's native
-// image backend (Jimp) CANNOT decode image/webp ("Unsupported MIME type").
-// 509 of 1298 covers on cdn.deathgrind.club are .webp, so ~39% of albums were
-// silently falling back to the cyan default. We fetch the bytes ourselves and
-// hand them to sharp, which decodes webp/jpg/png/avif, downscale to a PNG
-// buffer, and feed THAT buffer to Vibrant. Same dominant color, every format.
+// WHY cache: ~2750 albums × a decode = seconds on a cold build, and the frame
+// fallback is a network fetch; only new/changed covers need re-processing on
+// subsequent builds. Colours cached before T10b were picked by node-vibrant and
+// stay valid: coverColor.ts scores with node-vibrant's targets, so a fresh pick
+// differs from them only by quantiser detail (median hue difference ~3° on a
+// 300-cover sample). Deleting the file recolours every album on the next build.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import sharp from 'sharp';
 import { readableAccent, type AccentTokens } from './accent.js';
 import { coverFileName, isVideoId, type CoverCache } from './cover.js';
+import { dominantColor } from './coverColor.js';
 import type { CoverBox } from './coverDetect.js';
 import { coverPaths, readCoverCache } from './coverStore.js';
 
@@ -36,10 +35,6 @@ const FETCH_HEADERS = {
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
   accept: 'image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8',
 };
-
-// node-vibrant decodes every pixel; 200px is plenty for a dominant color and
-// keeps decode time negligible.
-const DECODE_SIZE = 200;
 
 // cdn.deathgrind.club sits behind Cloudflare with an aggressive rate limit:
 // firing all ~1300 covers in parallel during the build trips HTTP 429 ("Too
@@ -86,21 +81,6 @@ function loadCache(): Cache {
 
 function saveCache(cache: Cache): void {
   writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2), 'utf-8');
-}
-
-// Lazy-loaded vibrant module.
-// IMPORTANT: node-vibrant v4 dropped the default export — importing the bare
-// 'node-vibrant' THROWS ("use named imports node-vibrant/node|browser|worker").
-// We need the /node entrypoint (native image decode) for the build, and the
-// swatch API changed too: it's now a `.hex` getter, NOT getHex().
-let _Vibrant: any = null;
-async function getVibrant(): Promise<any> {
-  if (!_Vibrant) {
-    // node-vibrant/node exports a named `Vibrant` (v4). No default export.
-    const mod = await import('node-vibrant/node');
-    _Vibrant = mod.Vibrant;
-  }
-  return _Vibrant;
 }
 
 // In-memory cache so a single build does not re-read/re-write the JSON file
@@ -185,33 +165,6 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
     return null;
   } finally {
     releaseSlot();
-  }
-}
-
-// Decode image bytes or a local file to a downscaled PNG via sharp, then run
-// Vibrant on it. Returns the hex color or null when it can't be decoded.
-async function dominantColor(input: Buffer | string): Promise<string | null> {
-  let png: Buffer;
-  try {
-    // sharp handles webp/jpg/png/avif/gif/tiff. `failOn: 'none'` keeps it
-    // lenient on slightly corrupt files instead of throwing.
-    png = await sharp(input, { failOn: 'none' })
-      .resize(DECODE_SIZE, DECODE_SIZE, { fit: 'inside', withoutEnlargement: true })
-      .png()
-      .toBuffer();
-  } catch {
-    return null; // undecodable image bytes
-  }
-
-  try {
-    const Vibrant = await getVibrant();
-    const palette = await Vibrant.from(png).getPalette();
-    const swatch =
-      palette.Vibrant || palette.DarkVibrant || palette.Muted || palette.DarkMuted;
-    // v4: `.hex` getter (was getHex() in v3).
-    return swatch && swatch.hex ? swatch.hex : null;
-  } catch {
-    return null;
   }
 }
 
