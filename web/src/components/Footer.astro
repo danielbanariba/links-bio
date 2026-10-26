@@ -1,12 +1,97 @@
 ---
-// Footer: Xerox Underground brand + minimal copyright.
+// Footer: rendered right after <main> on every archive page and on the 404.
+//
+// On archive pages it also brings:
+//   - the shell's right panel (desktop >= 1100px, styles/archive.css): "Now
+//     playing" with an empty frame until something plays, and the five most
+//     played albums (YouTube views), each a ▶ with its own queue. Once an album
+//     plays, the Player's video takes this panel's place.
+//   - the links the shell's navigation has no room for (Promote, Newsletter).
+//   - the persistent Player island. It comes after the page in DOM and tab order
+//     (it is fixed to the viewport, so where it sits in the markup does not move
+//     it on screen), and transition:persist keeps the SAME instance across
+//     client-side navigation, so the music never stops while browsing.
+// And on every page that uses it, the accent's CSS (AccentTheme.astro), which
+// must never reach the bio.
+//
 // The domain shown here used to be "xeroxunderground.com", which does not
-// resolve — visitors who typed it landed nowhere. It now shows the real one.
+// resolve. It now shows the real one.
+import Player from '../islands/Player.tsx';
+import AccentTheme from './AccentTheme.astro';
+import CoverArt from './CoverArt.astro';
+import Icon from './Icon.astro';
+import { getMostPlayed } from '../lib/db.js';
+import { playAttrs } from '../lib/cardPlay.js';
+import { displayTitle } from '../lib/title.js';
+import { GLYPH_PLAY } from '../lib/icons.js';
+
+const isMetalArchive = Astro.url.pathname.startsWith('/metal-archive');
+const mostPlayed = isMetalArchive
+  ? await Promise.all(
+      getMostPlayed(5).map(async (album) => ({
+        album,
+        title: displayTitle(album.album_title),
+        attrs: await playAttrs(album),
+      })),
+    )
+  : [];
+const views = (n: number | undefined) => `${(n ?? 0).toLocaleString('en-US')} views`;
 ---
-<footer class="footer">
-  <span class="footer__brand">METAL ARCHIVE</span>
-  &nbsp;·&nbsp;
-  Underground metal catalog
-  &nbsp;·&nbsp;
-  <a href="/" style="color: var(--text-footer);">danielbanariba.com</a>
-</footer>
+{isMetalArchive && (
+  <aside class="ma-aside" aria-labelledby="ma-aside-h">
+    <div class="ma-aside__head"><h2 id="ma-aside-h">Now playing</h2></div>
+    <div class="ma-empty">
+      <Icon name="yt" />
+      <p><b>Nothing is playing</b>Press play on any album. Its YouTube player opens here.</p>
+    </div>
+    {mostPlayed.length > 0 && (
+      <>
+        <p class="ma-aside__section" id="ma-most-h">Most played <small>YouTube views</small></p>
+        {/* data-queue: a ▶ here plays these five, in this order. data-from names
+            them in the now-playing view's "Playing from". */}
+        <ol class="ma-arows" aria-labelledby="ma-most-h" data-queue data-from="Most played" data-from-href="/metal-archive/browse?sort=views">
+          {mostPlayed.map(({ album, title, attrs }) => (
+            <li class="ma-arow">
+              {attrs
+                ? (
+                  <button type="button" class="ma-arow__art" aria-label={`Play ${title} by ${album.band_name}`} {...attrs}>
+                    <CoverArt src={album.cover || album.thumb} />
+                    <span class="ma-arow__icon" aria-hidden="true">
+                      <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
+                    </span>
+                  </button>
+                )
+                : <span class="ma-arow__art"><CoverArt src={album.cover || album.thumb} /></span>}
+              <a class="ma-arow__text" href={`/metal-archive/album/${album.id}`}>
+                <b>{title}</b>
+                <small>{album.band_name} · {views(album.views)}</small>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </>
+    )}
+  </aside>
+)}
+
+{isMetalArchive
+  ? (
+    <footer class="footer">
+      <a href="/metal-archive/submit">Submit a band</a>
+      <a href="/metal-archive/promo">Promote your album</a>
+      <a href="/metal-archive/newsletter">Newsletter</a>
+      <a href="/">danielbanariba.com</a>
+    </footer>
+  )
+  : (
+    <footer class="footer">
+      <span class="footer__brand">METAL ARCHIVE</span>
+      &nbsp;·&nbsp;
+      Underground metal catalog
+      &nbsp;·&nbsp;
+      <a href="/" style="color: var(--text-footer);">danielbanariba.com</a>
+    </footer>
+  )}
+
+{isMetalArchive && <Player client:load transition:persist="metal-player" />}
+<AccentTheme />

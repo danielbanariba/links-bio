@@ -2,6 +2,8 @@ import sqlmodel
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import DateTime
+
 
 class Submission(sqlmodel.SQLModel, table=True):
     __tablename__ = "submissions"
@@ -17,4 +19,8 @@ class Submission(sqlmodel.SQLModel, table=True):
     bandcamp_url: str = sqlmodel.Field(default="")
     description: str = sqlmodel.Field(default="")
     status: str = sqlmodel.Field(default="pendiente")
-    submitted_at: datetime = sqlmodel.Field(default_factory=datetime.now)
+    # Naive local time, as stored since day one. A bare `datetime` field would be
+    # a UTC-aware column under sqlmodel >= 0.0.45, so the type is explicit.
+    submitted_at: datetime = sqlmodel.Field(
+        default_factory=datetime.now, sa_type=DateTime(timezone=False)
+    )

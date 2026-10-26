@@ -1,61 +1,60 @@
 ---
-// AlbumCard: zero-JS, cover-first gallery card (Bandcamp-style).
-// The artwork is the protagonist: a large square cover that scales and reveals
-// an "open" affordance on hover; band/album text sits cleanly below.
-// `accent` (optional) tints the hover ring/glow with the album's dominant color;
-// defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
-// `livePlaceholder` (optional) — when true, renders a branded placeholder instead
-// of the API-sourced thumbnail (used for Live Recordings cards on the home page).
+// AlbumCard, as in the prototype: a square cover that IS the ▶, and under it the
+// album title and the band, which link to the album page.
+//   - The cover is a <button> carrying the Player's data attributes
+//     (lib/cardPlay.ts): one tap plays the album, queued with the cards of its
+//     row or grid ([data-queue]). Its name says what it does ("Play X by Y"); the
+//     Player flips it to "Pause ..." and the glyph to ⏸ while that album plays.
+//     The ▶ disc shows on hover and focus, and stays while the album plays.
+//   - An album with no video has nothing to play: its cover is a second link to
+//     the album page, hidden from assistive tech and the tab order (the text link
+//     right under it is the same destination).
+//   - The cover is drawn by CoverArt: a square crop fills it, a YouTube frame is
+//     letterboxed whole over a blurred copy, never centre-cropped.
+//   - The title drops the "(Full Álbum)" suffix (lib/title.ts), display only.
+// `livePlaceholder` draws a flat tile with a microphone instead of the image
+// (Daniel's own live sets).
+// The same markup is built by islands/Search.tsx for the Browse results.
 import type { Card } from '../lib/types.js';
+import { playAttrs } from '../lib/cardPlay.js';
+import { displayTitle } from '../lib/title.js';
+import { GLYPH_PLAY } from '../lib/icons.js';
+import CoverArt from './CoverArt.astro';
+import Icon from './Icon.astro';
 
 interface Props {
   album: Card;
   loading?: 'lazy' | 'eager';
-  accent?: string;
   livePlaceholder?: boolean;
 }
 
-const { album, loading = 'lazy', accent, livePlaceholder = false } = Astro.props;
+const { album, loading = 'lazy', livePlaceholder = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
-// Inline custom property only when an accent is passed; the CSS falls back to
-// the cyan brand otherwise.
-const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
+const title = displayTitle(album.album_title);
+const attrs = await playAttrs(album);
+const src = album.cover || album.thumb;
 ---
-
-<a class="album-card" href={href} style={accentStyle}>
-  <div class="album-card__art">
-    {livePlaceholder
-      ? (
-        <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-          <span class="live-cover__band">{album.band_name}</span>
-          <span class="live-cover__badge">LIVE</span>
-        </div>
-      )
-      : album.thumb
-        ? <img
-            class="album-card__cover"
-            src={album.thumb}
-            alt={`${album.band_name} — ${album.album_title}`}
-            loading={loading}
-            decoding="async"
-            width="400"
-            height="400"
-          />
-        : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-    }
-    <!-- Hover affordance: "open" arrow in the album accent, revealed bottom-right.
-         NOT a play button — the card is a zero-JS link to the album page, where
-         the global Player takes over; an "open" arrow avoids promising in-situ
-         playback the card cannot deliver. -->
-    <span class="album-card__open" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 17 17 7" />
-        <path d="M8 7h9v9" />
-      </svg>
-    </span>
-  </div>
-  <div class="album-card__body">
-    <div class="album-card__band">{album.band_name}</div>
-    <div class="album-card__album">{album.album_title}</div>
-  </div>
-</a>
+<div class="ma-card">
+  {attrs
+    ? (
+      <button type="button" class="ma-card__cover" aria-label={`Play ${title} by ${album.band_name}`} {...attrs}>
+        {livePlaceholder
+          ? <span class="ma-art ma-art--live"><Icon name="mic" /></span>
+          : <CoverArt src={src} loading={loading} />}
+        <span class="ma-card__play" aria-hidden="true">
+          <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
+        </span>
+      </button>
+    )
+    : (
+      <a class="ma-card__cover" href={href} tabindex="-1" aria-hidden="true">
+        {livePlaceholder
+          ? <span class="ma-art ma-art--live"><Icon name="mic" /></span>
+          : <CoverArt src={src} loading={loading} />}
+      </a>
+    )}
+  <a class="ma-card__meta" href={href}>
+    <span class="ma-card__title">{title}</span>
+    <span class="ma-card__band">{album.band_name}</span>
+  </a>
+</div>

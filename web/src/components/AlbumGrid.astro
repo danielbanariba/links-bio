@@ -1,0 +1,83 @@
+---
+// AlbumGrid: the cover grid of a facet page (genre, country, year), which can hold
+// hundreds of albums (death-metal has 562, about 69,000px tall on a phone).
+//
+// Every card is in the HTML, so URLs, crawlers and a browser without JavaScript see
+// the whole list. With JavaScript the script below hides all but the first `pageSize`
+// (the `hidden` attribute) and shows a "Show more" button that reveals the next
+// `pageSize` per press. The revealed count is kept in the history entry, so Back and
+// reload reopen the grid as far as it was. A grid that fits in one page gets no button.
+// The button's wrapper starts `hidden` and the script shows it, so without JavaScript
+// there is no button that does nothing.
+//
+// The Player island builds its queue from the cards in the DOM, hidden ones
+// included, so the music keeps going through the whole list.
+import type { Card } from '../lib/types.js';
+import AlbumCard from './AlbumCard.astro';
+
+interface Props {
+  albums: Card[];
+  pageSize?: number;
+}
+
+const { albums, pageSize = 48 } = Astro.props;
+const paged = albums.length > pageSize;
+---
+
+<div class="album-grid" data-paged={paged ? String(pageSize) : undefined}>
+  {albums.map((album) => <AlbumCard album={album} />)}
+</div>
+{paged && (
+  <div class="search-load-more search-load-more--grid" hidden>
+    <button type="button" class="btn-load-more" data-show-more>Show more</button>
+  </div>
+)}
+
+<script>
+  // With ClientRouter this module runs once per document, so the grids of a page that
+  // arrives later are bound on astro:page-load (which also fires on the first load).
+  // The extra direct call covers a navigation that runs this script after that event
+  // has already fired. A WeakSet makes the binding idempotent.
+  const bound = new WeakSet<Element>();
+  const SHOWN_KEY = 'albumGridShown';
+
+  function bindGrid(grid: HTMLElement) {
+    const step = Number(grid.dataset.paged);
+    const more = grid.nextElementSibling;
+    const button = more?.querySelector<HTMLButtonElement>('[data-show-more]');
+    if (bound.has(grid) || !(step > 0) || !(more instanceof HTMLElement) || !button) return;
+    bound.add(grid);
+
+    const cards = Array.from(grid.children) as HTMLElement[];
+    let shown = step;
+    // Back and reload put the scroll back against the full list, so the grid has to reopen
+    // as far as it was. The count lives in this history entry: ClientRouter rewrites the
+    // entry with `{ ...history.state, scrollX, scrollY }`, so the extra key survives, and a
+    // forward visit creates a fresh entry without it (back to `step`).
+    const saved = history.state?.[SHOWN_KEY];
+    if (Number.isInteger(saved)) shown = Math.min(Math.max(saved, step), cards.length);
+    const render = () => {
+      cards.forEach((card, i) => { card.hidden = i >= shown; });
+      const left = cards.length - shown;
+      more.hidden = left <= 0;
+      button.textContent = `Show more (${left} remaining)`;
+    };
+
+    button.addEventListener('click', () => {
+      const firstNew = cards[shown];
+      shown = Math.min(shown + step, cards.length);
+      history.replaceState({ ...(history.state ?? {}), [SHOWN_KEY]: shown }, '');
+      render();
+      // The new cards open up above the button, and the last batch removes it:
+      // keyboard focus moves to the first new card rather than to <body>.
+      firstNew?.querySelector<HTMLElement>('a')?.focus({ preventScroll: true });
+    });
+    render();
+  }
+
+  function bindAll() {
+    document.querySelectorAll<HTMLElement>('.album-grid[data-paged]').forEach(bindGrid);
+  }
+  document.addEventListener('astro:page-load', bindAll);
+  bindAll();
+</script>

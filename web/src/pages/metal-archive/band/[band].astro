@@ -1,22 +1,35 @@
 ---
-// Band discography page (Navidrome-style) — one page per band with 2+ albums.
-// No photo/bio/rating in the DB: we show band name (large), derived metadata
-// (genres, countries, release count), then a cover grid of all works ordered
-// newest-first. Live recordings are separated into their own section below the
-// main discography so studio albums stay prominent.
+// Band page, as in the prototype: a hero that fades from the band's best cover
+// (its most viewed album with a square crop), the huge name, its genres,
+// country and album count, and the YouTube views of all its albums; Play,
+// Shuffle and Share; Popular (its five most viewed albums) beside an About
+// card; then the discography, and its live sets apart. No band photo or bio:
+// the database has none, and nothing is invented.
+//
+// Play and Shuffle play the discography (data-play-scope, islands/Player.tsx):
+// Play from the most viewed album, Shuffle from a random one with shuffle on.
 //
 // Route: /metal-archive/band/{slug}
 // slugify is imported from db.ts — single source of truth shared with the pages
 // that link here, so generated paths and rendered links can never drift apart.
 import { ClientRouter } from 'astro:transitions';
-import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording, slugify } from '../../../lib/db.js';
-import { countryLabel, genreLabel } from '../../../lib/labels.js';
-import { getAlbumColor } from '../../../lib/vibrant.js';
+import { getBandsWithMultipleAlbums, getAlbumsByBand, hasFacetPage, isLiveRecording, slugify } from '../../../lib/db.js';
+import { countryFlag, countryLabel, genreLabel } from '../../../lib/labels.js';
+import { rankPopular, bandSummary } from '../../../lib/bandPage.js';
+import { playAttrs } from '../../../lib/cardPlay.js';
+import { coverMode } from '../../../lib/coverDisplay.js';
+import { displayTitle } from '../../../lib/title.js';
+import { getAlbumAccent } from '../../../lib/vibrant.js';
+import { accentHtmlAttrs } from '../../../lib/accent.js';
+import { GLYPH_PLAY } from '../../../lib/icons.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
-import Navbar from '../../../components/Navbar.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
+import CoverArt from '../../../components/CoverArt.astro';
 import Footer from '../../../components/Footer.astro';
+import Icon from '../../../components/Icon.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 export function getStaticPaths() {
   const bands = getBandsWithMultipleAlbums();
@@ -34,32 +47,51 @@ interface Props {
 const { realName, totalCount } = Astro.props;
 const allAlbums = getAlbumsByBand(realName);
 
-// Split studio/official vs live recordings.
-const studioAlbums = allAlbums.filter((a) => !isLiveRecording(a.album_title));
-const liveAlbums   = allAlbums.filter((a) =>  isLiveRecording(a.album_title));
+// Studio albums vs Daniel's own live sets. The page is about the studio work;
+// a band with only live sets (none today) gets them as its discography.
+const studio = allAlbums.filter((a) => !isLiveRecording(a.album_title));
+const liveAlbums = allAlbums.filter((a) => isLiveRecording(a.album_title));
+const works = studio.length > 0 ? studio : allAlbums;
+const liveApart = studio.length > 0 ? liveAlbums : [];
 
-// Derive distinct genres and countries from the band's catalogue.
-// Countries are stored in Spanish in the DB, so map them to English labels and
-// dedupe AFTER translating — otherwise "Venezuela" and "Venezuela, Bolivarian
-// Republic of" would both render as "Venezuela" on the same line.
-const genres    = [...new Set(allAlbums.map((a) => genreLabel(a.genre)).filter(Boolean))];
-const countries = [...new Set(
-  allAlbums.map((a) => countryLabel(a.country)).filter(Boolean),
-)];
+const summary = bandSummary(works);
+const popular = rankPopular(works, 5);
+const popularRows = await Promise.all(popular.map(async (a) => ({ album: a, attrs: await playAttrs(a) })));
+const best = summary.best;
+const views = (n: number) => n.toLocaleString('en-US');
+const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
-// Header visuals: the newest cover drives the avatar + blurred backdrop AND the
-// page's dynamic --album-color, so the whole band page takes that band's colour.
-const latest = allAlbums[0] ?? null;
-const cover = latest?.thumb || '';
-const bandColor = cover ? await getAlbumColor(cover) : '#dda15e';
-const years = allAlbums.map((a) => a.year).filter((y): y is number => !!y);
-const yearRange = years.length
-  ? (Math.min(...years) === Math.max(...years) ? String(Math.min(...years)) : `${Math.min(...years)}–${Math.max(...years)}`)
+// Genres and countries stay raw for the facet links; labels.ts translates them.
+const genres = summary.genres.slice(0, 3);
+const countries = summary.countries;
+const metaLine = [
+  // One genre: the values are whole strings ("Technical Death Metal/Grindcore"),
+  // so a second one mostly repeats the first.
+  genres[0] ? genreLabel(genres[0]) : null,
+  countries[0] ? countryLabel(countries[0]) : null,
+  plural(works.length, studio.length > 0 ? 'album' : 'live set'),
+  liveApart.length > 0 ? plural(liveApart.length, 'live set') : null,
+].filter(Boolean).join(' · ');
+const yearRange = summary.firstYear
+  ? (summary.firstYear === summary.lastYear ? String(summary.firstYear) : `${summary.firstYear}–${summary.lastYear}`)
   : null;
+const genreHref = (g: string) => (hasFacetPage('genre', slugify(g)) ? `/metal-archive/genre/${slugify(g)}` : null);
+const countryHref = (c: string) => (hasFacetPage('country', slugify(c)) ? `/metal-archive/country/${slugify(c)}` : null);
+
+// The hero's image and the page's accent come from the same album: its square
+// crop fills the hero; without one, the full-size frame is drawn whole.
+const heroSrc = best ? (coverMode(best.cover) === 'square' ? best.cover : best.artwork || best.cover) : '';
+const bandAccent = best ? await getAlbumAccent({ videoId: best.youtube_video_id, thumbUrl: best.thumb }) : null;
+// Play starts at the most viewed album that has a video.
+const playable = works.filter((a) => (a.youtube_video_id || '').trim() !== '');
+const first = rankPopular(playable, 1)[0] ?? null;
+const bandPath = `/metal-archive/band/${slugify(realName)}`;
 
 const pageTitle = `${realName} — Discography · Metal Archive`;
-const metaDesc  = `${totalCount} ${totalCount === 1 ? 'release' : 'releases'} by ${realName} in the Metal Archive.${genres.length ? ' ' + genres.join(', ') + '.' : ''}`;
-const canonical = `https://danielbanariba.com/metal-archive/band/${slugify(realName)}`;
+const genreNames = summary.genres.map((g) => genreLabel(g));
+const metaDesc  = `${totalCount} ${totalCount === 1 ? 'release' : 'releases'} by ${realName} in the Metal Archive.${genreNames.length ? ' ' + genreNames.join(', ') + '.' : ''}`;
+const canonical = `https://danielbanariba.com${bandPath}`;
+const cover = best?.thumb || '';
 
 // ─── Schema.org structured data (MusicGroup) ─────────────────────────────────
 const bandJsonLd = safeJsonLd({
@@ -68,7 +100,7 @@ const bandJsonLd = safeJsonLd({
   '@id': `${canonical}#band`,
   name: realName,
   url: canonical,
-  ...(genres.length ? { genre: genres } : {}),
+  ...(genreNames.length ? { genre: genreNames } : {}),
   ...(cover ? { image: cover } : {}),
   album: allAlbums.map((a) => ({
     '@type': 'MusicAlbum',
@@ -79,7 +111,7 @@ const bandJsonLd = safeJsonLd({
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${bandColor};`}>
+<html lang="en" {...accentHtmlAttrs(bandAccent)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -94,68 +126,126 @@ const bandJsonLd = safeJsonLd({
     <script type="application/ld+json" set:html={bandJsonLd} />
     <ClientRouter />
   </head>
-  <body class="ma">
-    <Navbar />
+  <body class="ma-shell ma">
+    <ArchiveChrome />
 
-    <main class="band-page" id="main" tabindex="-1">
-      <!-- ─── Artist-style header (cover backdrop + avatar + real stats) ─────── -->
-      <header class="artist-header">
-        {cover && <div class="artist-header__backdrop" style={`background-image: url('${cover}')`} aria-hidden="true"></div>}
-        <div class="artist-header__inner">
-          {cover
-            ? <img class="artist-header__avatar" src={cover} alt={`${realName} — cover art`} loading="eager" decoding="async" />
-            : <div class="artist-header__avatar artist-header__avatar--empty" aria-hidden="true"></div>
-          }
-          <div class="artist-header__info">
-            <span class="artist-header__eyebrow">Band</span>
-            <h1 class="artist-header__name">{realName}</h1>
-            <div class="artist-header__stats">
-              <span>{totalCount} {totalCount === 1 ? 'release' : 'releases'}</span>
-              {yearRange && <><span class="sep"> · </span><span>{yearRange}</span></>}
-              {genres.length > 0 && <><span class="sep"> · </span><span>{genres.slice(0, 3).join(', ')}</span></>}
-            </div>
-            {countries.length > 0 && <div class="artist-header__origin">{countries.join(', ')}</div>}
-            <div class="artist-header__actions">
-              {latest && (
-                <a class="artist-header__play" href={`/metal-archive/album/${latest.id}`}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                  Latest release
-                </a>
-              )}
-              <button type="button" class="artist-header__action" data-share="1" aria-label="Share this band">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
-                <span>Share</span>
-              </button>
-            </div>
+    <main id="main" tabindex="-1">
+      <article class="ma-band">
+        <section class="ma-bhero" aria-labelledby="band-name">
+          <div class="ma-bhero__bg" aria-hidden="true">{heroSrc && <CoverArt src={heroSrc} loading="eager" />}</div>
+          <div class="ma-bhero__inner">
+            <p class="ma-kicker">Band</p>
+            <h1 class="ma-bhero__name" id="band-name">{realName}</h1>
+            <p class="ma-bhero__meta">{metaLine}</p>
+            {summary.views > 0 && <p class="ma-bhero__views">{views(summary.views)} YouTube views across the archive</p>}
           </div>
-        </div>
-      </header>
+        </section>
 
-      <!-- ─── Studio / official works ─────────────────────────────────────── -->
-      {studioAlbums.length > 0 && (
-        <section class="band-section">
-          {liveAlbums.length > 0 && (
-            <h2 class="band-section-title">Discography</h2>
+        <div class="ma-bhero__actions">
+          {first && (
+            <button type="button" class="ma-btn ma-btn--accent" data-play-scope="band-disco" data-video-id={first.youtube_video_id?.trim()} data-keep-label>
+              <svg class="ma-i ma-i--fill" data-glyph viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
+              <span data-label-off="Play" data-label-on="Pause">Play</span>
+            </button>
           )}
-          <div class="album-grid">
-            {studioAlbums.map((album) => <AlbumCard album={album} />)}
-          </div>
-        </section>
-      )}
+          {playable.length > 1 && (
+            <button type="button" class="ma-btn ma-btn--glass" data-play-scope="band-disco" data-shuffle>
+              <Icon name="shuffle" />Shuffle
+            </button>
+          )}
+          <button type="button" class="ma-circle ma-circle--glass" data-share aria-label={`Share ${realName}`}>
+            <Icon name="share" />
+          </button>
+        </div>
 
-      <!-- ─── Live recordings (separated, lower priority) ──────────────────── -->
-      {liveAlbums.length > 0 && (
-        <section class="band-section live-section">
-          <div class="live-section__heading">
-            <h2 class="band-section-title" style="margin-bottom: 0;">Live Recordings</h2>
-            <span class="live-section__badge">LIVE</span>
-          </div>
-          <p class="live-section__note">Live sets and concert recordings</p>
-          <div class="album-grid">
-            {liveAlbums.map((album) => <AlbumCard album={album} livePlaceholder={true} />)}
+        <div class="ma-band__body">
+          <section class="ma-sect" aria-labelledby="pop-h">
+            <h2 class="ma-sect__title" id="pop-h">Popular</h2>
+            {/* A ▶ here plays these, in this order. */}
+            <ol class="ma-arows ma-arows--ranked" data-queue data-from={realName} data-from-href={bandPath}>
+              {popularRows.map(({ album, attrs }, i) => {
+                const title = displayTitle(album.album_title);
+                const facts = [
+                  album.year ? String(album.year) : null,
+                  album.release_type || null,
+                  album.tracks > 0 ? plural(album.tracks, 'track') : null,
+                ].filter(Boolean);
+                return (
+                  <li class="ma-arow">
+                    <span class="ma-arow__rank">{i + 1}</span>
+                    {attrs
+                      ? (
+                        <button type="button" class="ma-arow__art" aria-label={`Play ${title} by ${album.band_name}`} {...attrs}>
+                          <CoverArt src={album.cover || album.thumb} />
+                          <span class="ma-arow__icon" aria-hidden="true">
+                            <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
+                          </span>
+                        </button>
+                      )
+                      : <span class="ma-arow__art"><CoverArt src={album.cover || album.thumb} /></span>}
+                    <a class="ma-arow__text" href={`/metal-archive/album/${album.id}`}>
+                      <b>{title}</b>
+                      <small>
+                        <span class="ma-arow__wide">{facts.join(' · ')}</span>
+                        <span class="ma-arow__narrow">{[album.year ? String(album.year) : null, `${views(album.views)} views`].filter(Boolean).join(' · ')}</span>
+                      </small>
+                    </a>
+                    <span class="ma-arow__views">{views(album.views)} views</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          <section class="ma-sect" aria-labelledby="about-h">
+            <h2 class="ma-sect__title" id="about-h">About</h2>
+            <dl class="ma-facts">
+              <div>
+                <dt>{countries.length > 1 ? 'Countries' : 'Country'}</dt>
+                <dd>
+                  {countries.length > 0
+                    ? countries.map((c, i) => {
+                        const href = countryHref(c);
+                        const name = <>{countryFlag(c) && <span aria-hidden="true">{countryFlag(c)} </span>}{countryLabel(c)}</>;
+                        return <span class="ma-facts__item">{href ? <a href={href}>{name}</a> : name}{i < countries.length - 1 && <span class="ma-facts__sep">, </span>}</span>;
+                      })
+                    : <span class="ma-muted">Not listed</span>}
+                </dd>
+              </div>
+              <div>
+                <dt>Genres</dt>
+                <dd>
+                  {genres.length > 0
+                    ? genres.map((g, i) => {
+                        const href = genreHref(g);
+                        return <span class="ma-facts__item">{href ? <a href={href}>{genreLabel(g)}</a> : genreLabel(g)}{i < genres.length - 1 && <span class="ma-facts__sep">, </span>}</span>;
+                      })
+                    : <span class="ma-muted">Not listed</span>}
+                </dd>
+              </div>
+              {yearRange && <div><dt>Releases</dt><dd>{yearRange}</dd></div>}
+              <div><dt>Views</dt><dd>{views(summary.views)}</dd></div>
+            </dl>
+          </section>
+        </div>
+
+        <section class="ma-sect ma-sect--disco" aria-labelledby="disco-h">
+          <h2 class="ma-sect__title" id="disco-h">Discography</h2>
+          {/* The scope Play and Shuffle play; a card's ▶ queues these, too. */}
+          <div class="album-grid" id="band-disco" data-queue data-from={realName} data-from-href={bandPath}>
+            {works.map((album) => <AlbumCard album={album} livePlaceholder={isLiveRecording(album.album_title)} />)}
           </div>
         </section>
-      )}
+
+        {liveApart.length > 0 && (
+          <section class="ma-sect ma-sect--disco" aria-labelledby="live-h">
+            <h2 class="ma-sect__title" id="live-h">Live recordings</h2>
+            <div class="album-grid" data-queue data-from={`${realName} live`} data-from-href={bandPath}>
+              {liveApart.map((album) => <AlbumCard album={album} livePlaceholder />)}
+            </div>
+          </section>
+        )}
+      </article>
     </main>
 
     <Footer />

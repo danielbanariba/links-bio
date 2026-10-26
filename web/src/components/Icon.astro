@@ -1,0 +1,12 @@
+---
+// One line icon of the archive shell (lib/icons.ts). Decorative: the control that
+// holds it carries the accessible name.
+import { ICONS, type IconName } from '../lib/icons.js';
+
+interface Props {
+  name: IconName;
+  class?: string;
+}
+const { name, class: cls } = Astro.props;
+---
+<svg class:list={['ma-i', cls]} viewBox="0 0 24 24" aria-hidden="true" focusable="false" set:html={ICONS[name]} />

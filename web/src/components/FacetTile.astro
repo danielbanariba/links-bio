@@ -1,0 +1,23 @@
+---
+// A genre or country tile, as in the prototype: the name and album count on the
+// rank's colour (lib/tiles.ts), with a fan of three of its covers in the corner
+// (getFacetTiles picks them). Links to the facet page.
+import { countryLabel, genreLabel } from '../lib/labels.js';
+import { tileColor, type TileKind } from '../lib/tiles.js';
+
+interface Props {
+  kind: TileKind;
+  tile: { slug: string; value: string; count: number; covers: string[] };
+  rank: number;
+}
+const { kind, tile, rank } = Astro.props;
+const name = kind === 'genre' ? genreLabel(tile.value) : countryLabel(tile.value);
+const count = `${tile.count.toLocaleString('en-US')} ${tile.count === 1 ? 'album' : 'albums'}`;
+---
+<a class="ma-tile" href={`/metal-archive/${kind}/${tile.slug}`} style={`--tile: ${tileColor(kind, rank)}`}>
+  <span class="ma-tile__name">{name}</span>
+  <span class="ma-tile__count">{count}</span>
+  <span class="ma-tile__stack" aria-hidden="true">
+    {tile.covers.map((src) => <img src={src} alt="" loading="lazy" decoding="async" width="400" height="400" draggable="false" />)}
+  </span>
+</a>

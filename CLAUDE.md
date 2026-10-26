@@ -57,10 +57,14 @@ env/bin/ruff check links_bio/     # Python lint (same as the MCP lint_project to
 env -u GMAIL_ADDRESS -u GMAIL_APP_PASSWORD -u VERCEL_TOKEN \
   uv run --quiet --with pytest --python env/bin/python -m pytest tests -q   # Python test suite
 cd web && npm test                # node:test over web/tests/**/*.test.ts
+cd web && npx tsc --noEmit        # TypeScript 7 (the native tsc); .astro files are not checked
 cd web && npm run build           # the real check: getStaticPaths() crashes the build on a bad slug/param
 ```
 The `env -u` flags keep real secrets out of the test process (tests use a scratch DB and a stubbed
 mailer). The project MCP tool `test_metal_archive_pages` smoke-tests the rendered archive pages.
+ruff 0.17 (T10b) turned on a wider default rule set (isort, pyupgrade, blind-except, ...). On the
+same code it reports 32 findings where ruff 0.15 reported 10. `ruff check links_bio/ --select
+E4,E7,E9,F` gives the old view.
 
 ### Database / migrations (plain Alembic, no Reflex)
 Alembic is driven directly from `links_bio.db` (`REFLEX_DB_URL` env var, default `sqlite:///reflex.db`) —
@@ -74,6 +78,10 @@ alembic upgrade head
 # host tooling that shares env/: mcp (project MCP server), ruff, pytest, httpx.
 # Rebuilding env/ from requirements.txt alone breaks .mcp.json and lint.
 ```
+The four `datetime` fields in `links_bio/models/` declare `sa_type=DateTime(timezone=False)`. Since
+sqlmodel 0.0.45 a bare `datetime` field becomes a UTC-aware column, and that column rejects the naive
+local times `reflex.db` has always stored. Keep the explicit type unless a data migration converts
+those rows first.
 
 ### Data sync (populate reflex.db)
 `sync_all.sh` runs the DB-only pipeline manually, with no deploy — useful for a one-off backfill. In
@@ -89,6 +97,17 @@ python sync_youtube_to_db.py --solo-nuevos --mark-featured   # individual steps 
 ```bash
 cd web && npm run build && vercel deploy --prod --prebuilt
 ```
+**After a merge that changes the dependencies, update the host before its next build.** No deploy
+path installs packages: the timer and the pre-push hook build with whatever is already in
+`web/node_modules` and `env/`. After the T10b upgrade (Astro 7, Preact 11, mcp 2, sqlmodel 0.0.48),
+run this on the host right after pulling `main`:
+```bash
+cd web && npm ci && cd ..                          # Astro 7 needs Node >= 22.23.4 (the host has v25.8.0)
+env/bin/pip install -r requirements-dev.txt
+sudo systemctl restart metal-archive-forms.service
+```
+Pull the code and install the pins together. The new `mcp/server.py` imports `MCPServer`, which mcp 1.x
+does not have. The old one imports `mcp.server.fastmcp`, which mcp 2.x removed.
 Production also deploys automatically (a) twice a day from the `links-bio-sync.timer` systemd unit
 (see "Data layer & sync"), and (b) from the **`.git/hooks/pre-push` hook whenever `main` is pushed**.
 Both prefer `VERCEL_TOKEN` when it is set in `.env` (decision D2: a logged-in CLI session can expire
@@ -97,7 +116,14 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 
 ## The Astro frontend (`web/`) — the live site
 
-- **Astro 6, `output: 'static'`, Vercel adapter, Preact islands.** `better-sqlite3` is kept Vite-external (native module) — see `astro.config.mjs`. The adapter also injects **Vercel Web Analytics** (`webAnalytics: { enabled: true }`) into all 11 pages at build (still must be turned on in the Vercel dashboard to collect data).
+- **Astro 7, `output: 'static'`, Vercel adapter 11, Preact 11 islands.** `better-sqlite3` is kept Vite-external (native module) — see `astro.config.mjs`. The adapter also injects **Vercel Web Analytics** (`webAnalytics: { enabled: true }`) into all 11 pages at build (still must be turned on in the Vercel dashboard to collect data).
+  - `compressHTML: true` keeps Astro 6's whitespace handling. Astro 7's default, `'jsx'`, drops the
+    space between inline elements written on separate lines.
+  - Astro 7's Rust compiler rejects an HTML comment as the first node inside a `{...}` expression.
+    Write `{/* ... */}` there.
+  - `package.json` `overrides` lift path-to-regexp (under `@vercel/routing-utils`) and zod (under
+    `@vercel/cli-config`) to their patched versions. Both upstream packages pin vulnerable releases
+    exactly. Drop an override once its upstream package stops pinning that release.
 - **Security headers (`web/vercel.json`) reach the build output via a post-build script, not the adapter.**
   The installed `@astrojs/vercel` has no general custom-headers passthrough — its `staticHeaders` option
   only ever emits a Content-Security-Policy header, and only when Astro's own experimental
@@ -113,18 +139,88 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
   remove it as a duplicate.** The adapter emits its own `/_astro` cache route *after*
   `{handle: "filesystem"}`, where it never applies to a file the filesystem serves, so hashed assets
   went out with `max-age=0, must-revalidate` until Oct 2026. The copy in `vercel.json` is merged before
-  the filesystem handle, which is the only position that takes effect.
+  the filesystem handle, which is the only position that takes effect. Since `@astrojs/vercel` 11
+  (T10b) the adapter places its own `/_astro` route before the filesystem handle too, so the copy is now
+  redundant. It stays, so the header does not depend on where an adapter version puts its route.
 - **`web/src/lib/db.ts` is the single DB gateway.** ALL database access goes through it — no inline DB opens in pages. It opens one read-only connection and exposes typed query functions (home feeds, album detail, facets, band pages, browse index). When a page needs data, add/return a function here.
 - **Routing:** `web/src/pages/index.astro` is the bio at `/`. The Metal Archive lives under `web/src/pages/metal-archive/` — the **folder provides the `/metal-archive` path prefix** (there is intentionally no `base` in the config), so public URLs are unchanged. Dynamic pages (`album/[id]`, `band/[band]`, `genre/[genre]`, `country/[country]`, `year/[year]`) enumerate paths via `getStaticPaths()` backed by `db.ts`.
-- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (audio/YouTube player, synchronous-click autoplay) and `Search.tsx` (client-side search over `/browse-index.json`). `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search + Navbar.
-- **Per-album color theming:** `web/src/lib/vibrant.ts` extracts a dominant color per cover at build time (node-vibrant + `sharp` for webp decode), cached in `web/.vibrant-cache.json` so unchanged covers skip re-extraction. Covers are YouTube thumbnails (see "Data layer & sync"). The concurrency gate + 429 backoff in `vibrant.ts` date from when covers came from the rate-limited `cdn.deathgrind.club`, and stay as a safety net for a cold build of ~2700 covers. Don't delete the cache file casually; a cold build re-fetches every cover.
-- **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match.
-- **URL slugs go through `slugify()` in `db.ts`** — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
+- **Archive shell (`web/src/components/ArchiveChrome.astro` + `web/src/styles/archive.css`).** Every
+  archive page renders `<ArchiveChrome />` (skip link, sidebar, top bar, phone tab bar) and imports
+  `archive.css` AFTER `global.css`. Everything in it is scoped under `body.ma-shell`, so none of it
+  reaches the bio; `Navbar.astro` now serves only the bio and the 404.
+  - Layout: at ≥1100px a left sidebar (Home/Search/Genres/Countries, Recent, Submit card) and a right
+    panel (`Footer.astro`'s aside: the "Now playing" slot, then Most played), the page between them.
+    768–1099px: an 88px icon rail. Phones: a top bar and a Home/Search/Submit tab bar.
+  - Font: Onest, self-hosted from `@fontsource-variable/onest` through `@font-face` in `archive.css`.
+    The wordmark keeps DinaRemasterII.
+  - Covers render through `CoverArt.astro`, or its browser twin `web/src/lib/coverArtDom.ts`, by
+    `coverMode()` (`web/src/lib/coverDisplay.ts`). A `/covers/` square crop fills the box. Anything else
+    is a YouTube frame: shown whole, letterboxed over a blurred copy, never centre-cropped.
+  - Titles drop "(Full Álbum)" on display only (`displayTitle()`, `web/src/lib/title.ts`). The DB and
+    the URLs keep the raw title.
+  - The Player publishes what it plays on `#np-root[data-now]` plus the `ma:now` event
+    (`web/src/lib/now.ts`), and adds it to the sidebar's Recent list (`web/src/lib/recent.ts`,
+    localStorage `ma:recent`, every access in try/catch). The home hero and Recent follow those.
+  - Home (`pages/metal-archive/index.astro`): a hero, which shows the latest upload, or the album the
+    player has loaded while it is open. Then `Row.astro` rows: Latest uploads, Most played, genre tiles,
+    Bands to dig into, the top country's albums, country tiles, Live recordings (`getFacetTiles()`,
+    `getBandsToDigInto()` in `db.ts`). A tile is `FacetTile.astro`, shared with Search.
+  - Album page (`album/[id].astro`): the cover, the title as the `h1`, Play album, Share, a Tracklist
+    panel whose rows seek (`[data-track-idx][data-seconds]`) and a Details panel, then rows: More from
+    the band, Similar bands, If you liked this, Keep exploring. A button whose label must stay its own
+    carries `data-keep-label`; a `[data-label-on]`/`[data-label-off]` span inside it swaps Play/Pause.
+  - Band page (`band/[band].astro`): a hero over the band's best cover (no invented photos), Play,
+    Shuffle and Share, Popular (top 5 by views), About, Discography, Live recordings
+    (`web/src/lib/bandPage.ts`: `rankPopular`, `bandSummary`). Play and Shuffle are
+    `[data-play-scope="<id>"]` buttons: the queue is every `[data-play-card]` inside the element with
+    that id, `data-video-id` names the album to start with, and `data-shuffle` turns shuffle on and
+    starts at a random one.
+  - Search (`browse.astro` + `islands/Search.tsx`; the URL stays `/metal-archive/browse`): genre and
+    country tiles while the field is empty (`#genres`, `#countries`, which light up the sidebar items);
+    typing shows a top result, albums, bands, genres and countries (`web/src/lib/search.ts`, pure and
+    tested); `?genre=`, `?country=`, `?year=`, `?release_type=` and `?sort=` show a filtered list with
+    removable chips. When the island rewrites the URL it keeps `history.state` (AlbumGrid's count)
+    and fires `SEARCH_URL_EVENT`, so the sidebar re-marks its item. A deep link with a query hides
+    the server-rendered tiles (`.is-deeplink`, set by an inline script) until the island is ready
+    (`data-ready`), so they never flash before the results; without JS the tiles stay.
+  - Facet pages (`genre/`, `country/`, `year/`): `FacetBanner.astro` in the facet's colour, then
+    `AlbumGrid` (Show more; the revealed count lives in the history entry, so Back reopens it). Tile and
+    banner colours come from `web/src/lib/tiles.ts` by rank; `facetTileRank()` and `getFacetTiles()`
+    read one ranked list, so a genre keeps its colour from tile to page.
+  - Forms (submit, promo, newsletter): restyled by `archive.css` under `.ma-shell.form-page` only; the
+    404 and the bio's contact form share the classes and keep `global.css`'s look.
+- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (YouTube player, persisted across ClientRouter navigation) and `Search.tsx` (client-side search over `/browse-index.json`). Any card's ▶ plays its album in place: the queue is that card's row or grid (`data-queue`, `web/src/lib/queue.ts`), the player goes on to the next album by itself and skips videos that cannot be embedded. `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search and by "Surprise me" (the bio's Navbar, the archive top bar's dice).
+  - **The Player's surfaces:** the mini player bar; the right panel at ≥1100px (the video, the album,
+    the queue); the now-playing view (in place of the page on desktop and tablet, a full-screen modal
+    sheet on the phone); a floating 200x200 video tile on phone and tablet. Its state lives on the
+    persisted `#np-root`: `data-active` (an album is loaded), `data-view` (the view is open),
+    `data-surface` (where the video is). `archive.css` owns the shell's player layout; the pre-shell
+    `[data-open]` dock rules were removed from global.css in T13.
+  - **One iframe, never moved.** Moving an iframe in the DOM reloads it and stops the music. So
+    `#mini-player` is a fixed box laid over the active slot (`[data-np-slot]`): the panel, the view's
+    art or the tile. It is sized and animated to that slot (`web/src/lib/playerStage.ts`), sits above
+    every other layer, and takes no clicks. YouTube's rules hold on every surface: at least 200x200,
+    inside the viewport, not covered, not cropped (square corners; a 16:9 video in the square art is
+    shown whole over a blurred cover). Auto-next only runs while the video is more than half visible.
+  - **Tracks:** every album is one video; a track is a start time in it (`web/src/lib/segments.ts`).
+    The album page brings its own; any other album's come from `/metal-archive/album/<id>.json`
+    (`pages/metal-archive/album/[id].json.ts`, `web/src/lib/albumInfo.ts`), fetched when it starts.
+    These per-album JSON files add one build output per album; they are not HTML and not in the sitemap.
+  - "Playing from" reads `data-from` / `data-from-href` on the queue's scope (rows, the hero, Most
+    played), else the page's `h1`. Shuffle and repeat are pure queue functions in `queue.ts`.
+- **Per-album color theming:** `web/src/lib/vibrant.ts` gets a colour per cover at build time and caches it in `web/.vibrant-cache.json`, so unchanged covers skip re-extraction. `web/src/lib/coverColor.ts` picks the colour with `sharp` alone: a 64px sample, a 4-bit histogram, then node-vibrant's targets and weights for its "Vibrant" swatch. So the colour is the most vivid one on the cover, not the most frequent one. node-vibrant itself was removed in T10b: its Jimp backend carried the npm audit advisories. Colours cached from node-vibrant stay valid. Covers are YouTube thumbnails (see "Data layer & sync"). The concurrency gate + 429 backoff in `vibrant.ts` date from when covers came from the rate-limited `cdn.deathgrind.club`, and stay as a safety net for a cold build of ~2700 covers. Don't delete the cache file casually; a cold build re-fetches every cover.
+  - **The colour comes from the square crop** (`web/public/covers/<videoId>.webp`, read from disk) when one exists, else from the mqdefault frame URL. `colorCacheKey()` keys a crop by video id + crop box, so a re-crop (an override) gets a fresh colour; a failed extraction is never cached.
+  - **Readable variants, same hue** (`web/src/lib/accent.ts`, `readableAccent`): `text` ≥ 4.5:1 and `fill` ≥ 3:1 against `--ma-surface-2` (HSL lightness raised only as far as needed, never mixed toward white), `ink` from `inkOnAccent(fill)`, `glow` = the fill at 45% alpha. A test keeps `ACCENT_SURFACE` in step with `global.css`. That 4.5:1 holds only on `--ma-surface-2`: accent text on the accent-tinted panels of the now playing view (`--ma-raised`, `--ma-panel`) uses `--accent-raised` in `archive.css`, the same hue floored at OKLCH lightness 0.8. Raising `ACCENT_SURFACE` instead washes out blue accents, which a test forbids.
+  - **Precedence** (`resolveAccent`): the album in the player (open, playing or paused) colours every page; else the page's own album colour (album, band and genre pages bake `data-accent` + the style on `<html>`); else no inline accent, so the stylesheet's amber applies. Card ▶s, `browse-index.json` and the album page's data island carry the encoded tokens (`data-accent`), so the Player never extracts a colour; it writes `--album-color` (the fill, read as `--accent`), `--accent-bright`, `--on-accent` and `--accent-glow` on `<html>`, and repaints the incoming document on `astro:before-swap`.
+  - The `@property` registrations (600ms colour transitions, instant under reduced motion) and the glow behind the bar's play button live in `web/src/components/AccentTheme.astro`, rendered by `Footer.astro`, NOT in `global.css`: the bio loads `global.css` too, and any rule change there changes its hashed file name in the bio's HTML.
+- **Square covers (`npm run covers`, runs before `astro build`):** a YouTube frame is 16:9 with a tracklist beside the art, so `web/scripts/covers/covers.mjs` finds the square cover in each album's `maxresdefault` frame and writes a 400px WebP to `web/public/covers/<videoId>.webp` (gitignored). The detector is `web/src/lib/coverDetect.ts` (pure TypeScript on `sharp` raw pixels, a port of the Python spike: border-ridge search, template re-score, year fallback); `cover.ts` holds the decisions (`planCover`, `coverSrc`), `coverRun.ts` the download/write loop, `coverStore.ts` the disk access. `db.ts` puts the result in `Card.cover` and in the `cover` field of `browse-index.json`; `AlbumCard.astro` and `Search.tsx` render `cover || thumb`, and CSS keeps cards square either way. State: `web/.cover-cache.json` (gitignored, keyed by video id, invalidated when `COVER_ALGO_VERSION` in `cover.ts` changes) and `web/.cover-previews/` (gitignored 320x180 frames for review). **Human decisions live in the tracked `web/src/data/cover-overrides.json`**: `{ "<videoId>": { "x": n, "y": n, "size": n } | "full" }` in 1280x720 source pixels; `"full"` means no clean square exists, so that card keeps the mqdefault frame. An override beats the detector and survives algorithm bumps. A warm run downloads nothing; one failed album is logged and keeps the mqdefault frame, and the build never fails because of covers. Without `reflex.db`, or with an override file that is not valid JSON, the step skips itself and leaves the crops and the cache as they are (running without the reviewed overrides would re-crop the albums fixed by hand). A `Retry-After` longer than 30s fails that album for this run instead of stalling the build. A `"full"` override is cached as source `override` with no box, so deleting its line lets the detector try the album again. **The first run on a host is a one-time cold run (~2,750 downloads, minutes): prime it by hand with `cd web && npm run covers` before the sync timer builds, because a cold run inside the timer could blow its timeout.** Review: `node scripts/covers/contact-sheets.mjs <outDir> [--from N --count N --source detected,template]` renders 20-tile sheets (frame with box + crop + label). Requires Node >= 22.23.4 (Astro 7; the scripts import `.ts` directly, through Node's type stripping).
+- **Live-recordings rule (important business logic, in `db.ts`):** albums whose title contains `live in` or `(live` are Daniel's OWN live sets, not studio releases. They are **excluded from the main home/browse feeds** and surfaced in a separate "Live Recordings" section. Use the `NOT_LIVE` / `LIVE_MATCH` predicates and `isLiveRecording()` instead of re-implementing the match. `isLiveRecording()` lives in `web/src/lib/live.ts` (no `better-sqlite3`, so the Search island can import it) and `db.ts` re-exports it.
+- **URL slugs go through `slugify()`** (`web/src/lib/slug.ts`, re-exported by `db.ts`) — the single source of truth imported by BOTH the `getStaticPaths()` that *generate* band/genre/country paths and the pages and the Search island that *render* links to them, so the two can never drift. It has an ascii fallback for names with no latin alphanumerics (e.g. Cyrillic), which would otherwise collapse to `""` and crash the static build with `Missing parameter`. Never hand-roll a slug; call `slugify()`.
 - **DB values are Spanish, the UI is English — translate in `web/src/lib/labels.ts`.** `albums.country` holds Spanish names (`Estados Unidos`, `Alemania`) because that is what the YouTube sync writes, and `albums.genre` holds one Spanish placeholder (`Género desconocido`). `labels.ts` is the single source of truth mapping a raw DB value to its English label + flag: `countryLabel()`, `countryFlag()`, `genreLabel()`. **Slugs and query values must keep using the RAW database value** — that is why `/metal-archive/country/estados-unidos` still works and no inbound link broke. Never render `album.country` or a country facet value directly; never hardcode a flag map (it used to be copy-pasted into two pages).
 - **Bio identity links:** social URLs live in the `SOCIAL` map at the top of `index.astro`. The page also emits a JSON-LD `Person` whose `sameAs` (plus `rel="me"` on the icon links) tells search engines that this site and the engineering portfolio `danielbanariba.dev` are the same person. A new profile goes in `SOCIAL`, `sameAs` and the icon row together.
 - **Canonical origin is `https://danielbanariba.com`**, declared once as `site` in `astro.config.mjs`. Every page needs an absolute `<link rel="canonical">`. Archive pages previously pointed at `xeroxunderground.com`, a domain that does not resolve.
 - **`web/src/pages/sitemap.xml.ts`** generates the sitemap at build time from `db.ts` using the same `slugify()` as `getStaticPaths()`, so it can never list a path the build did not emit. `web/public/robots.txt` points at it. Add new page types to both the route and the sitemap.
-- **Styling:** one global stylesheet, `web/src/styles/global.css`. (The old per-component Reflex styles that used to live in `links_bio/styles/` were deleted with the rest of the Reflex UI tree — see "What is live vs. legacy".)
+- **Styling:** one global stylesheet, `web/src/styles/global.css`: the bio's and the 404's look, the shared form classes and the Player's base rules. The archive's look lives in `web/src/styles/archive.css` (the shell, see "Archive shell"), which archive pages load after it, together with the archive-only accent block in `web/src/components/AccentTheme.astro` (see "Per-album color theming"). (The old per-component Reflex styles that used to live in `links_bio/styles/` were deleted with the rest of the Reflex UI tree — see "What is live vs. legacy".)
 
 ## Forms backend (`links_bio/fastapi_forms.py`)
 
@@ -287,7 +383,7 @@ file so a leaked `.env` can't also leak the off-host backup repository (see "Bac
 
 ## Project tooling
 
-- **Project MCP server** (`mcp/server.py`, wired in `.mcp.json`) exposes health/validation tools: `lint_project` (ruff on `links_bio/`), `check_db_schema` / `check_migrations_pending`, `validate_env_vars`, `count_models_in_db`, `test_metal_archive_pages`, `check_vercel_deploy`. Some tools (`check_reflex_server`, `check_reflex_cloud`) target the pre-migration Reflex deployment and are stale.
+- **Project MCP server** (`mcp/server.py`, wired in `.mcp.json`) exposes health/validation tools: `lint_project` (ruff on `links_bio/`), `check_db_schema` / `check_migrations_pending`, `validate_env_vars`, `count_models_in_db`, `test_metal_archive_pages`, `check_vercel_deploy`. Some tools (`check_reflex_server`, `check_reflex_cloud`) target the pre-migration Reflex deployment and are stale. It runs on mcp 2.x (`from mcp.server import MCPServer`; 1.x's `FastMCP` is gone). The v2 stdio server still answers the 2025-era `initialize` handshake, so the Claude Code client needs no change.
 - **Design reference:** `design-system/MASTER.md` documents the visual language (the "Xerox Underground" palette, primary cyan `#0073a8`, etc.); its implementation-specific notes now point at the live Astro styling, not the deleted Reflex components (see that file's own history note).
 
 ## Commits & PRs

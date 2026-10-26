@@ -1,0 +1,233 @@
+---
+// The archive's app shell, rendered at the top of every archive page's <body>
+// (which also carries class="ma-shell"; styles/archive.css lays it out):
+//   - the left sidebar (>= 1100px): wordmark, Home / Search / Genres / Countries,
+//     "Recent" (the albums this browser played, from localStorage) and the
+//     "Play in a band?" card. From 768 to 1099px it collapses to an 88px icon rail.
+//   - the top bar over the centre column: back / forward and the search pill on
+//     desktop, the wordmark and the pill on the rail, the wordmark and a search
+//     button on a phone. Browse has its own search field, so no pill there.
+//   - the phone tab bar: Home / Search / Submit.
+// The right panel (Now playing, idle + Most played) is Footer.astro's; the video
+// itself is the persisted Player island's.
+//
+// Genres and Countries are sections of Browse (#genres, #countries). On Browse
+// the hash picks which item is current; on a genre or country page that item is.
+import Icon from './Icon.astro';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isHome = path === '/metal-archive';
+const onBrowse = path === '/metal-archive/browse';
+const current = {
+  home: isHome,
+  search: onBrowse,
+  genres: path.startsWith('/metal-archive/genre/'),
+  countries: path.startsWith('/metal-archive/country/'),
+  submit: path === '/metal-archive/submit',
+};
+// aria-current for a link; undefined renders no attribute.
+const here = (on: boolean) => (on ? 'page' : undefined);
+// Home and Search are top-level screens; everything else gets a back button on
+// the rail and the phone (the desktop bar always has back and forward).
+const isSub = !isHome && !onBrowse;
+---
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="ma-ambient" aria-hidden="true"></div>
+
+<aside class="ma-side" aria-label="Library">
+  <a class="ma-brand" href="/metal-archive" aria-label="daniel_banariba, Metal Archive home">
+    <span class="ma-wordmark"><span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span></span>
+    <span class="ma-brand__product">Metal Archive</span>
+  </a>
+  <nav class="ma-nav" aria-label="Archive" data-ma-nav>
+    <a href="/metal-archive" aria-current={here(current.home)}><Icon name="home" /><span>Home</span></a>
+    <a href="/metal-archive/browse" data-nav="search" aria-current={here(current.search)}><Icon name="search" /><span>Search</span></a>
+    <a href="/metal-archive/browse#genres" data-nav="genres" aria-current={here(current.genres)}><Icon name="genres" /><span>Genres</span></a>
+    <a href="/metal-archive/browse#countries" data-nav="countries" aria-current={here(current.countries)}><Icon name="globe" /><span>Countries</span></a>
+    <a href="/metal-archive/submit" class="ma-nav__submit" aria-current={here(current.submit)}><Icon name="upload" /><span>Submit</span></a>
+  </nav>
+  <section class="ma-recent" aria-labelledby="ma-recent-h" data-recent hidden>
+    <p class="ma-side__label" id="ma-recent-h">Recent</p>
+    <ul class="ma-recent__list" data-recent-list></ul>
+  </section>
+  <div class="ma-submit-card">
+    <b>Play in a band?</b>
+    <p>Send your album. If it fits, it streams here in full.</p>
+    <a class="ma-btn ma-btn--glass ma-btn--sm" href="/metal-archive/submit"><Icon name="upload" />Submit a band</a>
+  </div>
+</aside>
+
+<header class="ma-top" data-ma-top>
+  <div class="ma-top__nav">
+    <button type="button" class="ma-circle" data-history="-1" aria-label="Back"><Icon name="left" /></button>
+    <button type="button" class="ma-circle" data-history="1" aria-label="Forward"><Icon name="right" /></button>
+  </div>
+  {isSub && (
+    <button type="button" class="ma-circle ma-top__back" data-history="-1" aria-label="Back"><Icon name="left" /></button>
+  )}
+  <a class="ma-top__brand" href="/metal-archive" aria-label="Metal Archive home">
+    <span class="ma-wordmark"><span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span></span>
+  </a>
+  {!onBrowse && (
+    <form class="ma-search" action="/metal-archive/browse" method="get" role="search">
+      <label class="ma-search__field">
+        <Icon name="search" />
+        <input
+          type="search"
+          name="q"
+          placeholder="Search bands, albums, genres"
+          aria-label="Search the archive"
+          autocomplete="off"
+          enterkeyhint="search"
+        />
+      </label>
+    </form>
+  )}
+  <div class="ma-top__end">
+    {/* Shown only while the Player's now-playing view is open on desktop and
+        tablet (styles/archive.css); the phone's sheet has its own chevron. */}
+    <button type="button" class="ma-btn ma-btn--glass ma-btn--sm ma-top__close" data-np-close-view><Icon name="down" />Close player</button>
+    <button type="button" class="ma-circle" data-surprise aria-label="Surprise me: a random album"><Icon name="dice" /></button>
+    {!onBrowse && (
+      <a class="ma-circle ma-top__search" href="/metal-archive/browse" aria-label="Search"><Icon name="search" /></a>
+    )}
+  </div>
+</header>
+
+<nav class="ma-tabbar" aria-label="Sections">
+  <a href="/metal-archive" aria-current={here(current.home)}><Icon name="home" /><span>Home</span></a>
+  <a href="/metal-archive/browse" aria-current={here(onBrowse || current.genres || current.countries)}><Icon name="search" /><span>Search</span></a>
+  <a href="/metal-archive/submit" aria-current={here(current.submit)}><Icon name="upload" /><span>Submit</span></a>
+</nav>
+
+<script>
+  // Runs once per full page load (ClientRouter does not re-run module scripts), so
+  // every listener is delegated on document or window, and the per-page work runs
+  // on astro:page-load (the first load too). Before that event, astro:after-swap
+  // fills Recent so a navigation never shows the sidebar without it.
+  import { loadRecent, browserStorage, RECENT_EVENT, type RecentEntry } from '../lib/recent.js';
+  import { coverArtElement } from '../lib/coverArtDom.js';
+  import { readNow, NOW_EVENT } from '../lib/now.js';
+  import { SEARCH_URL_EVENT } from '../lib/search.js';
+
+  // ─── Recent: built with createElement/textContent, entries are stored data ───
+  function eq(): HTMLElement {
+    const el = document.createElement('span');
+    el.className = 'ma-eq';
+    el.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < 4; i++) el.append(document.createElement('i'));
+    return el;
+  }
+
+  function recentRow(e: RecentEntry, playingId: string): HTMLLIElement {
+    const a = document.createElement('a');
+    a.href = e.href;
+    const text = document.createElement('span');
+    const title = document.createElement('b');
+    title.textContent = e.title;
+    const band = document.createElement('small');
+    band.textContent = e.band;
+    text.append(title, band);
+    a.append(coverArtElement(e.cover, 'ma-recent__art'), text);
+    if (e.id === playingId) {
+      a.classList.add('is-playing');
+      a.append(eq());
+      const sr = document.createElement('span');
+      sr.className = 'sr-only';
+      sr.textContent = ' (playing)';
+      title.append(sr);
+    }
+    const li = document.createElement('li');
+    li.append(a);
+    return li;
+  }
+
+  function renderRecent() {
+    const box = document.querySelector<HTMLElement>('[data-recent]');
+    const list = box?.querySelector('[data-recent-list]');
+    if (!box || !list) return;
+    const entries = loadRecent(browserStorage());
+    const playingId = readNow()?.id ?? '';
+    list.replaceChildren(...entries.map((e) => recentRow(e, playingId)));
+    box.hidden = entries.length === 0;
+  }
+
+  // ─── Genres / Countries are #sections of Browse: the hash picks the item,
+  // and so does an old ?genre= / ?country= link (Browse filtered by one) ───
+  function markBrowseNav() {
+    if (location.pathname.replace(/\/$/, '') !== '/metal-archive/browse') return;
+    const sp = new URLSearchParams(location.search);
+    const which = location.hash === '#genres' || (!sp.get('q') && sp.get('genre'))
+      ? 'genres'
+      : location.hash === '#countries' || (!sp.get('q') && sp.get('country'))
+        ? 'countries'
+        : 'search';
+    document.querySelectorAll<HTMLAnchorElement>('[data-ma-nav] [data-nav]').forEach((a) => {
+      if (a.dataset.nav === which) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+  }
+
+  // ─── the top bar turns solid once the page scrolls under it ───
+  function syncTop() {
+    document.querySelector('[data-ma-top]')?.classList.toggle('is-solid', window.scrollY > 24);
+  }
+
+  // ─── back / forward / surprise: delegated, so fresh markup needs no binding ───
+  async function goTo(url: string) {
+    try {
+      const { navigate } = await import('astro:transitions/client');
+      navigate(url);
+    } catch {
+      window.location.href = url;
+    }
+  }
+  function canGoBack(): boolean {
+    // The Navigation API knows; without it, a tab opened on this page has a
+    // history of one entry.
+    const nav = (window as unknown as { navigation?: { canGoBack?: boolean } }).navigation;
+    return typeof nav?.canGoBack === 'boolean' ? nav.canGoBack : history.length > 1;
+  }
+  async function surprise() {
+    try {
+      const res = await fetch('/browse-index.json');
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        const pick = data[Math.floor(Math.random() * data.length)];
+        if (pick && pick.id != null) { goTo(`/metal-archive/album/${pick.id}`); return; }
+      }
+    } catch { /* fall through */ }
+    goTo('/metal-archive/browse');
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target as Element | null;
+    const hist = t?.closest<HTMLElement>('[data-history]');
+    if (hist) {
+      if (hist.dataset.history === '1') history.forward();
+      else if (canGoBack()) history.back();
+      else goTo('/metal-archive');
+      return;
+    }
+    if (t?.closest('[data-surprise]')) surprise();
+  });
+
+  window.addEventListener('scroll', syncTop, { passive: true });
+  window.addEventListener('hashchange', markBrowseNav);
+  document.addEventListener(SEARCH_URL_EVENT, markBrowseNav);
+  document.addEventListener(RECENT_EVENT, renderRecent);
+  document.addEventListener(NOW_EVENT, renderRecent);
+  document.addEventListener('astro:after-swap', () => {
+    renderRecent();
+    // A client-side navigation lands keyboard focus on the new page's content,
+    // like a skip link would; preventScroll leaves scrolling to the router.
+    document.getElementById('main')?.focus({ preventScroll: true });
+  });
+  document.addEventListener('astro:page-load', () => {
+    renderRecent();
+    markBrowseNav();
+    syncTop();
+  });
+  renderRecent();
+  markBrowseNav();
+  syncTop();
+</script>

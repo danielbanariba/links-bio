@@ -34,7 +34,21 @@ export interface Card {
   year: number | null;
   country: string | null;
   thumb: string;
+  // Square cover for album cards: /covers/<videoId>.webp when a clean crop exists,
+  // else the same mqdefault URL as `thumb` (lib/cover.ts, coverSrc).
+  cover: string;
   youtube_video_id: string | null;
+  // YouTube views, only where a query selects them (getMostPlayed).
+  views?: number;
+}
+
+// A band's album as the band page (and an album page's "More from") lists it.
+export interface BandCard extends Card {
+  /** The full-size YouTube thumbnail: the band hero's image when there is no square crop. */
+  artwork: string | null;
+  views: number;
+  release_type: string | null;
+  tracks: number;
 }
 
 export interface Track {
@@ -55,12 +69,6 @@ export interface Facet {
   count: number;
 }
 
-export interface GenreShowcase {
-  genre: string;
-  count: number;
-  albums: Card[];
-}
-
 // Row returned by getBrowseIndex — serialised to /browse-index.json for the Search island.
 export interface BrowseEntry {
   id: number;
@@ -72,4 +80,11 @@ export interface BrowseEntry {
   release_type: string | null;
   views: number | null;
   thumb: string;
+  // Square cover for the result cards (same rule as Card.cover).
+  cover: string;
+  // The album's YouTube video: the Browse results show a ▶ only when it is set.
+  youtube_video_id: string | null;
+  // The ▶'s accent tokens, encoded (lib/accent.ts encodeAccent). Added by
+  // browse.astro at build time; absent when the album has no video or colour.
+  accent?: string;
 }

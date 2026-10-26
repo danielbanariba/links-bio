@@ -2,9 +2,10 @@
 // submit.astro — Submit a band to the Metal Archive
 // POSTs to /api/metal-archive/submit (FastAPI on port 8001, proxied by host)
 import { ClientRouter } from 'astro:transitions';
-import Navbar from '../../components/Navbar.astro';
+import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
+import '../../styles/archive.css';
 
 const GENRES = [
   "Death Metal", "Black Metal", "Thrash Metal", "Doom Metal",
@@ -38,8 +39,8 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
-<body class="form-page">
-  <Navbar />
+<body class="ma-shell form-page">
+  <ArchiveChrome />
 
   <main class="form-page__main" id="main" tabindex="-1">
     <!-- Header -->
@@ -135,7 +136,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
             <label class="form-label" for="youtube_url">YouTube URL</label>
             <input
               id="youtube_url" name="youtube_url" type="url"
-              class="form-input" placeholder="https://youtu.be/..."
+              class="form-input" placeholder="https://youtu.be/…"
             />
           </div>
           <div class="form-field">
@@ -152,7 +153,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           <label class="form-label" for="description">Description</label>
           <textarea
             id="description" name="description"
-            class="form-textarea" placeholder="Tell us about your band..."
+            class="form-textarea" placeholder="Tell us about your band…"
             rows="4"
           ></textarea>
         </div>
@@ -253,7 +254,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       // flagged it as invalid.
       input.setAttribute('aria-invalid', 'true');
       input.setAttribute('aria-describedby', msgId);
-      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       (input as HTMLInputElement).focus({ preventScroll: true });
     }
 
@@ -274,7 +275,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Submitting...';
+      btn!.textContent = 'Submitting…';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/submit`, {

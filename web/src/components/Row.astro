@@ -1,0 +1,41 @@
+---
+// One home row, as in the prototype: a title, an optional "See all" link, and a
+// track that scrolls sideways under it, edge to edge of the centre column. The
+// children are the row's items: album cards, genre/country tiles or band cards.
+//   - `queue`: the track is the play queue of a ▶ pressed in it (the Player
+//     queues every [data-play-card] inside the nearest [data-queue]). Off when an
+//     outer element is the queue (the home's hero + Latest uploads) or when the
+//     row has nothing to play (tiles, bands).
+//   - `tiles`: wider columns for the genre and country tiles.
+// Pointer devices also get prev/next arrows (RowArrows); touch swipes.
+import RowArrows from './RowArrows.astro';
+
+interface Props {
+  id: string;
+  title: string;
+  more?: { label: string; href: string };
+  queue?: boolean;
+  tiles?: boolean;
+}
+
+const { id, title, more, queue = true, tiles = false } = Astro.props;
+---
+<section class="ma-row" id={id} aria-labelledby={`${id}-h`}>
+  <div class="ma-row__head">
+    <h2 class="ma-row__title" id={`${id}-h`}>{title}</h2>
+    <div class="ma-row__tools">
+      <RowArrows title={title} />
+      {more && <a class="ma-row__more" href={more.href} aria-label={`${more.label}: ${title}`}>{more.label}</a>}
+    </div>
+  </div>
+  {/* data-from names the queue in the now-playing view's "Playing from". */}
+  <div
+    class:list={['ma-row__track', tiles && 'ma-row__track--tiles']}
+    data-row-track
+    data-queue={queue ? '' : undefined}
+    data-from={queue ? title : undefined}
+    data-from-href={queue ? `${Astro.url.pathname}#${id}` : undefined}
+  >
+    <slot />
+  </div>
+</section>

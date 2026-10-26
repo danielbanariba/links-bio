@@ -160,6 +160,15 @@ export function countryFlag(value: string | null | undefined): string {
   return COUNTRIES[value]?.flag ?? '';
 }
 
+// English names that take "the": "From the United States", "From the Netherlands".
+const WITH_THE = /^(United |Czech Republic$|Dominican Republic$|Netherlands$|Philippines$)/;
+
+/** Title of a home row of one country's albums: "From the United States". */
+export function fromCountry(value: string | null | undefined): string {
+  const name = countryLabel(value);
+  return `From ${WITH_THE.test(name) ? 'the ' : ''}${name}`;
+}
+
 // ─── Genres ──────────────────────────────────────────────────────────────────
 // `albums.genre` is otherwise already English ("Death Metal", "Grindcore"). The
 // only Spanish value is a placeholder the sync wrote for albums with no genre —

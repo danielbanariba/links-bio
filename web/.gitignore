@@ -7,3 +7,10 @@ dist/
 .env.*
 *.log
 .DS_Store
+
+# Cover step (scripts/covers/covers.mjs): generated crops, detector cache, review previews.
+# src/data/cover-overrides.json is tracked on purpose: it holds the reviewed boxes.
+public/covers/
+.cover-cache.json
+.cover-cache.json.tmp
+.cover-previews/

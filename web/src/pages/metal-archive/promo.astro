@@ -2,9 +2,10 @@
 // promo.astro — Promote music on the Metal Archive
 // POSTs to /api/metal-archive/promo (FastAPI on port 8001, proxied by host)
 import { ClientRouter } from 'astro:transitions';
-import Navbar from '../../components/Navbar.astro';
+import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
+import '../../styles/archive.css';
 
 const GENRES = [
   "Death Metal", "Black Metal", "Thrash Metal", "Doom Metal",
@@ -103,8 +104,8 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
   <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
-<body class="form-page">
-  <Navbar />
+<body class="ma-shell form-page">
+  <ArchiveChrome />
 
   <main class="form-page__main" id="main" tabindex="-1">
     <!-- Header -->
@@ -204,7 +205,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
             <select id="genre" name="genre" class="form-select">
               <option value="">Pick a genre</option>
               {GENRES.map(g => <option value={g}>{g}</option>)}
-              <option value="Other">Other...</option>
+              <option value="Other">Other…</option>
             </select>
             <!-- Custom genre input — shown via JS when "Other" selected -->
             <input
@@ -272,7 +273,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
               </label>
               <input
                 id="youtube_url" name="youtube_url" type="url"
-                class="form-input" placeholder="https://youtu.be/..."
+                class="form-input" placeholder="https://youtu.be/…"
               />
             </div>
             <div class="form-field">
@@ -374,7 +375,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       const row = document.createElement('div');
       row.className = 'extra-link-row';
       row.innerHTML = `
-        <input type="url" name="extra_link_${idx}" class="form-input" placeholder="https://..." />
+        <input type="url" name="extra_link_${idx}" class="form-input" placeholder="https://…" />
         <button type="button" class="btn-remove-link" data-idx="${idx}" aria-label="Remove link">&times;</button>
       `;
       row.querySelector('.btn-remove-link')!.addEventListener('click', () => {
@@ -418,7 +419,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       // flagged it as invalid.
       input.setAttribute('aria-invalid', 'true');
       input.setAttribute('aria-describedby', msgId);
-      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       (input as HTMLInputElement).focus({ preventScroll: true });
     }
 
@@ -449,7 +450,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Sending...';
+      btn!.textContent = 'Sending…';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/promo`, {

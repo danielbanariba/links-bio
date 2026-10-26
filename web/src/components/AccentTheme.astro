@@ -1,0 +1,61 @@
+---
+// The archive's dynamic accent, the CSS half (the tokens are lib/accent.ts):
+//   * it registers the four colour properties the accent sets on <html>
+//     (--album-color, which global.css turns into --accent, then --accent-bright,
+//     --on-accent and --accent-glow), so a new album's colour fades in over 600ms
+//     instead of snapping;
+//   * it draws a radial glow in the accent behind the player bar's play/pause.
+// Every rule that USES the accent stays in global.css.
+//
+// Why this is not in global.css: the bio (/) loads global.css too, and any change
+// to its rules changes that stylesheet's hashed file name in the bio's HTML.
+// Footer.astro renders this, and only archive pages (and the 404) use the footer,
+// so the bio stays byte-identical.
+---
+<style is:global>
+  /* <color> so they interpolate. The initial values are today's amber fallback
+     (global.css: --accent-fallback #dda15e and its 72%-white text mix); they only
+     apply where nothing declares the property. */
+  @property --album-color { syntax: '<color>'; inherits: true; initial-value: #dda15e; }
+  @property --accent-bright { syntax: '<color>'; inherits: true; initial-value: #e7bb8b; }
+  @property --on-accent { syntax: '<color>'; inherits: true; initial-value: #100b06; }
+  @property --accent-glow { syntax: '<color>'; inherits: true; initial-value: rgba(221, 161, 94, 0.45); }
+
+  /* The Player and the album/band/genre pages set these on <html>; everything
+     below inherits the animated value. Reduced motion: the colour switches at once. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      transition:
+        --album-color 600ms ease,
+        --accent-bright 600ms ease,
+        --on-accent 600ms ease,
+        --accent-glow 600ms ease;
+    }
+  }
+
+  /* The glow sits behind the bar's prev / play-pause / next row, centred on the
+     play button. isolation keeps the z-index:-1 layer above the bar's background
+     and below the buttons. A gradient, not a blur filter: nothing to recompute. */
+  .np-controls { position: relative; isolation: isolate; }
+  .np-controls::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 104px;
+    height: 64px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--accent-glow) 35%, transparent);
+    z-index: -1;
+    pointer-events: none;
+  }
+  /* A very slow breath, opacity only, and only while music plays: paused, closed
+     (the bar is display:none) or with reduced motion requested, the glow is still. */
+  @keyframes np-glow-breathe { from { opacity: 0.6; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .np-controls:has(.np-toggle[data-state='playing'])::before {
+      animation: np-glow-breathe 4s ease-in-out infinite alternate;
+    }
+  }
+</style>

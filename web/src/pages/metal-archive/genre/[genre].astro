@@ -9,16 +9,19 @@
 // build silently overwrote the bigger page with the smaller one. It now groups
 // by slug via getGenreFacetGroups() (db.ts), so exactly one page is built per
 // slug and it lists every album from every raw variant that collides into it.
-// `label` is the raw value with the highest count — used for the display name
-// and the "Refine in Browse" link.
+// `label` is the raw value with the highest count — used for the display name.
 import { ClientRouter } from 'astro:transitions';
-import { getGenreFacetGroups, getAlbumsByGenres } from '../../../lib/db.js';
+import { getGenreFacetGroups, getAlbumsByGenres, facetTileRank } from '../../../lib/db.js';
 import { genreLabel } from '../../../lib/labels.js';
-import { getAlbumColor } from '../../../lib/vibrant.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
-import Navbar from '../../../components/Navbar.astro';
+import { tileColor } from '../../../lib/tiles.js';
+import { getAlbumAccent } from '../../../lib/vibrant.js';
+import { accentHtmlAttrs } from '../../../lib/accent.js';
+import AlbumGrid from '../../../components/AlbumGrid.astro';
+import FacetBanner from '../../../components/FacetBanner.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 export function getStaticPaths() {
   const groups = getGenreFacetGroups();
@@ -39,21 +42,20 @@ const { genreValues, primaryGenre } = Astro.props;
 const albums = getAlbumsByGenres(genreValues);
 const count = albums.length;
 
-// P2 mini-hero color: inherit --album-color from the representative (newest)
-// cover via the cached vibrant extractor — reads .vibrant-cache.json, never a
-// cold build. albums is already ordered upload_date DESC (discovery order), and
-// Card.thumb is already the mqdefault URL the cache is keyed by.
+// P2 mini-hero color: the page's accent comes from the representative (newest)
+// album's cover (its square crop when there is one) via the cached vibrant
+// extractor. albums is already ordered upload_date DESC (discovery order). Null
+// when it has none: the stylesheet's amber applies.
 const repCover = albums[0]?.thumb ?? '';
-const genreColor = repCover ? await getAlbumColor(repCover) : '#dda15e';
-
-// Chain to Browse with this genre pre-applied. The Search island restores its
-// dropdown from the exact value (e.genre === genre), so the URL must carry the
-// dominant REAL genre, not the slug.
-const browseHref = `/metal-archive/browse?genre=${encodeURIComponent(primaryGenre)}`;
+const genreAccent = albums[0] ? await getAlbumAccent({ videoId: albums[0].youtube_video_id, thumbUrl: repCover }) : null;
 
 // Genres are already English except for one Spanish placeholder value; the slug
-// and the ?genre= link still carry the RAW (dominant) value so nothing breaks.
+// still carries the RAW (dominant) value so nothing breaks.
 const genreName = genreLabel(primaryGenre);
+// The banner wears this genre's tile colour; "Metal" and the placeholder have no
+// tile, so theirs is neutral.
+const rank = facetTileRank('genre', Astro.params.genre as string);
+const bannerColor = rank === null ? null : tileColor('genre', rank);
 
 const pageTitle = `${genreName} — Metal Archive`;
 const metaDesc = `${count} ${genreName} ${count === 1 ? 'album' : 'albums'} in the Metal Archive.`;
@@ -62,7 +64,7 @@ const ogImage = repCover || undefined;
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${genreColor};`}>
+<html lang="en" {...accentHtmlAttrs(genreAccent)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -80,25 +82,14 @@ const ogImage = repCover || undefined;
     <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
-  <body>
-    <Navbar />
+  <body class="ma-shell">
+    <ArchiveChrome />
 
-    <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
-      <header class="facet-hero">
-        <h1 class="facet-hero__title">{genreName}</h1>
-        <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albums'}
-        </p>
-        {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
-        )}
-      </header>
-
+    <main class="ma-facetpage" id="main" tabindex="-1">
+      <FacetBanner name={genreName} count={count} color={bannerColor} />
       {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
-        : <p style="color: var(--text-footer);">No albums in this genre yet.</p>
+        ? <AlbumGrid albums={albums} />
+        : <p class="ma-muted">No albums in this genre yet.</p>
       }
     </main>
 

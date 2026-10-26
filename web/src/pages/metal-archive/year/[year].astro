@@ -3,10 +3,13 @@
 // year param is a string in the URL; convert to number for DB query.
 import { ClientRouter } from 'astro:transitions';
 import { getAllYears, getAlbumsByYear } from '../../../lib/db.js';
-import AlbumCard from '../../../components/AlbumCard.astro';
-import Navbar from '../../../components/Navbar.astro';
+import { tileColor } from '../../../lib/tiles.js';
+import AlbumGrid from '../../../components/AlbumGrid.astro';
+import FacetBanner from '../../../components/FacetBanner.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 export function getStaticPaths() {
   const years = getAllYears();
@@ -26,9 +29,9 @@ const { year } = Astro.props;
 const albums = getAlbumsByYear(year);
 const count = albums.length;
 
-// Chain to Browse with this year pre-applied. Search restores from the exact
-// value (String(e.year) === year), so the URL carries the REAL year.
-const browseHref = `/metal-archive/browse?year=${encodeURIComponent(String(year))}`;
+// Years have no tiles; the year picks a colour from the same palette, so
+// neighbouring years differ and a year keeps its colour from build to build.
+const bannerColor = tileColor('genre', year);
 
 const pageTitle = `${year} — Metal Archive`;
 const metaDesc = `${count} ${count === 1 ? 'album' : 'albums'} from ${year} in the Metal Archive.`;
@@ -55,25 +58,14 @@ const ogImage = albums[0]?.thumb || undefined;
     <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
-  <body>
-    <Navbar />
+  <body class="ma-shell">
+    <ArchiveChrome />
 
-    <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
-      <header class="facet-hero">
-        <h1 class="facet-hero__title">{year}</h1>
-        <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albums'}
-        </p>
-        {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
-        )}
-      </header>
-
+    <main class="ma-facetpage" id="main" tabindex="-1">
+      <FacetBanner name={String(year)} count={count} color={bannerColor} />
       {albums.length > 0
-        ? <div class="album-grid">
-            {albums.map((album) => <AlbumCard album={album} />)}
-          </div>
-        : <p style="color: var(--text-footer);">No albums from this year yet.</p>
+        ? <AlbumGrid albums={albums} />
+        : <p class="ma-muted">No albums from this year yet.</p>
       }
     </main>
 

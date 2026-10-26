@@ -12,6 +12,10 @@ export default defineConfig({
   // "https://xeroxunderground.com" — a domain that does not resolve, which told
   // search engines the real page lived somewhere that does not exist.
   site: 'https://danielbanariba.com',
+  // Astro 7 changed the default to 'jsx' (React's whitespace rules), which drops
+  // the space between inline elements written on separate lines. Every template
+  // here was written against the v6 HTML-aware compression, so keep it.
+  compressHTML: true,
   // webAnalytics auto-injects the Vercel Insights script into every page at
   // build time (via the adapter's injectScript). No shared layout exists here,
   // so this is the only way to cover all 11 pages without editing each one.

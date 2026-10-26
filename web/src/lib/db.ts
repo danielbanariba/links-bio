@@ -10,7 +10,10 @@ import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { thumb } from './thumb.js';
-import type { Album, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
+import { coverUrl } from './coverStore.js';
+import { pickCollage } from './coverDisplay.js';
+import { slugify } from './slug.js';
+import type { Album, BandCard, Card, Track, SimilarBand, Facet, BrowseEntry } from './types.js';
 
 const candidates = [
   process.env.REFLEX_DB,
@@ -38,12 +41,8 @@ const LIVE_MATCH = `(album_title LIKE '%live in%' OR album_title LIKE '%(live%')
 // Reusable predicate to EXCLUDE live recordings from the main feeds.
 const NOT_LIVE = `NOT ${LIVE_MATCH}`;
 
-// True when an album title denotes a live recording (used by browse tagging).
-export function isLiveRecording(title: string | null | undefined): boolean {
-  if (!title) return false;
-  const t = title.toLowerCase();
-  return t.includes('live in') || t.includes('(live');
-}
+// True when an album title denotes a live recording: lib/live.ts, browser-safe.
+export { isLiveRecording } from './live.js';
 
 function toCard(row: any): Card {
   return {
@@ -54,65 +53,12 @@ function toCard(row: any): Card {
     year: row.year ?? null,
     country: row.country ?? null,
     thumb: thumb(row.album_artwork_url),
+    cover: coverUrl(row.youtube_video_id, row.album_artwork_url),
     youtube_video_id: row.youtube_video_id ?? null,
   };
 }
 
 // ─── Home page queries ────────────────────────────────────────────────────────
-
-// Featured hero — random featured album (fallback: any random album).
-export function getFeaturedAlbum(): (Card & { description: string | null; youtube_url: string | null }) | null {
-  let row: any = db
-    .prepare(`SELECT ${CARD_COLS}, description, youtube_url FROM albums WHERE featured = 1 ORDER BY RANDOM() LIMIT 1`)
-    .get();
-  if (!row) {
-    row = db.prepare(`SELECT ${CARD_COLS}, description, youtube_url FROM albums ORDER BY RANDOM() LIMIT 1`).get();
-  }
-  if (!row) return null;
-  return { ...toCard(row), description: row.description ?? null, youtube_url: row.youtube_url ?? null };
-}
-
-// "This week in the archive" — last 7 days by upload_date, fallback to 30 days.
-// Kept available for reuse; the home page no longer renders this carousel.
-export function getThisWeek(): Card[] {
-  let rows: any[] = db
-    .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE upload_date >= datetime('now', '-7 days')
-       ORDER BY upload_date DESC LIMIT 8`
-    )
-    .all();
-  if (rows.length < 4) {
-    rows = db
-      .prepare(
-        `SELECT ${CARD_COLS} FROM albums
-         WHERE upload_date >= datetime('now', '-30 days')
-         ORDER BY upload_date DESC LIMIT 8`
-      )
-      .all();
-  }
-  return rows.map(toCard);
-}
-
-// Editor's picks — featured albums, latest first. Live recordings excluded.
-export function getEditorPicks(): Card[] {
-  const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE featured = 1 AND ${NOT_LIVE} ORDER BY upload_date DESC LIMIT 8`)
-    .all();
-  return rows.map(toCard);
-}
-
-// Hidden gems — non-featured, low view count, random order. Live recordings excluded.
-export function getHiddenGems(): Card[] {
-  const rows: any[] = db
-    .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE featured = 0 AND (views IS NULL OR views < 500) AND ${NOT_LIVE}
-       ORDER BY RANDOM() LIMIT 8`
-    )
-    .all();
-  return rows.map(toCard);
-}
 
 // Live recordings — Daniel's own live sets, surfaced in their own home section.
 export function getLiveRecordings(limit = 12): Card[] {
@@ -124,46 +70,6 @@ export function getLiveRecordings(limit = 12): Card[] {
     )
     .all(limit);
   return rows.map(toCard);
-}
-
-// Country rotation — random selection of distinct countries with one random
-// (non-live) album each. Only countries that actually have a non-live album are
-// considered, so the sampled album below can never be null.
-export function getCountryRotation(n = 6): Array<{ country: string; album: Card }> {
-  const countries: any[] = db
-    .prepare(
-      `SELECT country FROM albums
-       WHERE country IS NOT NULL AND country != '' AND ${NOT_LIVE}
-       GROUP BY country ORDER BY RANDOM() LIMIT ?`
-    )
-    .all(n);
-  return countries
-    .map((c) => {
-      const row: any = db
-        .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 1`)
-        .get(c.country);
-      return row ? { country: c.country, album: toCard(row) } : null;
-    })
-    .filter((x): x is { country: string; album: Card } => x !== null);
-}
-
-// Top N genres by album count, 8 random albums each. Live recordings are
-// excluded from both the genre ranking and the sampled covers so showcases
-// stay official-album only.
-export function getGenreShowcases(n = 2): GenreShowcase[] {
-  const genres: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE genre != '' AND genre IS NOT NULL AND ${NOT_LIVE}
-       GROUP BY genre ORDER BY c DESC LIMIT ?`
-    )
-    .all(n);
-  return genres.map((g) => {
-    const albums: any[] = db
-      .prepare(`SELECT ${CARD_COLS} FROM albums WHERE genre = ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 8`)
-      .all(g.genre);
-    return { genre: g.genre, count: g.c, albums: albums.map(toCard) };
-  });
 }
 
 // ─── Album detail queries ─────────────────────────────────────────────────────
@@ -304,22 +210,108 @@ export function getRecentAlbums(excludeId: number, limit = 7): Card[] {
   return rows.map(toCard);
 }
 
-// ─── Slug helper — single source of truth for band/genre/country URLs ─────────
-// Imported by BOTH the getStaticPaths that GENERATE facet/band paths and the
-// pages that RENDER links to them, so the two can never drift out of sync.
-// A name with no latin alphanumerics (e.g. Cyrillic "Сын Собаки") collapses to ""
-// and crashes the static build with "Missing parameter: band"; fall back to a
-// stable ascii slug built from code points so every name yields a valid URL.
-export function slugify(value: string): string {
-  const base = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  if (base) return base;
-  return 'u-' + Array.from(value.trim().toLowerCase())
-    .map((ch) => ch.codePointAt(0)!.toString(36))
-    .join('-');
+// Most-played albums for the home's "Most played" row: highest `views` first,
+// the newer album (higher id) winning a tie. Albums with no views yet (0/NULL)
+// and Daniel's own live sets are left out.
+export function getMostPlayed(limit = 12): Card[] {
+  const rows: any[] = db
+    .prepare(
+      `SELECT ${CARD_COLS}, views FROM albums
+       WHERE views > 0 AND ${NOT_LIVE}
+       ORDER BY views DESC, id DESC LIMIT ?`
+    )
+    .all(limit);
+  // The right panel prints the count ("9,131 views"), so it rides along.
+  return rows.map((r) => ({ ...toCard(r), views: r.views }));
 }
+
+// "Bands to dig into" on the home: bands with 2+ studio albums (so each has a
+// band page), the most played first by the summed views of those albums. Live
+// sets count neither toward the two albums nor toward the views: they are
+// Daniel's recordings, not the band's catalog. The picture is the most played
+// album's square crop when one exists.
+export interface DigBand {
+  band_name: string;
+  albums: number;
+  genre: string | null;
+  cover: string;
+}
+
+export function getBandsToDigInto(limit = 12): DigBand[] {
+  const bands = db
+    .prepare(
+      `SELECT band_name, COUNT(id) AS albums, COALESCE(SUM(views), 0) AS total_views FROM albums
+       WHERE band_name IS NOT NULL AND band_name != '' AND ${NOT_LIVE}
+       GROUP BY band_name HAVING albums >= 2
+       ORDER BY total_views DESC, band_name LIMIT ?`
+    )
+    .all(limit) as Array<{ band_name: string; albums: number }>;
+  const albumsOf = db.prepare(
+    `SELECT ${CARD_COLS} FROM albums WHERE band_name = ? AND ${NOT_LIVE} ORDER BY views DESC, id DESC`
+  );
+  return bands.map((b) => {
+    const cards = (albumsOf.all(b.band_name) as any[]).map(toCard);
+    const best = cards[0];
+    return {
+      band_name: b.band_name,
+      albums: b.albums,
+      genre: cards.find((c) => c.genre && c.genre !== 'Género desconocido')?.genre ?? null,
+      cover: pickCollage(cards, 1)[0] ?? (best ? best.cover || best.thumb : ''),
+    };
+  });
+}
+
+// The home's "Browse by genre" / "Browse by country" tiles: the biggest facets
+// (grouped by slug, as their pages are), each with three covers from its most
+// played albums. "Metal" and the sync's no-genre placeholder are catch-alls that
+// say nothing about a sound, so they get no tile (their pages still exist).
+export interface FacetTile {
+  slug: string;
+  value: string; // the raw value of the facet's dominant spelling
+  count: number;
+  covers: string[];
+}
+
+const NOT_A_TILE = new Set(['Metal', 'Género desconocido']);
+
+// Every facet that gets a tile, biggest first: the tiles' order and the facet
+// pages' banner colours both come from this one list. Built once per build.
+const tileGroupsCache = new Map<'genre' | 'country', FacetGroup[]>();
+function tileGroups(kind: 'genre' | 'country'): FacetGroup[] {
+  let groups = tileGroupsCache.get(kind);
+  if (!groups) {
+    groups = groupFacetsBySlug(kind === 'genre' ? getAllGenres() : getAllCountries())
+      .filter((g) => !NOT_A_TILE.has(g.label))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    tileGroupsCache.set(kind, groups);
+  }
+  return groups;
+}
+
+/** Where this facet's tile sits (its colour in lib/tiles.ts), or null when it has none. */
+export function facetTileRank(kind: 'genre' | 'country', slug: string): number | null {
+  const rank = tileGroups(kind).findIndex((g) => g.slug === slug);
+  return rank < 0 ? null : rank;
+}
+
+export function getFacetTiles(kind: 'genre' | 'country', limit = 8): FacetTile[] {
+  const column = kind === 'genre' ? 'genre' : 'country';
+  const groups = tileGroups(kind).slice(0, limit);
+  return groups.map((g) => {
+    const rows = db
+      .prepare(
+        `SELECT ${CARD_COLS} FROM albums
+         WHERE ${column} IN (${g.values.map(() => '?').join(',')}) AND ${NOT_LIVE}
+         ORDER BY views DESC, id DESC LIMIT 60`
+      )
+      .all(...g.values) as any[];
+    return { slug: g.slug, value: g.label, count: g.count, covers: pickCollage(rows.map(toCard), 3) };
+  });
+}
+
+// ─── Slug helper — single source of truth for band/genre/country URLs ─────────
+// lib/slug.ts (browser-safe, so the Search island builds the same links).
+export { slugify } from './slug.js';
 
 // ─── Facet queries (getStaticPaths for genre/country/year pages) ──────────────
 
@@ -389,8 +381,8 @@ export function getAllCountries(): Facet[] {
 // The fix: group raw rows by slug first, so exactly one page is built per
 // slug and it lists the union of every raw variant that collides into it.
 // `label` is the raw value with the highest count — used for the page title /
-// genreLabel()/countryLabel() lookup and the "Refine in Browse" link, so the
-// page reads as the dominant variant while still listing every album.
+// genreLabel()/countryLabel() lookup, so the page reads as the dominant variant
+// while still listing every album.
 // Does NOT touch the database: colliding raw strings remain separate rows
 // (scripts/normalize_db.py is the real data-layer fix, out of scope here).
 export interface FacetGroup {
@@ -442,6 +434,22 @@ export function getAllYears(): Facet[] {
     .all() as Facet[];
 }
 
+// Whether the build makes a facet page for this slug: the genre, country and year
+// pages' getStaticPaths use these same queries, and those leave live recordings
+// out, so a value that only a live set has (10 genres and 1 country today) has no
+// page to link to. Read once per build, then kept.
+const facetPages: Partial<Record<'genre' | 'country' | 'year', Set<string>>> = {};
+export function hasFacetPage(kind: 'genre' | 'country' | 'year', slug: string): boolean {
+  facetPages[kind] ??= new Set(
+    kind === 'genre'
+      ? getGenreFacetGroups().map((g) => g.slug)
+      : kind === 'country'
+        ? getAllCountries().map((f) => slugify(f.value))
+        : getAllYears().map((f) => String(f.value)),
+  );
+  return facetPages[kind]!.has(slug);
+}
+
 // ─── Album navigation ─────────────────────────────────────────────────────────
 
 // All album IDs — used by album/[id].astro getStaticPaths().
@@ -477,47 +485,26 @@ export function getBandPageNameSet(): Set<string> {
   return new Set(getBandsWithMultipleAlbums().map((b) => b.band_name));
 }
 
-// Top bands by album count, each with a representative (most-recent) cover.
-// Powers the home "Bandas" circular row. Live recordings excluded; only bands
-// with 2+ albums (so they all have a real band page to link to).
-export function getTopBands(
-  limit = 12,
-): Array<{ band_name: string; count: number; thumb: string; album_id: number }> {
-  const bands = db
-    .prepare(
-      `SELECT band_name, COUNT(id) AS count FROM albums
-       WHERE band_name IS NOT NULL AND band_name != '' AND ${NOT_LIVE}
-       GROUP BY band_name HAVING count >= 2
-       ORDER BY count DESC, band_name LIMIT ?`
-    )
-    .all(limit) as Array<{ band_name: string; count: number }>;
-  return bands.map((b) => {
-    const cover: any = db
-      .prepare(
-        `SELECT album_artwork_url, id FROM albums
-         WHERE band_name = ? AND ${NOT_LIVE}
-         ORDER BY upload_date DESC LIMIT 1`
-      )
-      .get(b.band_name);
-    return {
-      band_name: b.band_name,
-      count: b.count,
-      thumb: thumb(cover?.album_artwork_url),
-      album_id: cover?.id ?? 0,
-    };
-  });
-}
-
 // All albums for a given band, newest-first so the most recent work is prominent.
-// Live recordings are included but separated on the band page.
-export function getAlbumsByBand(bandName: string): Card[] {
+// Live recordings are included but separated on the band page. Each carries its
+// views (the band page's Popular and total), release type and track count (one
+// subquery per album, so an album without tracks counts 0, not 1).
+export function getAlbumsByBand(bandName: string): BandCard[] {
   const rows: any[] = db
     .prepare(
-      `SELECT ${CARD_COLS} FROM albums
+      `SELECT ${CARD_COLS}, views, release_type,
+              (SELECT COUNT(*) FROM tracks t WHERE t.album_id = albums.id) AS tracks
+       FROM albums
        WHERE band_name = ? ORDER BY year DESC, upload_date DESC`
     )
     .all(bandName);
-  return rows.map(toCard);
+  return rows.map((r) => ({
+    ...toCard(r),
+    artwork: r.album_artwork_url ?? null,
+    views: r.views ?? 0,
+    release_type: r.release_type ?? null,
+    tracks: r.tracks,
+  }));
 }
 
 // Returns the number of albums by the given band. Used on album detail pages to
@@ -529,44 +516,6 @@ export function getBandAlbumCount(bandName: string): number {
   return row?.count ?? 0;
 }
 
-// Header stats for the band page ("artist" header): album count, year range,
-// distinct genres and a representative (most-recent) cover. Real data only — no
-// fabricated "monthly listeners". Used by the upcoming band-page redesign.
-export function getBandStats(bandName: string): {
-  albumCount: number;
-  firstYear: number | null;
-  lastYear: number | null;
-  genres: string[];
-  thumb: string;
-} {
-  const row: any = db
-    .prepare(
-      `SELECT COUNT(id) AS c, MIN(year) AS miny, MAX(year) AS maxy
-       FROM albums WHERE band_name = ?`
-    )
-    .get(bandName);
-  const genreRows: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE band_name = ? AND genre IS NOT NULL AND genre != ''
-       GROUP BY genre ORDER BY c DESC`
-    )
-    .all(bandName);
-  const cover: any = db
-    .prepare(
-      `SELECT album_artwork_url FROM albums WHERE band_name = ?
-       ORDER BY upload_date DESC LIMIT 1`
-    )
-    .get(bandName);
-  return {
-    albumCount: row?.c ?? 0,
-    firstYear: row?.miny ?? null,
-    lastYear: row?.maxy ?? null,
-    genres: genreRows.map((g) => g.genre),
-    thumb: thumb(cover?.album_artwork_url),
-  };
-}
-
 // ─── Browse index ─────────────────────────────────────────────────────────────
 
 // Lightweight index for the client-side Search island.
@@ -574,7 +523,7 @@ export function getBandStats(bandName: string): {
 export function getBrowseIndex(): BrowseEntry[] {
   const rows: any[] = db
     .prepare(
-      `SELECT id, band_name, album_title, genre, country, year, release_type, views, album_artwork_url
+      `SELECT id, band_name, album_title, genre, country, year, release_type, views, album_artwork_url, youtube_video_id
        FROM albums ORDER BY band_name`
     )
     .all();
@@ -588,5 +537,7 @@ export function getBrowseIndex(): BrowseEntry[] {
     release_type: r.release_type ?? null,
     views: r.views ?? null,
     thumb: thumb(r.album_artwork_url),
+    cover: coverUrl(r.youtube_video_id, r.album_artwork_url),
+    youtube_video_id: r.youtube_video_id ?? null,
   }));
 }
