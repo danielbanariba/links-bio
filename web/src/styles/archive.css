@@ -88,6 +88,9 @@ body.ma-shell {
   --ma-top-h: 68px;
   --ma-tab-h: 0px;
   --gutter: 28px;
+  /* How far a focused control stays below the sticky top bar (see "Focus never
+     hides under the bars"). */
+  --focus-top: calc(var(--ma-top-h) + 16px);
 
   /* The shared tokens global.css rules are written against. */
   --bg: var(--ma-deep);
@@ -1147,6 +1150,29 @@ a.ma-topres:hover { transform: translateY(-3px); }
 .ma-submit-card { margin-top: auto; padding: 18px; border-radius: 16px; background: var(--ma-fill); }
 .ma-submit-card b { display: block; font-size: 15px; font-weight: 600; color: var(--ma-text); }
 .ma-submit-card p { font-size: 14px; line-height: 1.45; color: var(--ma-text-2); margin: 4px 0 14px; }
+
+/* ─── Focus never hides under the bars ─────────────────────────────────────────
+   Moving focus scrolls a control only just into view, which put it under the
+   sticky top bar (Shift+Tab) or under the tab bar and the mini player (Tab)
+   (WCAG 2.4.11). The top side is a margin on the controls, not padding on the
+   page's scroller, so the anchors' own margins (.ma-row, .ma-browse) keep their
+   landing spot. Only the page and the footer: the bars never scroll, and the
+   sticky search field would jump the page if it had one. */
+body.ma-shell :is(#main, .footer) :is(a[href], button, input, select, textarea, summary, [tabindex]):not(.ma-bigsearch *) {
+  scroll-margin-top: var(--focus-top);
+}
+/* The search page's field sticks under the top bar too (the anchors' margin). */
+body.ma-shell .ma-searchpage { --focus-top: calc(var(--ma-top-h) + 84px); }
+/* The bottom side is padding on the page's scroller: a textarea reveals its caret,
+   not its box, and only the scroller's padding reaches that. 64px is the phone
+   tab bar (--ma-tab-h lives on body, out of html's reach); the player adds the
+   space body.ma-shell's padding-bottom keeps for it. */
+html:has(> body.ma-shell) { scroll-padding-bottom: 8px; }
+html:has(> body.ma-shell #np-root[data-active]) { scroll-padding-bottom: calc(var(--np-bar-h) + 32px); }
+@media (max-width: 767px) {
+  html:has(> body.ma-shell) { scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + 8px); }
+  html:has(> body.ma-shell #np-root[data-active]) { scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + 88px); }
+}
 
 /* ─── Top bar ────────────────────────────────────────────────────────────────── */
 .ma-top {
