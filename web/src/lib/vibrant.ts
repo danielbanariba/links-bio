@@ -1,6 +1,14 @@
 // Build-time dominant color extraction via node-vibrant.
-// Reads/writes .vibrant-cache.json keyed by artwork URL so unchanged covers
-// skip re-extraction on incremental rebuilds.
+// Reads/writes .vibrant-cache.json so unchanged covers skip re-extraction on
+// incremental rebuilds.
+//
+// WHERE the colour comes from (T10): the square crop the covers step cut out of
+// the video frame (public/covers/<videoId>.webp, read from disk), because that is
+// the image the cards show and it has no tracklist text or borders in it. Only
+// an album with no crop (an override of "full", or a frame with no clean square)
+// falls back to the network source: the mqdefault frame, then the full artwork.
+// colorCacheKey() keys a crop by its video id AND its box, so a re-crop (a T9b
+// override) gets a fresh colour; a frame is keyed by its URL, as before.
 //
 // WHY cache: 1298+ albums × Vibrant decode = several seconds on first build,
 // but only new/changed covers need re-processing on subsequent builds.
@@ -15,13 +23,12 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
+import { readableAccent, type AccentTokens } from './accent.js';
+import { coverFileName, isVideoId, type CoverCache } from './cover.js';
+import type { CoverBox } from './coverDetect.js';
+import { coverPaths, readCoverCache } from './coverStore.js';
 
 const CACHE_PATH = resolve(process.cwd(), '.vibrant-cache.json');
-// Warm amber — the resting / fallback brand color (REQ-007). Used when a cover
-// has no extractable swatch. Mirrors --accent-fallback in global.css so the
-// baked --album-color and the CSS fallback agree. (Was cyan #0073a8.)
-const FALLBACK_COLOR = '#dda15e';
-
 // Browser-ish UA — some CDNs (Cloudflare in front of cdn.deathgrind.club) are
 // picky about default Node/undici user-agents.
 const FETCH_HEADERS = {
@@ -45,8 +52,8 @@ const FETCH_TIMEOUT_MS = 20000;
 
 type Cache = Record<string, string>;
 
-// ─── tiny global concurrency limiter (shared across all getAlbumColor calls) ─
-// Astro builds pages concurrently and each page calls getAlbumColor
+// ─── tiny global concurrency limiter (shared across all getCoverColor calls) ─
+// Astro builds pages concurrently and each page calls getCoverColor
 // independently, so the gate has to live at module scope to be effective.
 let _inFlight = 0;
 const _waiters: Array<() => void> = [];
@@ -98,7 +105,7 @@ async function getVibrant(): Promise<any> {
 
 // In-memory cache so a single build does not re-read/re-write the JSON file
 // once per album (1298 albums). The file is the cross-build cache; this is the
-// per-build cache. Flushed to disk by getAlbumColor on each new extraction.
+// per-build cache. Flushed to disk on each new extraction (see cached()).
 let _memCache: Cache | null = null;
 function memCache(): Cache {
   if (_memCache === null) _memCache = loadCache();
@@ -107,6 +114,7 @@ function memCache(): Cache {
 
 // ─── build-stats: real-color vs fallback, logged once at build end ───────────
 let _realCount = 0;
+let _cropCount = 0;
 let _fallbackCount = 0;
 let _cacheHits = 0;
 let _summaryRegistered = false;
@@ -118,8 +126,8 @@ function registerSummary(): void {
     const total = _realCount + _fallbackCount + _cacheHits;
     // eslint-disable-next-line no-console
     console.log(
-      `\n[vibrant] colors: ${_realCount + _cacheHits} real (${_realCount} fresh + ${_cacheHits} cached), ` +
-        `${_fallbackCount} fallback, ${total} total covers.`,
+      `\n[vibrant] colors: ${_realCount + _cacheHits} real (${_realCount} fresh, ${_cropCount} of them from square crops, + ${_cacheHits} cached), ` +
+        `${_fallbackCount} fallback, ${total} lookups.`,
     );
     if (_failedUrls.length) {
       // eslint-disable-next-line no-console
@@ -180,18 +188,14 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
   }
 }
 
-// Fetch the image bytes (follow redirects, browser UA, retry on 429) and
-// decode -> downscaled PNG buffer via sharp, then run Vibrant on the buffer.
-// Returns the hex color or null if the URL can't be fetched/decoded.
-async function extractFromUrl(url: string): Promise<string | null> {
-  const buf = await fetchImageBytes(url);
-  if (!buf) return null;
-
+// Decode image bytes or a local file to a downscaled PNG via sharp, then run
+// Vibrant on it. Returns the hex color or null when it can't be decoded.
+async function dominantColor(input: Buffer | string): Promise<string | null> {
   let png: Buffer;
   try {
     // sharp handles webp/jpg/png/avif/gif/tiff. `failOn: 'none'` keeps it
     // lenient on slightly corrupt files instead of throwing.
-    png = await sharp(buf, { failOn: 'none' })
+    png = await sharp(input, { failOn: 'none' })
       .resize(DECODE_SIZE, DECODE_SIZE, { fit: 'inside', withoutEnlargement: true })
       .png()
       .toBuffer();
@@ -211,51 +215,129 @@ async function extractFromUrl(url: string): Promise<string | null> {
   }
 }
 
-// Extract dominant hex color from an album's artwork.
-//
-// `thumbUrl` is the small/cheap source (e.g. ytimg mqdefault); `fullUrl` is the
-// large cover. We try the thumb first, and if it can't be fetched/decoded we
-// fall back to the full cover BEFORE giving up — many covers have a working
-// large image even when the thumb 404s. Only a REAL extracted color is cached;
-// the cyan fallback is never cached so the next build can retry.
-export async function getAlbumColor(
-  thumbUrl: string | null | undefined,
-  fullUrl?: string | null | undefined,
-): Promise<string> {
+// Fetch the image bytes (follow redirects, browser UA, retry on 429), then decode.
+async function extractFromUrl(url: string): Promise<string | null> {
+  const buf = await fetchImageBytes(url);
+  return buf ? dominantColor(buf) : null;
+}
+
+// ─── the square crop of an album, when the covers step made one ──────────────
+/** A crop as the cache key sees it: which video, and where in its frame. */
+export interface CoverCrop {
+  videoId: string;
+  box: CoverBox;
+}
+
+// Same rule as the cards' image (cover.ts, coverSrc): a cached box AND the file
+// on disk. Memoised per video id: every card on every page asks.
+let _coverCache: CoverCache | null = null;
+const _crops = new Map<string, (CoverCrop & { file: string }) | null>();
+function cropOf(videoId: string | null | undefined): (CoverCrop & { file: string }) | null {
+  const id = (videoId || '').trim();
+  if (!isVideoId(id)) return null;
+  if (!_crops.has(id)) {
+    const paths = coverPaths();
+    _coverCache ??= readCoverCache(paths.cache);
+    const box = _coverCache[id]?.box;
+    const file = resolve(paths.coversDir, coverFileName(id));
+    _crops.set(id, box && existsSync(file) ? { videoId: id, box, file } : null);
+  }
+  return _crops.get(id) ?? null;
+}
+
+/**
+ * The .vibrant-cache.json key for a cover: a crop by its video id and box, so a
+ * re-crop gets a new colour and never reuses the full frame's; a frame by its URL.
+ */
+export function colorCacheKey(src: {
+  crop: CoverCrop | null;
+  thumbUrl?: string | null;
+  fullUrl?: string | null;
+}): string {
+  if (src.crop) return `crop:${src.crop.videoId}@${src.crop.box.join(',')}`;
+  return src.thumbUrl || src.fullUrl || '';
+}
+
+export interface CoverColorInput {
+  videoId?: string | null;
+  /** The small frame (ytimg mqdefault): the fallback when there is no crop. */
+  thumbUrl?: string | null;
+  /** The large artwork: tried when the thumb can't be fetched or decoded. */
+  fullUrl?: string | null;
+}
+
+// One extraction per key even when several cards of the same album render at once.
+const _pending = new Map<string, Promise<string | null>>();
+function cached(key: string, extract: () => Promise<string | null>): Promise<string | null> {
+  const cache = memCache();
+  if (cache[key]) {
+    _cacheHits++;
+    return Promise.resolve(cache[key]);
+  }
+  let job = _pending.get(key);
+  if (!job) {
+    job = extract().then((hex) => {
+      _pending.delete(key);
+      // Only a REAL extracted color is cached, so a future build can retry a failure.
+      if (hex) {
+        cache[key] = hex;
+        saveCache(cache);
+        _realCount++;
+      }
+      return hex;
+    });
+    _pending.set(key, job);
+  }
+  return job;
+}
+
+// Dominant hex color of an album's cover; null when nothing could be extracted
+// (the page then shows the stylesheet's amber). The square crop when it exists,
+// read from disk; else the thumb, then the full artwork (many covers have a
+// working large image even when the thumb 404s).
+export async function getCoverColor(album: CoverColorInput): Promise<string | null> {
   registerSummary();
 
-  // The cache is keyed by the primary (thumb) URL; if there is no thumb, key by
-  // the full URL so we still cache something useful.
-  const cacheKey = thumbUrl || fullUrl || '';
-  if (!cacheKey) {
+  const crop = cropOf(album.videoId);
+  if (crop) {
+    const hex = await cached(colorCacheKey({ crop }), async () => {
+      const found = await dominantColor(crop.file);
+      if (found) _cropCount++;
+      return found;
+    });
+    if (hex) return hex;
+    // An unreadable crop file: fall through to the frame.
+  }
+
+  const key = colorCacheKey({ crop: null, thumbUrl: album.thumbUrl, fullUrl: album.fullUrl });
+  if (!key) {
     _fallbackCount++;
-    return FALLBACK_COLOR;
+    return null;
   }
-
-  const cache = memCache();
-  if (cache[cacheKey]) {
-    _cacheHits++;
-    return cache[cacheKey];
-  }
-
   // Try sources in order, de-duplicated (thumb===full for deathgrind URLs).
   const sources: string[] = [];
-  if (thumbUrl) sources.push(thumbUrl);
-  if (fullUrl && fullUrl !== thumbUrl) sources.push(fullUrl);
-
-  for (const src of sources) {
-    const hex = await extractFromUrl(src);
-    if (hex) {
-      cache[cacheKey] = hex;
-      saveCache(cache);
-      _realCount++;
-      return hex;
+  if (album.thumbUrl) sources.push(album.thumbUrl);
+  if (album.fullUrl && album.fullUrl !== album.thumbUrl) sources.push(album.fullUrl);
+  const hex = await cached(key, async () => {
+    for (const src of sources) {
+      const found = await extractFromUrl(src);
+      if (found) return found;
     }
+    return null;
+  });
+  if (!hex) {
+    _fallbackCount++;
+    _failedUrls.push(key);
   }
+  return hex;
+}
 
-  // Every source failed — return the fallback WITHOUT caching it so a future
-  // build (or a fixed image) can succeed.
-  _fallbackCount++;
-  _failedUrls.push(cacheKey);
-  return FALLBACK_COLOR;
+// The readable accent (lib/accent.ts) of an album's cover colour; null when it
+// has none. Memoised per colour: the same album renders on many pages.
+const _accents = new Map<string, AccentTokens | null>();
+export async function getAlbumAccent(album: CoverColorInput): Promise<AccentTokens | null> {
+  const color = await getCoverColor(album);
+  if (!color) return null;
+  if (!_accents.has(color)) _accents.set(color, readableAccent(color));
+  return _accents.get(color) ?? null;
 }

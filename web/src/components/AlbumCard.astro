@@ -7,15 +7,20 @@
 // HTML) laid over the cover. The persistent Player island handles its click through
 // the data attributes: the queue is the nearest [data-queue] row or grid, or every
 // [data-play-card] on the page. A card with no youtube_video_id has nothing to play
-// and renders no button.
-// `accent` (optional) sets the ▶ colour for this card; by default it is the page's
-// --accent (the album colour on album, band and genre pages, amber elsewhere).
+// and renders no button. The button carries the album's accent tokens, computed
+// at build time from its cover (data-accent, lib/accent.ts): the Player paints
+// them on <html> when this album starts, so it never extracts a colour itself.
+// `accent` (optional) sets the ▶ colour for this card; by default it is the
+// archive's --accent (the album in the player, else the page's album colour on
+// album, band and genre pages, else amber).
 // The cover is decorative (alt=""): the title and band text right under it is the
 // link's name, so a screen reader would otherwise read both twice.
 // `livePlaceholder` (optional) renders a flat tile instead of the API-sourced
 // thumbnail (used for Live Recordings cards). It carries an icon, no text.
 import type { Card } from '../lib/types.js';
 import { formatCardMeta } from '../lib/cardMeta.js';
+import { encodeAccent } from '../lib/accent.js';
+import { getAlbumAccent } from '../lib/vibrant.js';
 
 interface Props {
   album: Card;
@@ -33,6 +38,7 @@ const videoId = (album.youtube_video_id || '').trim();
 const meta = formatCardMeta(album);
 // The square crop when one exists, else the mqdefault frame (cropped square by CSS).
 const cover = album.cover || album.thumb;
+const playAccent = videoId ? await getAlbumAccent({ videoId, thumbUrl: album.thumb }) : null;
 ---
 
 <div class="album-card-wrap">
@@ -76,6 +82,7 @@ const cover = album.cover || album.thumb;
       data-title={album.album_title}
       data-thumb={album.thumb || ''}
       data-href={href}
+      data-accent={playAccent ? encodeAccent(playAccent) : undefined}
     >
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
     </button>

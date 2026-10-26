@@ -11,8 +11,8 @@
 import { ClientRouter } from 'astro:transitions';
 import { getBandsWithMultipleAlbums, getAlbumsByBand, isLiveRecording, slugify } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
-import { getAlbumColor } from '../../../lib/vibrant.js';
-import { inkOnAccent } from '../../../lib/onAccent.js';
+import { getAlbumAccent } from '../../../lib/vibrant.js';
+import { accentHtmlAttrs } from '../../../lib/accent.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import Navbar from '../../../components/Navbar.astro';
@@ -48,11 +48,12 @@ const countries = [...new Set(
   allAlbums.map((a) => countryLabel(a.country)).filter(Boolean),
 )];
 
-// Header visuals: the newest cover drives the avatar AND the
-// page's dynamic --album-color, so the whole band page takes that band's colour.
+// Header visuals: the newest cover drives the avatar AND the page's accent
+// (its square crop when there is one), so the whole band page takes that band's
+// colour. Null when it has none: the stylesheet's amber applies.
 const latest = allAlbums[0] ?? null;
 const cover = latest?.thumb || '';
-const bandColor = cover ? await getAlbumColor(cover) : '#dda15e';
+const bandAccent = latest ? await getAlbumAccent({ videoId: latest.youtube_video_id, thumbUrl: cover }) : null;
 const years = allAlbums.map((a) => a.year).filter((y): y is number => !!y);
 const yearRange = years.length
   ? (Math.min(...years) === Math.max(...years) ? String(Math.min(...years)) : `${Math.min(...years)}–${Math.max(...years)}`)
@@ -80,7 +81,7 @@ const bandJsonLd = safeJsonLd({
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${bandColor}; --on-accent: ${inkOnAccent(bandColor)};`}>
+<html lang="en" {...accentHtmlAttrs(bandAccent)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

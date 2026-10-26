@@ -79,4 +79,7 @@ export interface BrowseEntry {
   cover: string;
   // The album's YouTube video: the Browse results show a ▶ only when it is set.
   youtube_video_id: string | null;
+  // The ▶'s accent tokens, encoded (lib/accent.ts encodeAccent). Added by
+  // browse.astro at build time; absent when the album has no video or colour.
+  accent?: string;
 }

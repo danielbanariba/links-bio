@@ -36,6 +36,14 @@
 //   Tracks are only known on the album page (or after playing from it), so the
 //   bar shows a track name only then; otherwise it shows the album.
 //
+// ACCENT (lib/accent.ts): every element that can start an album carries that
+//   album's accent tokens, computed at build time (data-accent on card ▶s, the
+//   `accent` field of the album page's data island). While an album is in the
+//   player it is the accent of the whole archive; otherwise the page's own
+//   (data-accent on <html>), else the stylesheet's amber. paintAccent() writes
+//   it as custom properties on <html>, and repaints the incoming document before
+//   each ClientRouter swap, because the swap replaces <html>'s attributes.
+//
 // LIFECYCLE — CRITICAL because transition:persist means useEffect runs ONCE:
 //   - useEffect (once): load the YT API, attach the delegated document click
 //     handler, start the 1s progress interval, add the astro:page-load listener.
@@ -63,6 +71,13 @@ import {
   extendQueue,
   type Queue,
 } from '../lib/queue.js';
+import {
+  ACCENT_VARS,
+  accentDeclarations,
+  decodeAccent,
+  resolveAccent,
+  type AccentTokens,
+} from '../lib/accent.js';
 
 interface PlayerTrack {
   idx: number;
@@ -75,7 +90,7 @@ interface NpData {
   videoId: string;
   albumId?: number;
   youtubeUrl: string;
-  albumColor: string;
+  accent?: string; // encoded accent tokens (lib/accent.ts encodeAccent)
   albumTitle: string;
   bandName: string;
   coverThumb: string;
@@ -92,7 +107,7 @@ interface QItem {
   thumb: string;
   href: string;
   youtubeUrl: string;
-  color: string;
+  accent: AccentTokens | null;
 }
 
 // A play requested before the player could take it. Playback starts only from
@@ -196,7 +211,7 @@ export default function Player() {
         thumb: d.thumb || '',
         href: d.href || '#',
         youtubeUrl: ytWatchUrl(d.videoId),
-        color: '',
+        accent: decodeAccent(d.accent),
       };
     };
     const itemFromData = (d: NpData): QItem => ({
@@ -207,12 +222,11 @@ export default function Player() {
       thumb: d.coverThumb || '',
       href: d.albumId != null ? `/metal-archive/album/${d.albumId}` : window.location.pathname,
       youtubeUrl: d.youtubeUrl || ytWatchUrl(d.videoId),
-      color: d.albumColor || '',
+      accent: decodeAccent(d.accent),
     });
     const dataFromItem = (it: QItem): NpData => ({
       videoId: it.videoId,
       youtubeUrl: it.youtubeUrl,
-      albumColor: it.color,
       albumTitle: it.title,
       bandName: it.band,
       coverThumb: it.thumb,
@@ -384,11 +398,19 @@ export default function Player() {
       }, 8000);
     };
 
-    // ─── theme the player chrome (color only — safe while merely cued) ───────
-    const themePlayer = (color: string) => {
-      if (!color) return;
-      miniPlayerRef.current?.style.setProperty('--album-color', color);
-      document.getElementById('now-playing-bar')?.style.setProperty('--album-color', color);
+    // ─── the archive's accent, on <html> (see ACCENT at the top) ─────────────
+    // `html` is the live document's, or the incoming one's before a swap. Only an
+    // album IN the player counts (open: playing or paused); one merely cued on
+    // page load does not. No tokens removes the properties, so the stylesheet's
+    // own amber applies, the same as before anything played.
+    const playingAccent = (): AccentTokens | null => (isOpen() ? currentItem()?.accent ?? null : null);
+    const paintAccent = (html: HTMLElement) => {
+      const tokens = resolveAccent(playingAccent(), decodeAccent(html.getAttribute('data-accent')));
+      const values = tokens ? accentDeclarations(tokens) : null;
+      for (const name of ACCENT_VARS) {
+        if (values) html.style.setProperty(name, values[name]);
+        else html.style.removeProperty(name);
+      }
     };
 
     // ─── short notice above the player ──────────────────────────────────────
@@ -441,7 +463,7 @@ export default function Player() {
         dockBandRef.current.textContent = item.band;
         dockBandRef.current.href = `/metal-archive/browse?q=${encodeURIComponent(item.band)}`;
       }
-      themePlayer(item.color || '');
+      paintAccent(document.documentElement);
       setBarName('');
       // Every way an album starts (card, next/prev, auto-next, jump) paints here,
       // so this is the one place that tells a screen reader the album changed.
@@ -549,11 +571,7 @@ export default function Player() {
 
       loadedVideoIdRef.current = data.videoId;
       playingTracksRef.current = data.tracks || [];
-      // Tint the player with the cued album's color. The dock and the bar stay
-      // hidden until the first play (startItem opens them), so nothing to reveal.
-      if (miniPlayerRef.current && data.albumColor) {
-        miniPlayerRef.current.style.setProperty('--album-color', data.albumColor);
-      }
+      // No accent here: a cued album is not in the player until startItem opens it.
       // Point the error-overlay "Open on YouTube" link at the cued album now, so
       // a video that fails to EMBED on cue (before any play) still links out.
       if (ytErrorLinkRef.current) ytErrorLinkRef.current.href = data.youtubeUrl || '#';
@@ -874,6 +892,7 @@ export default function Player() {
       setPP('paused');
       paintUpNext();
       updateTransport();
+      paintAccent(document.documentElement);   // back to the page's colour, or amber
     };
 
     // Landed on the album that is playing: its tracklist is known now, so show
@@ -1121,6 +1140,7 @@ export default function Player() {
     // player from the new page's data island. If a player already exists we do
     // NOT touch it — playback continues across navigation (the whole point).
     const onPageLoad = () => {
+      paintAccent(document.documentElement);
       cueFromPage();
       updateTransport();
       syncCards();
@@ -1153,6 +1173,15 @@ export default function Player() {
     };
     document.addEventListener('astro:page-load', onPageLoad);
 
+    // ClientRouter replaces <html>'s attributes with the next page's, which carry
+    // THAT page's colour (or none). Paint the incoming document first, so the
+    // swap never shows the page's colour for a moment while an album plays.
+    const onBeforeSwap = (e: Event) => {
+      const next = (e as Event & { newDocument?: Document }).newDocument;
+      if (next?.documentElement) paintAccent(next.documentElement);
+    };
+    document.addEventListener('astro:before-swap', onBeforeSwap);
+
     // ─── kick off the API load ──────────────────────────────────────────────
     // The previous onYouTubeIframeAPIReady (if any other island/page set one)
     // is preserved so we never clobber an unrelated callback.
@@ -1179,6 +1208,7 @@ export default function Player() {
     }
     updateTransport();
     syncDockTop();
+    paintAccent(document.documentElement);
     // The first astro:page-load can fire before this island hydrates: label the
     // controls of the page we hydrated on now, too.
     document.querySelectorAll('.js-pp').forEach(labelPP);
@@ -1192,6 +1222,7 @@ export default function Player() {
     return () => {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('astro:page-load', onPageLoad);
+      document.removeEventListener('astro:before-swap', onBeforeSwap);
       window.removeEventListener('resize', syncDockTop);
       clearApiTimeout();
       clearNotice();
@@ -1210,8 +1241,8 @@ export default function Player() {
   // Everything sits in #np-root (display: contents). Before the first play the
   // dock is rendered off-screen (the iframe must exist to be cued) and the bar
   // is hidden; the first play sets #np-root[data-open]. The bar starts EMPTY and
-  // is filled by paintBar() on every album start. --album-color is unset until
-  // then (CSS falls back to the amber accent).
+  // is filled by paintBar() on every album start, which also paints the album's
+  // accent on <html> (until then the page's colour, or the amber fallback).
   return (
     <div id="np-root" ref={rootRef}>
       <aside id="np-dock" ref={dockRef} aria-label="Now playing video" {...INERT}>

@@ -25,6 +25,7 @@ interface BrowseEntry {
   thumb: string;
   cover: string;
   youtube_video_id: string | null;
+  accent?: string;   // encoded accent tokens for the ▶ (lib/accent.ts)
 }
 
 interface SearchProps {
@@ -330,6 +331,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
                   data-title={a.album_title}
                   data-thumb={a.thumb || ''}
                   data-href={href}
+                  data-accent={a.accent}
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
                 </button>

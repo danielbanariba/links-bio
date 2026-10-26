@@ -7,7 +7,10 @@
 // footer right after <main>, so the player's controls come after the page in
 // DOM and tab order (they are fixed to the viewport, so their place on screen
 // does not depend on where they sit in the markup).
+// And it brings the accent's CSS (AccentTheme.astro), which must reach every
+// archive page but never the bio.
 import Player from '../islands/Player.tsx';
+import AccentTheme from './AccentTheme.astro';
 
 const isMetalArchive = Astro.url.pathname.startsWith('/metal-archive');
 ---
@@ -27,3 +30,4 @@ const isMetalArchive = Astro.url.pathname.startsWith('/metal-archive');
   astro:page-load. Scoped to the archive (not the bio) via isMetalArchive.
 */}
 {isMetalArchive && <Player client:load transition:persist="metal-player" />}
+<AccentTheme />

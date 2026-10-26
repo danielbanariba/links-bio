@@ -5,8 +5,9 @@
 // Build-time work in the frontmatter:
 //   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getMoreToExplore
 //   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds
-//   - getAlbumColor() extracts the dominant swatch from the thumb (cached) and
-//     bakes --album-color + the hero gradient inline -> zero runtime Vibrant.
+//   - getAlbumAccent() extracts the dominant swatch from the square crop (else
+//     the thumb; cached), turns it into readable accent tokens (lib/accent.ts)
+//     and bakes them on <html> -> zero runtime Vibrant.
 //
 // Interactivity lives in the GLOBAL persistent <Player> (rendered from the
 // Navbar, transition:persist). This page only exposes its album as a JSON data
@@ -24,8 +25,8 @@ import {
 } from '../../../lib/db.js';
 import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { thumb } from '../../../lib/thumb.js';
-import { getAlbumColor } from '../../../lib/vibrant.js';
-import { inkOnAccent } from '../../../lib/onAccent.js';
+import { getAlbumAccent } from '../../../lib/vibrant.js';
+import { accentHtmlAttrs, encodeAccent } from '../../../lib/accent.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import { ClientRouter } from 'astro:transitions';
 import AlbumCard from '../../../components/AlbumCard.astro';
@@ -94,13 +95,12 @@ const heroTitle = tracks.length > 0 ? tracks[0].name : album.album_title;
 const coverUrl = album.album_artwork_url || '';
 const coverThumb = thumb(album.album_artwork_url);
 
-// ─── Build-time color: bake --album-color + hero gradient inline ─────────────
-// Use the small thumb (mqdefault) — Vibrant decodes every pixel, the thumb is
-// ~16x cheaper than the full cover and yields an identical dominant color.
-// Pass the full cover as a fallback: if the thumb 404s or is an undecodable
-// format, getAlbumColor tries the large image before returning the cyan default
-// (deathgrind .webp covers in particular need the full-bytes -> sharp path).
-const albumColor = await getAlbumColor(coverThumb || coverUrl, coverUrl);
+// ─── Build-time color: the album's accent tokens, baked on <html> ────────────
+// From the square crop when the covers step made one; else the small thumb
+// (mqdefault), then the full cover if the thumb 404s or can't be decoded. Null
+// when nothing could be extracted: the stylesheet's amber applies.
+const videoId = (album.youtube_video_id || '').trim();
+const accent = await getAlbumAccent({ videoId, thumbUrl: coverThumb || coverUrl, fullUrl: coverUrl });
 
 // ─── Streaming / social links ────────────────────────────────────────────────
 // Many descriptions are scraped text that embeds the band's links (Bandcamp,
@@ -188,17 +188,17 @@ const canonical = `https://danielbanariba.com/metal-archive/album/${album.id}`;
 // The global persistent Player (rendered from the Navbar with transition:persist)
 // reads this on astro:page-load to lazy-cue / switch albums. Only emitted when
 // there is a playable video, so pages without one expose no #metal-np-data and
-// the Player leaves any current playback untouched.
-// Trimmed exactly like AlbumCard trims its data-video-id, so the Player's dedupe
-// and "this page is the playing album" checks compare equal strings.
-const videoId = (album.youtube_video_id || '').trim();
+// the Player leaves any current playback untouched. videoId (above) is trimmed
+// exactly like AlbumCard trims its data-video-id, so the Player's dedupe and
+// "this page is the playing album" checks compare equal strings. `accent` is the
+// encoded tokens the Player paints while this album is in it.
 const hasVideo = videoId !== '';
 const npData = hasVideo
   ? {
       videoId,
       albumId: album.id,
       youtubeUrl: album.youtube_url || '',
-      albumColor,
+      ...(accent ? { accent: encodeAccent(accent) } : {}),
       albumTitle: album.album_title,
       bandName: album.band_name,
       coverThumb: coverThumb || coverUrl,
@@ -232,7 +232,7 @@ const albumJsonLd = safeJsonLd({
 ---
 
 <!doctype html>
-<html lang="en" style={`--album-color: ${albumColor}; --on-accent: ${inkOnAccent(albumColor)};`}>
+<html lang="en" {...accentHtmlAttrs(accent)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

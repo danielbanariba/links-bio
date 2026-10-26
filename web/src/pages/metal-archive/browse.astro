@@ -6,6 +6,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ClientRouter } from 'astro:transitions';
 import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, isLiveRecording } from '../../lib/db.js';
+import { encodeAccent } from '../../lib/accent.js';
+import { getAlbumAccent } from '../../lib/vibrant.js';
 import Navbar from '../../components/Navbar.astro';
 import Footer from '../../components/Footer.astro';
 import Search from '../../islands/Search.tsx';
@@ -22,7 +24,15 @@ import '../../styles/global.css';
 //      build ships the file without relying on build-phase ordering.
 // The fetch URL is /browse-index.json (no Astro base; Vercel serves the static
 // dir at the site root).
+// Each playable entry carries its ▶'s accent tokens (encoded, lib/accent.ts), so
+// the Player paints the album's colour without extracting anything at runtime.
+// One album at a time: a cold colour cache decodes ~2,700 crops here.
 const index = getBrowseIndex();
+for (const entry of index) {
+  if (!entry.youtube_video_id) continue;
+  const accent = await getAlbumAccent({ videoId: entry.youtube_video_id, thumbUrl: entry.thumb });
+  if (accent) entry.accent = encodeAccent(accent);
+}
 const indexJson = JSON.stringify(index);
 const cwd = process.cwd();
 
