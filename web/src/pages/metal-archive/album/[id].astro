@@ -27,6 +27,7 @@ import { countryLabel, genreLabel } from '../../../lib/labels.js';
 import { thumb } from '../../../lib/thumb.js';
 import { coverUrl as squareCover } from '../../../lib/coverStore.js';
 import { displayTitle } from '../../../lib/title.js';
+import { tsToSeconds } from '../../../lib/segments.js';
 import { formatCardMeta } from '../../../lib/cardMeta.js';
 import { getAlbumAccent } from '../../../lib/vibrant.js';
 import { accentHtmlAttrs, encodeAccent } from '../../../lib/accent.js';
@@ -72,17 +73,8 @@ function similarBandHref(name: string): string {
     : `/metal-archive/browse?q=${encodeURIComponent(name)}`;
 }
 
-// ─── Parse "MM:SS" / "HH:MM:SS" timestamps to seconds (build-time) ───────────
-function tsToSeconds(ts: string | null): number {
-  if (!ts) return 0;
-  const parts = ts.split(':').map((p) => parseInt(p, 10));
-  if (parts.some((n) => Number.isNaN(n))) return 0;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 1) return parts[0];
-  return 0;
-}
-
+// Timestamps ("MM:SS" / "HH:MM:SS") to seconds: lib/segments.ts, shared with the
+// per-album JSON the Player fetches (album/[id].json.ts).
 const tracks = rawTracks.map((t, i) => ({
   idx: i,
   number: t.track_number ?? i + 1,
