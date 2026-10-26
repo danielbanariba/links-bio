@@ -7,7 +7,8 @@ units, from the host checkout (the only machine with reflex.db). One tick:
 1. Take the shared deploy lock (links_bio/deploy_lock.py) without waiting.
    If the twice-daily sync or a slow earlier deploy holds it, skip the tick.
 2. Read the gitignored .deploy-state.json ({"deployed_sha", "failed_sha",
-   "fetch_failures"}). A missing or malformed file means no state.
+   "stopped_sha", "fetch_failures"}). A missing or malformed file means no
+   state.
 3. Fetch main anonymously over HTTPS into refs/remotes/origin/main. The repo
    is public, and a user unit has no SSH agent. DEPLOY_REPO_URL overrides
    the URL. A failed fetch (GitHub or the network down) only counts and
@@ -26,7 +27,9 @@ units, from the host checkout (the only machine with reflex.db). One tick:
    Without a usable base (first run, unknown deployed_sha) it runs all of it.
 6. Record the outcome. Success sets deployed_sha and clears failed_sha. Any
    failure sets failed_sha to origin/main and keeps deployed_sha, so the next
-   merge re-plans from the last good deploy.
+   merge re-plans from the last good deploy. A SIGTERM (a reboot, a manual
+   stop, or systemd's TimeoutStartSec) only sets stopped_sha the first time,
+   so the next tick retries; a second stop of the same sha sets failed_sha.
 
 The alert-once rule: a failure exits non-zero, and systemd's
 OnFailure=notify-failure@%n.service sends the one email. Later ticks see
@@ -119,19 +122,24 @@ class StepTimedOut(DeployError):
 
 
 class Stopped(RuntimeError):
-    """SIGTERM arrived mid-tick: systemd's TimeoutStartSec ran out, or
-    someone stopped the unit. An Exception, so run_tick's failure path
-    latches failed_sha before the process exits."""
+    """SIGTERM arrived mid-tick: systemd's TimeoutStartSec ran out, the host
+    is shutting down, or someone stopped the unit. An Exception, so run_tick
+    records the stop before the process exits."""
 
 
 def _stop_on_sigterm(signum, frame):
-    raise Stopped("stopped by SIGTERM (the unit's TimeoutStartSec ran out, or a manual stop)")
+    raise Stopped(
+        "stopped by SIGTERM (the unit's TimeoutStartSec ran out, a shutdown, or a manual stop)"
+    )
 
 
 @dataclass(frozen=True)
 class State:
     deployed_sha: str | None = None
     failed_sha: str | None = None
+    # The sha a SIGTERM interrupted once. A reboot or a manual stop is not a
+    # failed deploy, so the next tick retries it; a second stop latches.
+    stopped_sha: str | None = None
     fetch_failures: int = 0
 
 
@@ -236,7 +244,7 @@ def read_state(path: Path) -> State:
         logger.warning("ignoring malformed %s; running with no state", path.name)
         return State()
     values = {}
-    for key in ("deployed_sha", "failed_sha"):
+    for key in ("deployed_sha", "failed_sha", "stopped_sha"):
         value = data.get(key)
         if value is not None and not (isinstance(value, str) and _SHA.fullmatch(value)):
             logger.warning("ignoring %s: %s is not a sha; running with no state", path.name, key)
@@ -255,6 +263,7 @@ def write_state(path: Path, state: State) -> None:
     payload = {
         "deployed_sha": state.deployed_sha,
         "failed_sha": state.failed_sha,
+        "stopped_sha": state.stopped_sha,
         "fetch_failures": state.fetch_failures,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
@@ -295,6 +304,21 @@ def run_tick(repo: Path, repo_url: str) -> str:
         if decision.action in (REFUSE, BLOCK):
             raise DeployError(decision.reason)
         _deploy(repo, remote, state)
+    except Stopped:
+        if state.stopped_sha != remote:
+            write_state(state_path, State(deployed_sha=state.deployed_sha, stopped_sha=remote))
+            logger.info(
+                "recorded stopped_sha %s: the next tick retries it once, a second stop latches it",
+                _short(remote),
+            )
+            raise
+        write_state(state_path, State(deployed_sha=state.deployed_sha, failed_sha=remote))
+        logger.info(
+            "stopped twice on %s, so it is not a one-off reboot or stop: recorded failed_sha, "
+            "later ticks skip it until main moves or failed_sha is removed",
+            _short(remote),
+        )
+        raise
     except Exception:
         write_state(state_path, State(deployed_sha=state.deployed_sha, failed_sha=remote))
         logger.info(

@@ -340,7 +340,7 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   - `links_bio/` or a requirements file → `systemctl restart metal-archive-forms.service`. It is a system
     unit, so the polkit rule `systemd/polkit/50-links-bio-forms-restart.rules` allows exactly that restart.
 
-  The gitignored `.deploy-state.json` holds `deployed_sha`, `failed_sha` and `fetch_failures`. With no
+  The gitignored `.deploy-state.json` holds `deployed_sha`, `failed_sha`, `stopped_sha` and `fetch_failures`. With no
   file, or a malformed one, the next tick runs the full plan.
   - **Alert once:** a failure exits non-zero (one email) and records `failed_sha` = origin/main; later
     ticks skip that sha. A new merge retries, re-planning from the last good deploy. To retry the same
@@ -348,8 +348,10 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   - **Installs retry once:** a failed `npm ci` or `pip install` is retried once after 30 s (a blip must
     not leave `node_modules` half-installed); only a second failure latches. A timeout is not retried.
   - **Hangs alert once too:** `npm ci` and `pip install` each have their own timeout (20 and 15 min),
-    which kills the step with its child processes. If systemd still stops the tick with SIGTERM (the
-    unit's `TimeoutStartSec`), the tick records `failed_sha` before it exits.
+    which kills the step with its child processes. A SIGTERM mid-tick (systemd's `TimeoutStartSec`, a
+    reboot, or a manual stop) only records `stopped_sha` the first time, so a one-off stop is retried
+    by the next tick; a second stop of the same sha records `failed_sha`, so a real hang alerts at most
+    twice, never hourly.
   - **Outages alert once:** a failed fetch (GitHub or the network down) only bumps `fetch_failures`
     and exits 0. The 12th in a row (an hour) fails the unit once; the next good fetch resets the count.
   - **Refusals:** it alerts and does not pull when the checkout is not on `main`, has tracked changes,

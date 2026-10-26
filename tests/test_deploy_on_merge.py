@@ -631,30 +631,56 @@ class _SigtermReachedTheTest(BaseException):
     """Raised by the test's own SIGTERM guard: the tick installed no handler."""
 
 
-def test_sigterm_mid_step_latches_failed_sha_and_the_next_tick_skips(repos, actions):
-    """Catches a step that systemd kills with SIGTERM when TimeoutStartSec
-    runs out never latching failed_sha: the same hang would then be retried
-    on every tick, each for up to an hour, and every kill would email
-    again. On SIGTERM the tick must record the sha, so it alerts once and
-    later ticks skip it."""
-    good = repos.mark_deployed()
-    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
-    actions.on_build = lambda: os.kill(os.getpid(), signal.SIGTERM)
+def _main_with_sigterm_guard() -> int:
+    """Run one tick behind a guard that fails the test, instead of killing
+    pytest, if the tick installed no SIGTERM handler of its own."""
 
     def guard(signum, frame):
         raise _SigtermReachedTheTest()
 
     previous = signal.signal(signal.SIGTERM, guard)
     try:
-        assert dom.main() == 1
+        return dom.main()
     finally:
         signal.signal(signal.SIGTERM, previous)
+
+
+def test_second_sigterm_on_the_same_sha_latches_and_the_next_tick_skips(repos, actions):
+    """Catches a step that systemd kills with SIGTERM when TimeoutStartSec
+    runs out never latching failed_sha: the same hang would then be retried
+    on every tick, each for up to an hour, and every kill would email
+    again. A second stop of the same sha must latch it, so later ticks skip."""
+    good = repos.mark_deployed()
+    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
+    actions.on_build = lambda: os.kill(os.getpid(), signal.SIGTERM)
+
+    assert _main_with_sigterm_guard() == 1
+    assert _main_with_sigterm_guard() == 1
     assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
 
     actions.on_build = None
     actions.sequence.clear()
     assert dom.main() == 0
     assert actions.sequence == []
+
+
+def test_single_sigterm_mid_deploy_is_retried_on_the_next_tick(repos, actions):
+    """Catches a reboot or a manual stop during a deploy latching the merge:
+    it would stay off the live site until the next merge or a hand edit of
+    .deploy-state.json. One stop is not a failed deploy, so the next tick
+    must run the deploy again."""
+    repos.mark_deployed()
+    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
+    actions.on_build = lambda: os.kill(os.getpid(), signal.SIGTERM)
+
+    assert _main_with_sigterm_guard() == 1
+    assert repos.state()["failed_sha"] is None
+
+    actions.on_build = None
+    actions.sequence.clear()
+    assert dom.main() == 0
+    assert "build-deploy" in actions.sequence
+    assert repos.shas() == {"deployed_sha": merged, "failed_sha": None}
 
 
 def test_hung_step_is_killed_at_its_timeout_with_its_children(tmp_path):
