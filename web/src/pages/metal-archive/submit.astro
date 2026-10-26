@@ -136,7 +136,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
             <label class="form-label" for="youtube_url">YouTube URL</label>
             <input
               id="youtube_url" name="youtube_url" type="url"
-              class="form-input" placeholder="https://youtu.be/..."
+              class="form-input" placeholder="https://youtu.be/…"
             />
           </div>
           <div class="form-field">
@@ -153,7 +153,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
           <label class="form-label" for="description">Description</label>
           <textarea
             id="description" name="description"
-            class="form-textarea" placeholder="Tell us about your band..."
+            class="form-textarea" placeholder="Tell us about your band…"
             rows="4"
           ></textarea>
         </div>
@@ -254,7 +254,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       // flagged it as invalid.
       input.setAttribute('aria-invalid', 'true');
       input.setAttribute('aria-describedby', msgId);
-      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       (input as HTMLInputElement).focus({ preventScroll: true });
     }
 
@@ -275,7 +275,7 @@ const ogImage = 'https://danielbanariba.com/avatar.jpg';
       }
 
       btn!.disabled = true;
-      btn!.textContent = 'Submitting...';
+      btn!.textContent = 'Submitting…';
 
       try {
         const res = await fetch(`${API_BASE}/api/metal-archive/submit`, {

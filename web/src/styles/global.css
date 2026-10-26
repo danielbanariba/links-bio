@@ -1374,9 +1374,15 @@ img {
 
 /* Per-field validation: red ring on the offending input + inline message.
    Used by submit.astro and promo.astro field-by-field validation. */
-.form-page .form-input--error {
+.form-page .form-input--error,
+.form-page .form-input--error:hover {
   border-color: transparent !important;
   box-shadow: inset 0 0 0 2px var(--ma-error);
+}
+/* The errored field gets focus (markFieldError): the red ring stays and a white
+   one outside it shows the focus, instead of the plain focus ring replacing it. */
+.form-page .form-input--error:focus {
+  box-shadow: inset 0 0 0 2px var(--ma-error), 0 0 0 2px #fff;
 }
 
 .form-page .form-field__error {
