@@ -1108,6 +1108,9 @@ export default function Player() {
     const onTileDown = (e: PointerEvent) => {
       const tile = tileRef.current;
       if (!tile || e.button !== 0 || stage.surface !== 'tile') return;
+      // No native drag: Chromium otherwise starts dragging an image under the
+      // pointer and cancels the pointer (pointercancel) as soon as it moves.
+      e.preventDefault();
       dragRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, left: tile.offsetLeft, top: tile.offsetTop, moved: false };
     };
     const onTileMove = (e: PointerEvent) => {
@@ -1895,10 +1898,13 @@ export default function Player() {
     root.addEventListener('keydown', onTileKey);
     root.addEventListener('keydown', onProgKey);
     root.addEventListener('input', onVolume);
+    // The drag follows the pointer on document: a fast first move can leave the
+    // tile before the pointer is captured (capturing at pointerdown would send a
+    // plain tap's click to the tile instead of the grip or the video button).
     tileRef.current?.addEventListener('pointerdown', onTileDown);
-    tileRef.current?.addEventListener('pointermove', onTileMove);
-    tileRef.current?.addEventListener('pointerup', onTileUp);
-    tileRef.current?.addEventListener('pointercancel', onTileUp);
+    document.addEventListener('pointermove', onTileMove);
+    document.addEventListener('pointerup', onTileUp);
+    document.addEventListener('pointercancel', onTileUp);
     root.addEventListener('pointerdown', onProgDown);
     root.addEventListener('pointermove', onProgMove);
     root.addEventListener('pointerup', onProgUp);
@@ -2003,6 +2009,9 @@ export default function Player() {
     return () => {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointermove', onTileMove);
+      document.removeEventListener('pointerup', onTileUp);
+      document.removeEventListener('pointercancel', onTileUp);
       document.removeEventListener('astro:page-load', onPageLoad);
       document.removeEventListener('astro:before-swap', onBeforeSwap);
       window.removeEventListener('resize', onResize);
