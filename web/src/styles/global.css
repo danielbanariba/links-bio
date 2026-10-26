@@ -680,6 +680,8 @@ img {
 /* The overlay's Retry button was 52x21 on a phone; padding stays, the box grows. */
 @media (max-width: 767px), (pointer: coarse) {
   .mp-retry { min-height: 44px; min-width: 44px; }
+  /* The error overlay's "Open on YouTube" link was about 18px tall. */
+  .mp-overlay__link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; }
 }
 
 /* ─── Landscape column (short landscape phones, where a docked video would not
