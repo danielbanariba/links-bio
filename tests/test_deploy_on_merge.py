@@ -402,12 +402,12 @@ def _check_out_another_branch(repos: Repos) -> None:
 @pytest.mark.parametrize(
     "break_checkout",
     [_edit_a_tracked_file, _commit_locally, _check_out_another_branch],
-    ids=["dirty-tree", "not-fast-forward", "wrong-branch"],
+    ids=["dirty-tree", "diverged", "wrong-branch"],
 )
 def test_unsafe_checkout_is_refused_once(repos, actions, break_checkout):
-    """Catches a fast-forward over hand edits on the host, a deploy of local
-    commits that never went through a PR, and a deploy of whatever branch was
-    left checked out. The job must leave the checkout alone, fail the unit so
+    """Catches a fast-forward over hand edits on the host, a deploy of a host
+    whose local commits diverged from a main that moved on, and a deploy of
+    whatever branch was left checked out. The job must leave the checkout alone, fail the unit so
     the alert fires, and record the sha so it fires only once."""
     repos.mark_deployed()
     break_checkout(repos)
@@ -737,3 +737,24 @@ def test_install_that_times_out_is_not_retried(repos, actions, monkeypatch):
     assert dom.main() == 1
 
     assert actions.sequence == ["npm-ci"]
+
+
+
+# --- local commits not pushed yet ----------------------------------------
+
+
+def test_host_commit_ahead_of_origin_waits_without_alerting(repos, actions):
+    """Catches a false alert email, and a failed_sha latched on a sha that
+    is already live, whenever someone commits on the host before pushing
+    (the pre-push hook builds in exactly that window). HEAD ahead of
+    origin/main is not a broken checkout: the tick waits for the push and
+    changes nothing."""
+    good = repos.mark_deployed()
+    _commit_locally(repos)
+    ahead = repos.head()
+
+    assert dom.main() == 0
+
+    assert repos.head() == ahead
+    assert actions.sequence == []
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": None}

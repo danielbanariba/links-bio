@@ -16,7 +16,8 @@ units, from the host checkout (the only machine with reflex.db). One tick:
 4. Decide (`decide()`, first match wins):
    - noop: HEAD is origin/main and already deployed;
    - skip: origin/main already failed and alerted;
-   - refuse: not on main, tracked changes, or HEAD cannot fast-forward;
+   - wait: local commits ahead of origin/main, not pushed yet (exit 0);
+   - refuse: not on main, tracked changes, or HEAD and origin/main diverged;
    - block: the range not pulled yet adds or changes a migration;
    - update: fast-forward, then run the plan.
 5. Plan from the paths changed since the last good deploy (`plan_actions()`):
@@ -99,7 +100,7 @@ DATABASE_BEHIND = (
     "failed_sha from .deploy-state.json; the next tick deploys"
 )
 
-NOOP, SKIP, REFUSE, BLOCK, UPDATE = "noop", "skip", "refuse", "block", "update"
+NOOP, SKIP, WAIT, REFUSE, BLOCK, UPDATE = "noop", "skip", "wait", "refuse", "block", "update"
 FETCH_FAILED = "fetch-failed"
 
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
@@ -140,6 +141,7 @@ class Facts:
     branch: str | None
     dirty: bool
     head_is_ancestor: bool
+    remote_is_ancestor: bool
     incoming: tuple[str, ...]
 
 
@@ -169,12 +171,20 @@ def decide(facts: Facts, state: State) -> Decision:
             "--untracked-files=no): commit, stash or discard them, then remove "
             "failed_sha from .deploy-state.json",
         )
+    if facts.head != facts.remote and facts.remote_is_ancestor:
+        # Local commits not pushed yet (the pre-push hook builds in this
+        # window). Nothing is broken: wait, without alerting or latching.
+        return Decision(
+            WAIT,
+            "local commits ahead of origin/main, waiting for the push "
+            f"(HEAD {_short(facts.head)}, origin/main {_short(facts.remote)})",
+        )
     if not facts.head_is_ancestor:
         return Decision(
             REFUSE,
-            f"HEAD {_short(facts.head)} is not an ancestor of origin/main "
-            f"{_short(facts.remote)} (local commits, or a rewritten main), so it "
-            "cannot fast-forward",
+            f"HEAD {_short(facts.head)} and origin/main {_short(facts.remote)} have "
+            "diverged (local commits on top of an older main, or a rewritten main), "
+            "so it cannot fast-forward",
         )
     migrations = [path for path in facts.incoming if path.startswith(MIGRATIONS_DIR)]
     if migrations:
@@ -256,9 +266,9 @@ def run_tick(repo: Path, repo_url: str) -> str:
         decision = decide(facts, state)
         if decision.action == NOOP:
             return NOOP
-        if decision.action == SKIP:
+        if decision.action in (SKIP, WAIT):
             logger.info(decision.reason)
-            return SKIP
+            return decision.action
         logger.info(
             "fetched main from %s: origin/main %s, HEAD %s on %s, deployed_sha %s, failed_sha %s",
             _redact(repo_url),
@@ -406,6 +416,7 @@ def _gather_facts(repo: Path, remote: str) -> Facts:
         branch=branch.stdout.strip() if branch.returncode == 0 else None,
         dirty=bool(dirty),
         head_is_ancestor=_is_ancestor(repo, head, remote),
+        remote_is_ancestor=_is_ancestor(repo, remote, head),
         incoming=tuple(_changed_paths(repo, head, remote)),
     )
 
