@@ -11,7 +11,7 @@ import { thumb } from './thumb.ts';
  * Bump when the detector (or its templates/params) changes so every cached box is
  * recomputed on the next build. Overrides are human decisions and survive a bump.
  */
-export const COVER_ALGO_VERSION = 1;
+export const COVER_ALGO_VERSION = 2; // 2: the layout rescue mined from the T9b review
 
 export type CoverSource = 'detected' | 'template' | 'year-fallback' | 'override' | 'full';
 

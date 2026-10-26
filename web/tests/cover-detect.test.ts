@@ -10,7 +10,7 @@ import sharp from 'sharp';
 
 import { detectCover, FRAME_H, FRAME_W } from '../src/lib/coverDetect.ts';
 import { toRawFrame, normalizeFrame } from '../src/lib/coverImage.ts';
-import { BORDER_PX, synthFrame, type SynthCover } from './fixtures/covers/synth.ts';
+import { BORDER_PX, synthFrame, synthFrameRaw, type SynthCover } from './fixtures/covers/synth.ts';
 
 const TOL = 5; // px; the search runs at half resolution, then snaps at full resolution
 
@@ -82,6 +82,43 @@ for (const tpl of [
     assertNear(r.box, insetOf(tpl.cover), 6);
   });
 }
+
+/** A bright 4px square outline with its bottom side left out (a tracklist panel, a logo frame). */
+function drawOpenFrame(raw: Buffer, x0: number, y0: number, size: number, lum: number) {
+  const put = (x: number, y: number) => raw.fill(lum, (y * FRAME_W + x) * 3, (y * FRAME_W + x) * 3 + 3);
+  for (let k = 0; k < 4; k++) {
+    for (let i = 0; i < size; i++) {
+      put(x0 + i, y0 + k); // top
+      put(x0 + k, y0 + i); // left
+      put(x0 + size - 1 - k, y0 + i); // right
+    }
+  }
+}
+
+// Defect caught: a weak generic box that sits on none of the uploader's known layouts
+// being kept when one of those layouts holds the cover (the review found 83% of such
+// crops bad). The open frame scores highest in the generic search, but its missing side
+// keeps it from being confident. The cover sits at a layout mined from the review
+// (93,70,556) that the spike's three templates do not cover.
+test('a weak generic box off every known layout yields to the mined layout holding the cover', async () => {
+  const cover = { x: 93, y: 70, size: 556, edge: 20, texture: 20 };
+  const raw = await synthFrameRaw({ cover, tracklist: false });
+  drawOpenFrame(raw, 380, 100, 560, 220);
+  const jpeg = await sharp(raw, { raw: { width: FRAME_W, height: FRAME_H, channels: 3 } }).jpeg({ quality: 90 }).toBuffer();
+  const r = detectCover(await toRawFrame(jpeg), { uploadYear: 2019 });
+  assert.equal(r.source, 'template');
+  assertNear(r.box, insetOf(cover), 6);
+});
+
+// Defect caught: that rescue replacing a weak generic box even when no known layout
+// shows a border (the template thresholds skipped), which would crop an empty layout
+// instead of the cover the generic search found.
+test('a weak generic box off every known layout stands when no known layout has a border', async () => {
+  const cover = { x: 200, y: 40, size: 600, edge: 16, texture: 20 };
+  const r = await detect(cover, 2019, false);
+  assert.equal(r.source, 'detected');
+  assertNear(r.box, insetOf(cover));
+});
 
 // Defect caught: a frame with a tracklist but no cover getting a "detected" box
 // over the text, or the year geometry being applied to the wrong upload year.

@@ -19,8 +19,11 @@
 //   lines 10px away. A layout prior keeps the centre-x in [0.20, 0.58] of the width.
 //   The best square is snapped per side at full resolution and inset by 1.5%.
 // Pass 2 (template prior): the uploader reuses a handful of layouts. A frame whose
-//   generic result is weak is re-scored at those known boxes (+-6px) and accepted
-//   at a lower threshold.
+//   generic result is weak is re-scored at the spike's three known boxes (+-6px) and
+//   accepted at a lower threshold.
+// Pass 2b (layout rescue): a weak generic box that sits on none of the layouts mined
+//   from the human review (TEMPLATES) is usually a wrong region; the best mined layout
+//   that passes the template thresholds replaces it.
 // Pass 3 (year fallback): when nothing passes, the dominant layout of the upload
 //   year is used. Years with no known layout get no box at all ("full"), because a
 //   wrong square is worse than the whole frame.
@@ -56,13 +59,37 @@ export interface DetectOptions {
 }
 
 /**
- * The layouts the uploader reuses, as pre-inset [x, y, size]. Mined from the
- * spike's confident detections (cluster sizes 8, 7 and 4 of 80).
+ * The three layouts the spike mined from its confident detections (cluster sizes 8, 7
+ * and 4 of 80), as pre-inset [x, y, size]. Pass 2 re-scores a weak generic result at
+ * these only: re-scoring at the whole mined list instead moved ~190 of the 1,935 crops
+ * the review kept, mostly between neighbouring sizes of one layout.
  */
-export const TEMPLATES: readonly CoverBox[] = [
+export const SPIKE_TEMPLATES: readonly CoverBox[] = [
   [288, 8, 682],
   [84, 60, 598],
   [288, 8, 702],
+];
+
+/**
+ * The layouts the uploader reuses, as pre-inset [x, y, size], mined from the T9b human
+ * review of all 2,750 crops by scripts/covers/mine-templates.mjs (the 1,935 boxes the
+ * review kept, clustered within +-6px; clusters of n >= 15). n = kept crops per cluster.
+ * 2024-25 uploads use the centred pair, 2026 uploads the left family and the
+ * frame-hugging ones.
+ */
+export const TEMPLATES: readonly CoverBox[] = [
+  [84, 61, 595], // n=578
+  [289, 9, 683], // n=432
+  [290, 10, 699], // n=215
+  [85, 63, 580], // n=112
+  [80, 57, 604], // n=98
+  [93, 70, 556], // n=91
+  [97, 74, 541], // n=61
+  [92, 70, 573], // n=34
+  [3, 64, 652], // n=31
+  [4, 0, 655], // n=25
+  [0, 71, 639], // n=23
+  [101, 78, 526], // n=18
 ];
 
 /** Dominant layout per upload year (spike votes: 2024-25 -> 682px at x=288, 2026 -> 598px at x=84). */
@@ -90,6 +117,10 @@ const P = {
   tplScore: 0.75, // acceptance at a template location
   tplSide: 0.25,
   prefer: 0.8,
+  // A box is "on" a mined layout when every edge is within 5% of the side of it.
+  // Tuned on the review labels (scripts/covers/evaluate.mjs): 4% moved more kept crops,
+  // 6-7% fixed fewer bad ones.
+  layoutTol: 0.05,
   inset: 0.015,
 } as const;
 
@@ -316,6 +347,19 @@ function atTemplate(m: Maps, tpl: CoverBox, R = 3): Found {
   return best;
 }
 
+/** Whether a template search result is strong enough to accept (pass 2 and pass 2b). */
+const passes = (f: Found) => f.raw !== null && min4(f.sides) >= P.tplSide && f.score >= P.tplScore;
+
+/** The highest-scoring template among those that pass, or null. */
+function bestPassing(m: Maps, templates: readonly CoverBox[]): Found | null {
+  let best: Found | null = null;
+  for (const t of templates) {
+    const f = atTemplate(m, t);
+    if (passes(f) && (!best || f.score > best.score)) best = f;
+  }
+  return best;
+}
+
 // ─── Snap + inset ────────────────────────────────────────────────────────────
 
 /** Mean of a 3-tap box filter (reflect) over a vector. */
@@ -371,6 +415,18 @@ function finish(m: Maps, raw: CoverBox): CoverBox {
   return [x0 + ins, y0 + ins, side - 2 * ins];
 }
 
+/** Whether a finished box lies on a mined layout: every edge within P.layoutTol of the side. */
+function onLayout(box: CoverBox): boolean {
+  const edges = ([x, y, s]: CoverBox) => [x, y, x + s, y + s];
+  const b = edges(box);
+  return TEMPLATES.some(([x, y, s]) => {
+    const ins = Math.round(s * P.inset);
+    const t = edges([x + ins, y + ins, s - 2 * ins]);
+    const lim = P.layoutTol * Math.max(box[2], s - 2 * ins);
+    return b.every((v, i) => Math.abs(v - t[i]) <= lim);
+  });
+}
+
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -388,20 +444,27 @@ export function detectCover(frame: RawFrame, opts: DetectOptions = {}): DetectRe
     return { source: 'detected', box: finish(m, gen.raw!), score: r3(gen.score) };
   }
 
-  // Weak or missing: look for the known layouts.
+  // Weak or missing: look for the spike's layouts.
   let tpl: Found = { score: -1, raw: null, sides: [0, 0, 0, 0] };
-  for (const t of TEMPLATES) {
+  for (const t of SPIKE_TEMPLATES) {
     const f = atTemplate(m, t);
     if (f.score > tpl.score) tpl = f;
   }
-  const tplOk =
-    tpl.raw !== null &&
-    min4(tpl.sides) >= P.tplSide &&
-    tpl.score >= P.tplScore &&
-    (!genOk || tpl.score >= gen.score * P.prefer);
-  if (tplOk) return { source: 'template', box: finish(m, tpl.raw!), score: r3(tpl.score) };
+  if (passes(tpl) && (!genOk || tpl.score >= gen.score * P.prefer)) {
+    return { source: 'template', box: finish(m, tpl.raw!), score: r3(tpl.score) };
+  }
 
-  if (genOk) return { source: 'detected', box: finish(m, gen.raw!), score: r3(gen.score) };
+  if (genOk) {
+    const box = finish(m, gen.raw!);
+    // A weak box on none of the mined layouts: 322 of 358 such crops (90%) failed the
+    // review, so the best mined layout that passes takes over. A weak box ON a layout
+    // stands (re-checking those too moved 3x more of the crops the review kept).
+    if (!onLayout(box)) {
+      const alt = bestPassing(m, TEMPLATES);
+      if (alt) return { source: 'template', box: finish(m, alt.raw!), score: r3(alt.score) };
+    }
+    return { source: 'detected', box, score: r3(gen.score) };
+  }
 
   const yt = yearTemplate(opts.uploadYear);
   if (yt) return { source: 'year-fallback', box: finish(m, yt), score: 0 };
