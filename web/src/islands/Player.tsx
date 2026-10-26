@@ -28,9 +28,9 @@
 // STATE lives on #np-root, a PERSISTED element (<body> is replaced on every
 // navigation): data-active while an album is loaded (playing or paused),
 // data-view while the now-playing view is open, data-surface where the video is.
-// The attribute is data-active, not the pre-shell data-open: global.css (the
-// bio's stylesheet, which cannot change) still lays out a docked video for
-// [data-open], and styles/archive.css owns the shell's layout instead.
+// The attribute is data-active, not the pre-shell data-open (global.css's
+// docked-video rules for [data-open] were removed with the rest of the pre-shell
+// player CSS); styles/archive.css owns the shell's layout.
 //
 // PLAY FROM ANY CARD + QUEUE (lib/queue.ts, pure): a card's ▶ queues the cards of
 // its nearest [data-queue] (else the page), in DOM order, starting at that card.

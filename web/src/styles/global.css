@@ -214,8 +214,8 @@ a:hover {
    near-white brand bone color, which stays well above 3:1 against every
    background the site uses (the dark --bg, --content, and the per-album
    --accent-tinted navbar). :where() gives this rule zero specificity, so any
-   component rule that sets outline (.album-card, .facet-refine,
-   a.band-pill, .stage__* etc.) wins outright. The rule declares nothing
+   component rule that sets outline (.facet-refine, the archive shell's
+   controls in archive.css) wins outright. The rule declares nothing
    but outline, so it cannot change a component's radius or offset. */
 :where(a, button, summary, [tabindex]):where(:focus-visible) {
   outline: 2px solid var(--text-header);
@@ -226,62 +226,9 @@ img {
   max-width: 100%;
 }
 
-/* ─── Layout utilities ───────────────────────────────────────────────────────
-   Wide container + fluid side padding so content spans the screen instead of a
-   narrow centered column. --gutter scales from 1rem (phones) to 3rem (desktop). */
-.wrap {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-.wrap--detail {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  padding-inline: var(--gutter);
-  padding-block: 1.5rem;
-}
-
-/* ─── Carousel utilities (horizontal cover rows) ─────────────────────────────
-   Cards sit in a row that scrolls sideways; the width keeps 2+ covers on a phone
-   with a peek of the next one. */
-.carousel-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(9.5rem, 17vw, 14.5rem);
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.5rem;
-  /* Hide scrollbar but keep scroll functionality */
-  scrollbar-width: none;
-}
-.carousel-row::-webkit-scrollbar {
-  display: none;
-}
-
-/* #16/R3-003: a right-edge fade signals there is more to scroll to -- these
-   rows hid 73-87% of their content with no affordance at all otherwise.
-   .has-scroll-fade is toggled by the home page's script (metal-archive/
-   index.astro) based on actual scroll position, so the fade is only present
-   while scrolling further right would reveal more content -- never at rest
-   with no overflow, and never once scrolled to the end, where a permanent
-   mask would otherwise keep the last card's focus ring dimmed. */
-.carousel-row.has-scroll-fade {
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
-}
-
-.carousel-row > * {
-  scroll-snap-align: start;
-}
-
 /* ─── Gallery grid / album grid (genre, country, year, band, browse, album pages)
    auto-fill + minmax keeps every row completely full (no awkward end gaps) and
    reflows fluidly: 2 columns on a phone, 4 on a tablet, 5+ on a wide desktop. */
-.gallery-grid,
 .album-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(9.25rem, 16vw, 13.5rem), 1fr));
@@ -289,190 +236,7 @@ img {
 }
 
 @media (min-width: 1200px) {
-  .gallery-grid,
   .album-grid { gap: 1.5rem; }
-}
-
-/* Below-fold carousels: defer rendering until near viewport */
-.carousel-deferred {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 420px;
-}
-
-/* ─── Album card ─────────────────────────────────────────────────────────────
-   A #181818 card with 8px corners. The cover is a large square with nothing over
-   it but the play button; under it: album title, band, and one muted line
-   "country · year · genre". Hover lightens the card (no movement). The play
-   button fades in on hover or keyboard focus where there is a pointer, and is
-   always there on touch, where there is no hover. --card-accent (optional, set
-   inline per card) overrides the play colour; it defaults to the page's --accent. */
-.album-card {
-  --card-accent: var(--accent);
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 100%;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: var(--ma-surface);
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-@media (hover: hover) {
-  .album-card:hover,
-  .album-card-wrap:hover .album-card {
-    background: var(--ma-hover);
-  }
-}
-.album-card:focus-visible { outline-offset: 2px; }
-
-/* The cover, a square. Its own element so the rounded crop is scoped to the art. */
-.album-card__art {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--ma-hover-2);
-}
-
-.album-card__cover {
-  /* Strict uniform square: every cover renders identically regardless of the
-     source image's intrinsic dimensions. aspect-ratio guards against any image
-     whose natural ratio would otherwise leak through. */
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
-  background: var(--ma-hover-2);
-}
-
-.album-card__cover--empty { background: var(--ma-hover-2); }
-
-/* Live Recordings: a flat tile with an icon and no text (the title and band are
-   under it like on every card). It stands in for the YouTube frame, which carries
-   red overlays and inconsistent crops. */
-.album-card__cover--live {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ma-muted);
-}
-.album-card__cover--live svg { width: 38%; height: 38%; }
-
-/* Card wrapper: the link and the play button are SIBLINGS (a <button> inside an
-   <a> is invalid). It is a size container so the button can sit in the
-   bottom-right corner of the square cover (100cqw = the card's width) while the
-   text below the cover stays part of the link. */
-.album-card-wrap {
-  position: relative;
-  container-type: inline-size;
-  border-radius: 8px;
-  display: flex;   /* the card fills the row's height, so every card in a row ends level */
-}
-
-/* Play button over the cover: a 48px circle (a comfortable touch target) in the
-   accent. 12px card padding + 8px inset from the cover's right and bottom edges.
-   The Player island handles its click (data-play-card). */
-.album-card__play {
-  position: absolute;
-  right: 1.25rem;
-  top: calc(100cqw - 4.25rem);
-  width: 3rem;
-  height: 3rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--card-accent, var(--accent));
-  color: var(--on-accent);
-  box-shadow: var(--ma-shadow-float);
-  cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease, filter 0.15s ease;
-}
-.album-card__play svg { margin-left: 2px; }   /* optical centring of the triangle */
-.album-card__play[data-playing] svg { margin-left: 0; }   /* the pause bars are symmetric */
-.album-card__play:focus-visible { outline-offset: 3px; }
-
-/* With a mouse the button appears on hover and on keyboard focus, and stays while
-   its album plays (it shows pause then). Touch and other no-hover devices skip this
-   block, so the button is always visible there. */
-@media (hover: hover) and (pointer: fine) {
-  .album-card__play {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  .album-card-wrap:hover .album-card__play,
-  .album-card-wrap:has(:focus-visible) .album-card__play,
-  .album-card__play[data-playing] {
-    opacity: 1;
-    transform: none;
-  }
-}
-.album-card-wrap .album-card__play:hover { transform: scale(1.06); filter: brightness(1.1); }
-
-.album-card__body {
-  padding-top: 0.75rem;
-  min-width: 0;
-}
-
-.album-card__album {
-  color: var(--text-header);
-  font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1.3;
-  /* Up to two lines, so a long title is mostly readable; the full text is the link's name. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.album-card__band {
-  color: var(--text-footer);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  margin-top: 0.125rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* "country · year · genre": one muted block (lib/cardMeta.ts). It wraps to a second
-   line before it truncates, because a 150px phone card cannot hold a long genre. */
-.album-card__meta {
-  color: var(--ma-muted);
-  font-size: 0.75rem;
-  line-height: 1.4;
-  margin-top: 0.125rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .album-card__play,
-  .album-card-wrap .album-card__play:hover { transform: none; }
-}
-
-/* ─── Skeleton fade animation ────────────────────────────────────────────────*/
-@keyframes skeleton-fade {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.7; }
-}
-.animate-skeleton {
-  animation: skeleton-fade 1.5s ease-in-out infinite;
 }
 
 /* ─── Track active state (set by Player island via JS) ───────────────────────*/
@@ -527,56 +291,6 @@ img {
 .logo-paren { color: #f1d700; }   /* LogoColor.PARENTESIS */
 .logo-word  { color: #c398f4; }   /* LogoColor.PALABRAS */
 .logo-semi  { color: #bbbbbb; }   /* LogoColor.PUNTO_Y_COMA */
-
-/* Search on top of the archive pages: a pill that takes the room between the brand
-   and the links, and shrinks (never below 120px) so the navbar stays one row from
-   1100px, where the links are on show. Phones hide it (see MOBILE CHROME): the tab
-   bar's Search tab is their entry point. The ring is an inset shadow, not a border. */
-.navbar__search {
-  display: flex;
-  align-items: center;
-  flex: 1 1 120px;
-  min-width: 120px;
-  max-width: 440px;
-  background: var(--ma-surface-2);
-  border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 1px var(--ma-line);
-  transition: box-shadow 0.15s ease;
-}
-.navbar__search:hover { box-shadow: inset 0 0 0 1px #fff; }
-.navbar__search:focus-within { box-shadow: inset 0 0 0 2px #fff; }
-.navbar__search-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 40px;
-  padding: 0 0.25rem 0 1.25rem;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-header);
-  font-family: inherit;
-  font-size: 1rem;   /* >= 16px: WebKit zooms the page on a focused smaller input */
-  text-overflow: ellipsis;   /* a long placeholder in a narrow field ends in an ellipsis */
-}
-.navbar__search-input::placeholder { color: var(--text-footer); }
-.navbar__search-btn {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 50%;
-  color: var(--text-footer);
-  cursor: pointer;
-}
-.navbar__search-btn:hover { color: var(--text-header); }
-@media (pointer: coarse) {
-  .navbar__search-input { min-height: 44px; }
-  .navbar__search-btn { width: 44px; height: 44px; }
-}
 
 .navbar__links {
   display: flex;
@@ -676,9 +390,8 @@ img {
   .navbar__surprise-label { display: none; }
   .navbar__surprise { padding: 0.5em 0.55em; }
   .navbar__brand { font-size: 1.4rem; }
-  /* F3 (Oct 2026 UI audit): the bio page (/) has no .navbar--ma tabbar to
-     fall back to on mobile (that's a metal-archive-only pattern, scoped via
-     .navbar--ma), so .navbar__links staying `flex-wrap: nowrap` forced all 6
+  /* F3 (Oct 2026 UI audit): the bio page (/) has no tab bar to fall back to
+     on mobile, so .navbar__links staying `flex-wrap: nowrap` forced all 6
      links + the Surprise button onto one unbreakable row wider than the
      viewport (scrollWidth 427 vs clientWidth 375). Letting this row wrap is
      the smallest fix consistent with the existing pattern of a tabbar-less
@@ -712,54 +425,8 @@ img {
 }
 .footer a:hover { text-decoration: underline; }
 
-/* ─── Section headers ────────────────────────────────────────────────────────*/
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.section-header h2,
-.section-header h3 {
-  font-size: clamp(1.25rem, 2.4vw, 1.5rem);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--text-header);
-}
-
-.section-header__link {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  font-weight: 700;
-  white-space: nowrap;
-  transition: color 0.15s;
-}
-
-.section-header__link:hover {
-  color: var(--text-header);
-  text-decoration: underline;
-}
-/* Phones and touch: "See all" was 21px tall. Padding makes the tap area 44px and the
-   negative margin takes the same space back, so the header keeps its height. */
-@media (max-width: 767px), (pointer: coarse) {
-  .section-header__link {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding-inline: 0.5rem;
-    margin: -0.75rem -0.5rem;
-  }
-}
-
 /* Row header tools: the scroll arrows and "See all". The arrows only exist for a
    mouse or trackpad (a hidden scrollbar leaves no other cue); touch keeps swiping. */
-.section-header__tools {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-}
 .row-arrows { display: none; }
 @media (hover: hover) and (pointer: fine) {
   .row-arrows { display: inline-flex; gap: 0.5rem; }
@@ -784,74 +451,7 @@ img {
 .row-arrow[aria-disabled="true"] { opacity: 0.35; cursor: default; }
 .row-arrow:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; }
 
-/* ─── Home: a short heading and rows of covers, nothing else ─────────────────
-   Compact rhythm so the first row of covers sits inside the first screen. Each
-   row is a <section class="section"> from Carousel; the flex gap owns the spacing. */
-.home-sections {
-  padding-top: 1rem;
-  padding-bottom: 3rem;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1.5rem, 3.5vw, 2.5rem);
-}
-.home-sections > .section { margin-bottom: 0; }
-
-.home-title {
-  font-size: clamp(1.5rem, 4vw, 2rem);
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-/* ─── Live Recordings section (band page) ────────────────────────────────────
-   Daniel's own live sets, set apart from the official-album feeds by their own
-   heading, a "Live" tag and a short clarifying note.                           */
-.live-section__heading {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-.live-section__badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-header);
-  background: var(--ma-hover-2);
-  border-radius: var(--radius-pill);
-  padding: 0.25em 0.75em;
-  white-space: nowrap;
-}
-
-.live-section__note {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  margin: 0.35rem 0 1.25rem;
-}
-
-/* ─── Facet pages: title + chain-to-Browse refine button ─────────────────────*/
-.facet-hero {
-  margin-bottom: 1.5rem;
-  padding-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: flex-start;
-}
-.facet-hero__title {
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 700;
-  color: var(--text-header);
-  line-height: 1.1;
-}
-.facet-hero__count {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-}
-/* Outlined pill with an uppercase label; also the 404's two buttons. */
+/* ─── Outlined pill links: the 404's two buttons ──────────────────────────────*/
 .facet-refine {
   margin-top: 0.5rem;
   display: inline-flex;
@@ -873,225 +473,6 @@ img {
   box-shadow: inset 0 0 0 1px #fff;
   transform: scale(1.04);
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ALBUM DETAIL PAGE  (ported from _ALBUM_DETAIL_CSS + the hero/track/player
-   style dicts in links_bio/styles/styles.py). The --album-color variable is
-   baked per-page at BUILD time on the <html> element (see vibrant.ts), so the
-   halo + active-track tint are correct on first paint with zero client JS.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* The album's colour as a flat 10% tint of the page (no gradient): one cover colour
-   per album page, still near-black behind white text. --album-color falls back to
-   the amber accent if Vibrant produced nothing. */
-.album-detail-bg {
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
-}
-
-.album-detail-main {
-  max-width: var(--detail-max-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-.album-detail-body {
-  padding: 1.8em clamp(1.2em, 4vw, 3em) 2em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   NOW PLAYING SCREEN (REQ-001..008)
-   Mobile: full-bleed square cover up top, controls panel below.
-   Desktop/tablet (≥768px): large square cover left, controls right.
-   Everything tinted by --accent (= per-album --album-color, amber fallback).
-   ═══════════════════════════════════════════════════════════════════════════ */
-.stage {
-  position: relative;
-  /* The hero is sized from the stage's own width, not the viewport: the desktop
-     column (np-dock) narrows the page by 400px, so vw-based sizes left the text
-     column 87-320px wide and broke words mid-way. cqw below measures this box. */
-  container-type: inline-size;
-  /* F10 (Oct 2026 UI audit): plain 100vw overflows the real viewport by the
-     vertical scrollbar's width (vw includes it, clientWidth doesn't) — an
-     8px overflow measured on both desktop and mobile. --scrollbar-w is
-     measured in JS (Navbar.astro) and defaults to 0px before that runs or if
-     JS is disabled, at which point this is identical to the old rule. */
-  width: calc(100vw - var(--scrollbar-w, 0px));
-  margin-left: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  margin-right: calc(50% - 50vw + (var(--scrollbar-w, 0px) / 2));
-  padding: 0 0 clamp(1.5rem, 4vw, 2.5rem);
-  isolation: isolate;
-}
-
-.stage__inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1.1rem, 3vw, 1.6rem);
-}
-
-/* ─── Cover: square 1:1 (REQ-001) ─── */
-.stage__cover-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;   /* reserve the square height up front: zero layout shift while the cover loads */
-  /* #18: object-fit:contain below never crops a non-square cover (16:9
-     YouTube thumbs are common); the gap it leaves is this flat tile. */
-  background: var(--ma-hover-2);
-}
-.stage__cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;   /* fit the WHOLE cover inside the reserved 1:1 box — never crop (covers may be 16:9 YouTube thumbs) */
-}
-.stage__cover--empty {
-  aspect-ratio: 1 / 1;   /* only the empty placeholder is forced square */
-  background: var(--ma-hover-2);
-}
-/* ─── Controls panel ─── */
-.stage__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0 clamp(1.2rem, 5vw, 2rem);
-}
-
-.stage__eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-footer);
-}
-
-.stage__title {
-  margin: 0;
-  font-size: clamp(1.9rem, 7vw, 3rem);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--title-white);          /* REQ-002: pure white */
-  overflow-wrap: break-word;          /* break a word only when it cannot fit on a line of its own */
-}
-
-/* F6 (Oct 2026 UI audit): the real page <h1> now wraps .stage__artist +
-   .stage__album (see album/[id].astro). Reset the browser's default h1 box
-   (margin, font-size, font-weight) so the two children keep their own
-   explicit styling below and the visual result is unchanged. */
-.stage__heading {
-  margin: 0;
-  font: inherit;
-}
-
-.stage__artist {
-  font-size: clamp(1rem, 3vw, 1.25rem);
-  font-weight: 600;
-  color: var(--text-header);
-}
-.stage__artist-link {
-  color: inherit;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.15s ease;
-}
-.stage__artist-link:hover { border-bottom-color: currentColor; }
-
-/* Album name — small line under the band; stays put while the big title (the
-   now-playing track) changes. */
-.stage__album {
-  font-size: clamp(0.95rem, 2.4vw, 1.1rem);
-  font-weight: 600;
-  color: var(--text-header);
-}
-
-.stage__metarow {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  font-weight: 400;
-}
-.stage__metarow .sep { color: var(--text-footer); }
-.stage__metarow .meta-link {
-  color: var(--text-header);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-.stage__metarow .meta-link:hover { border-bottom-color: currentColor; }
-
-/* ─── Progress ─── */
-.stage__progress {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.stage__bar {
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, #fff 20%, transparent);
-  overflow: hidden;
-}
-.stage__bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bright);
-  transition: width 0.4s linear;
-}
-.stage__times {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
-  color: var(--text-footer);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ─── Transport ─── */
-.stage__transport {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.4rem, 7vw, 2.4rem);
-  margin-top: 0.7rem;
-}
-.stage__ctl {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border: none;
-  background: none;
-  border-radius: var(--radius-pill);
-  color: var(--text-header);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-.stage__ctl:hover { background: color-mix(in srgb, #fff 10%, transparent); }
-.stage__ctl:active { transform: scale(0.92); }
-
-.stage__play {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 76px;
-  height: 76px;
-  border: none;
-  border-radius: var(--radius-pill);
-  /* Lightened accent fill so the dark glyph reads on ANY album hue. */
-  background: color-mix(in srgb, var(--accent) 86%, #fff);
-  color: var(--on-accent);
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-.stage__play:hover { transform: scale(1.05); }
-.stage__play:active { transform: scale(0.97); }
-.stage__play .ic-play { margin-left: 3px; }       /* optically centre the triangle */
 
 /* SVG play/pause/buffering swap driven by data-state — shared by EVERY .js-pp
    control (the Now Playing hero button and the bottom-bar toggle). */
@@ -1119,274 +500,12 @@ img {
   border-top-color: var(--on-accent);
   animation: mp-spin 0.8s linear infinite;
 }
-.stage__play .ic-spinner { width: 26px; height: 26px; border-width: 3px; }
-
-/* ─── Secondary actions (outlined pills) ─── */
-.stage__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-.stage__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  min-height: 44px;
-  padding: 0.5em 1.25em;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  border: none;
-  box-shadow: inset 0 0 0 1px var(--ma-line);
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  text-decoration: none;
-  cursor: pointer;
-  transition: box-shadow 0.15s ease;
-}
-.stage__action:hover { box-shadow: inset 0 0 0 1px #fff; }
-.stage__action-ico { display: inline-flex; align-items: center; }
-.stage__action svg,
-.stage__action-ico svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* Visible keyboard focus on every interactive control (a11y — CRITICAL). */
-.stage__play:focus-visible,
-.stage__ctl:focus-visible,
-.stage__action:focus-visible,
-.stage__artist-link:focus-visible {
-  outline: 2px solid var(--text-header);
-  outline-offset: 3px;
-}
-
-/* ─── Desktop / tablet: cover left, controls right ─── */
-@media (min-width: 768px) {
-  .stage { padding-top: clamp(1.5rem, 4vw, 3rem); }
-  .stage__inner {
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(2rem, 5cqw, 4rem);
-    padding-inline: clamp(1.5rem, 5cqw, 3rem);
-  }
-  .stage__cover-wrap { flex: 0 0 auto; width: clamp(340px, 42cqw, 560px); }  /* REQ-001 ~35-45% */
-  .stage__cover {
-    border-radius: 8px;
-    box-shadow: var(--ma-shadow-float);
-  }
-  .stage__panel { flex: 1 1 0; min-width: 0; padding: 0; }
-  .stage__title { font-size: clamp(2.4rem, 4.2cqw, 3.8rem); }
-  .stage__transport { justify-content: flex-start; }
-  .stage__actions { justify-content: flex-start; }
-}
-
-/* With the video column open on a short landscape phone (see "Landscape column"
-   below) the stage can be too narrow for a 340px cover beside the text (the title
-   would break mid-word): stack them. The desktop shell (archive.css) stacks by the
-   column's width instead, since its side panels are always there. */
-@media (min-width: 768px) and (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  @container (max-width: 839px) {
-    body:has(#np-root[data-open]) .stage__inner {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1.5rem;
-    }
-    body:has(#np-root[data-open]) .stage__panel { flex: none; width: 100%; }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stage__play:hover,
-  .stage__ctl:active,
-  .stage__play:active { transform: none; }
-  .stage__bar-fill { transition: none; }
-}
-
-/* ─── Band page ──────────────────────────────────────────────────────────────*/
-.band-page {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 var(--gutter) 4rem;
-}
-
-.band-section-title {
-  font-size: clamp(1.25rem, 2.4vw, 1.5rem);
-  font-weight: 700;
-  color: var(--text-header);
-  margin-bottom: 1.25rem;
-}
-
-.band-section + .band-section {
-  margin-top: 2.5rem;
-}
-
-/* ─── Tracklist ──────────────────────────────────────────────────────────────*/
-.tracklist-section {
-  width: 100%;
-  padding: 0 0.4em;
-}
-
-.track-header {
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.55em 0.9em;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-footer);
-  font-size: 0.72em;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 500;
-  align-items: center;
-}
-
-.track-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1em;
-  margin-top: 0.3em;
-}
-
-.track-row {
-  /* track-row is a real <button> for keyboard operability: reset the native
-     button chrome but keep the 3-column grid (#/title/time). The native click
-     that Enter/Space emit is what the delegated Player handler intercepts, so
-     the synchronous autoplay path is preserved. */
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: none;
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  display: grid;
-  grid-template-columns: 40px 1fr 80px;
-  column-gap: 1em;
-  padding: 0.65em 0.9em;
-  border-radius: 4px;
-  cursor: pointer;
-  align-items: center;
-  transition: background 0.12s ease, color 0.12s ease;
-  color: var(--text-header);
-}
-.track-row:hover { background: rgba(255, 255, 255, 0.1); }
-
-.track-row__index {
-  text-align: center;
-  font-size: 0.95em;
-}
-.track-number { color: var(--text-footer); }
-
-/* CSS-only ▸ toggle: number by default; ▸ on hover; ▸ (accent) when active. */
-.track-play-icon,
-.track-active-icon { display: none; font-size: 0.85em; }
-.track-row:hover .track-number { display: none; }
-.track-row:hover .track-play-icon { display: inline; color: var(--text-header); }
-
-.track-row__title {
-  color: var(--text-header);
-  font-size: 0.95em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.track-row__time {
-  color: var(--text-footer);
-  font-size: 0.85em;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Active row (set by the Player island). Tint uses --album-color. */
-.track-row.track-active {
-  background: color-mix(in srgb, var(--accent) 13%, transparent) !important;
-  border-left: 2px solid var(--accent) !important;
-}
-.track-row.track-active .track-row__title {
-  color: var(--text-header);
-  font-weight: 700;
-}
-.track-row.track-active .track-number { display: none; }
-.track-row.track-active .track-play-icon { display: none; }
-.track-row.track-active .track-active-icon { display: inline; color: var(--accent-bright) !important; }
-
-/* ─── Similar bands pills ─────────────────────────────────────────────────────*/
-.similar-bands-section { width: 100%; padding-top: 1em; }
-.similar-bands-section h2 {
-  font-size: 1.5rem;
-  color: var(--text-header);
-  margin-bottom: 0.6em;
-}
-.similar-bands {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-}
-.band-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  background: var(--ma-surface-2);
-  color: var(--text-header);
-  padding: 0.4rem 1rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
-}
-@media (pointer: coarse) {
-  .band-pill { min-height: 44px; }
-}
-a.band-pill:hover { background: var(--ma-hover-2); }
-@media (prefers-reduced-motion: reduce) {
-  .band-pill { transition: none; }
-}
-
-/* ─── Related album sections (similar / more to explore) ─────────────────────*/
-.related-section { width: 100%; padding-top: 1.5em; }
-.related-section h2 {
-  font-size: clamp(1.25rem, 2.4vw, 1.5rem);
-  color: var(--text-header);
-  margin-bottom: 0.8em;
-  font-weight: 700;
-}
-.related-section--bordered {
-  padding-top: 1.5em;
-  padding-bottom: 1em;
-  margin-top: 1.5em;
-}
-.related-section__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.8em;
-}
-.related-section__header h2 { margin-bottom: 0; }
-.related-section__more {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  text-decoration: none;
-  font-weight: 700;
-}
-.related-section__more:hover { color: var(--text-header); text-decoration: underline; }
 
 /* ═══ Player: now-playing bar + video dock ════════════════════════════════════
-   One persisted island (#np-root, display: contents). Before the first play the
-   bar is hidden and the dock is rendered OFF-SCREEN, never display:none: the
-   iframe has to exist to be cued so the first tap can play synchronously. The
-   first play sets #np-root[data-open] (state on a persisted element; <body> is
-   replaced on every navigation, but :has() sees the moved island):
-     < 1100px   the video docks full width directly above the bar, >= 200px tall
-     >= 1100px  the archive shell's right panel (styles/archive.css)
-     short landscape phones: a right-hand column (below)
-   YouTube's embed rules need the player >= 200x200 and visible while it plays,
-   so every layout keeps the video on screen, and the page reserves its space. */
+   One persisted island (#np-root, display: contents). These are the pre-shell
+   base rules it still renders with; styles/archive.css owns the layout (the
+   right panel, the tile, the phone sheet) and keys it on #np-root[data-active].
+   YouTube's embed rules need the player >= 200x200 and visible while it plays. */
 :root {
   --np-bar-h: 72px;
   --np-tab-h: 0px;                              /* 58px where the phone tab bar shows */
@@ -1394,12 +513,6 @@ a.band-pill:hover { background: var(--ma-hover-2); }
   --np-col-w: 400px;                            /* desktop column */
 }
 #np-root { display: contents; }
-
-/* Space for the open bar + docked video (plus the phone tab bar). Before the first
-   play nothing is reserved beyond the tab bar's own padding. */
-body:has(#np-root[data-open]) {
-  padding-bottom: calc(var(--np-bar-h) + var(--np-tab-h) + var(--np-video-h) + 8px);
-}
 
 #now-playing-bar {
   position: fixed;
@@ -1414,86 +527,10 @@ body:has(#np-root[data-open]) {
   padding: 0 1.5em;
   z-index: 100;
 }
-#np-root[data-open] #now-playing-bar { display: flex; }
-
-.np-left {
-  display: flex;
-  align-items: center;
-  gap: 0.8em;
-  flex: 1 1 0;
-  min-width: 0;
-}
-.np-cover {
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.np-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-.np-name {
-  color: var(--text-header);
-  font-size: 0.875rem;
-  font-weight: 700;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-a.np-name:hover { text-decoration: underline; }
-.np-artist {
-  color: var(--text-footer);
-  font-size: 0.75em;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-}
-
-.np-center {
-  flex: 2 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
 .np-controls {
   display: flex;
   align-items: center;
   gap: 0.4em;
-}
-.np-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: transparent;
-  color: var(--text-footer);
-  border: none;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.np-icon-btn:hover {
-  color: var(--text-header);
-  background: color-mix(in srgb, #fff 8%, transparent);
-}
-/* Prev/next with nowhere to go (no queue yet, or the last album). */
-.np-icon-btn:disabled,
-.stage__ctl:disabled {
-  opacity: 0.35;
-  cursor: default;
-  pointer-events: none;
 }
 .np-toggle {
   position: relative;
@@ -1512,16 +549,6 @@ a.np-name:hover { text-decoration: underline; }
 }
 .np-toggle:hover { transform: scale(1.06); }
 .np-toggle .ic-play { margin-left: 2px; }
-
-.np-progress {
-  width: 100%;
-  max-width: 360px;
-  height: 4px;
-  background: color-mix(in srgb, #fff 20%, transparent);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 0.4em;
-}
 .np-progress-fill {
   height: 100%;
   width: 0%;
@@ -1544,33 +571,6 @@ a.np-name:hover { text-decoration: underline; }
   .np-toggle { transition: none; }
   .np-toggle:hover { transform: none; }
 }
-
-.np-right {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5em;
-  min-width: 0;
-}
-.np-yt-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  padding: 0.45rem 0.9rem;
-  border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 1px var(--ma-line);
-  color: var(--text-header);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: box-shadow 0.15s ease;
-}
-.np-yt-link:hover { box-shadow: inset 0 0 0 1px #fff; }
-/* Desktop shows the text label; the icon is reserved for the compact mobile
-   icon-button (revealed in the ≤767px media query). */
-.np-yt-icon { display: none; }
 
 /* "Skipped <album>: not available on YouTube": a short notice that sits above
    the player and never over the video. Below 1100px that is above the docked
@@ -1618,19 +618,8 @@ a.np-name:hover { text-decoration: underline; }
 }
 #mini-player iframe { border: 0; pointer-events: none; }
 
-#np-root[data-open] #np-dock {
-  left: 0;
-  right: 0;
-  top: auto;
-  width: auto;
-  bottom: calc(var(--np-bar-h) + var(--np-tab-h));
-  height: var(--np-video-h);
-}
-#np-root[data-open] #mini-player { height: 100%; aspect-ratio: auto; }
-
 /* Album + band + Up next only exist in the desktop column. */
-.np-dock__meta,
-.np-upnext { display: none; }
+.np-dock__meta { display: none; }
 
 @keyframes mp-spin { to { transform: rotate(360deg); } }
 .mp-spinner {
@@ -1641,7 +630,6 @@ a.np-name:hover { text-decoration: underline; }
   border-radius: 50%;
   animation: mp-spin 0.8s linear infinite;
 }
-.mp-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
 
 .mp-overlay {
   position: absolute;
@@ -1700,54 +688,6 @@ a.np-name:hover { text-decoration: underline; }
    the bar. The page narrows by the column's width so nothing is covered. The
    desktop placement is the archive shell's right panel (styles/archive.css). ─ */
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  body:has(#np-root[data-open]) {
-    padding-bottom: calc(var(--np-bar-h) + var(--np-tab-h) + 8px);
-  }
-  /* Padding, not margin: several mains set width:100%, which would swallow a
-     margin. The extra --gutter keeps the page's own right gutter next to the
-     column. The footer is a plain block, so a margin ends it at the column. */
-  body:has(#np-root[data-open]) > main {
-    padding-right: calc(var(--np-col-w) + var(--gutter));
-  }
-  body:has(#np-root[data-open]) > .footer {
-    margin-right: var(--np-col-w);
-  }
-  /* The album page's .stage is a full-bleed band (the 100vw trick), which only
-     lines up when its container is centred in the viewport. With the column it
-     is not, so the band fills the narrowed content plus the page gutter, up to
-     the column's edge. */
-  body:has(#np-root[data-open]) .stage {
-    width: auto;
-    margin-left: 0;
-    margin-right: calc(-1 * var(--gutter));
-  }
-
-  #np-root[data-open] #np-dock {
-    left: auto;
-    right: 0;
-    top: var(--np-top, 60px);
-    width: var(--np-col-w);
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-    overflow-y: auto;
-    background: var(--ma-surface);
-  }
-  #np-root[data-open] #mini-player {
-    flex: 0 0 auto;
-    height: auto;
-    aspect-ratio: 16 / 9;
-    border-radius: 8px;
-  }
-  #np-root[data-open] .np-dock__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-  #np-root[data-open] .np-upnext:not([hidden]) { display: block; }
   /* The video is in the column, so the notice only has to clear the bar. */
   .np-notice {
     bottom: calc(100% + 8px);
@@ -1756,10 +696,6 @@ a.np-name:hover { text-decoration: underline; }
 }
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) and (max-width: 1099px) {
   :root { --np-col-w: min(400px, 46vw); }
-  #np-root[data-open] #np-dock { padding: 0; gap: 0; }
-  #np-root[data-open] #mini-player { height: 200px; aspect-ratio: auto; border-radius: 0; }
-  #np-root[data-open] .np-dock__meta,
-  #np-root[data-open] .np-upnext:not([hidden]) { display: none; }
 }
 
 .np-dock__title {
@@ -1776,183 +712,19 @@ a.np-name:hover { text-decoration: underline; }
 }
 .np-dock__band:hover { color: var(--text-header); text-decoration: underline; }
 
-.np-upnext__h {
-  color: var(--text-footer);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.2;   /* what the h2 rule gave it */
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
-}
-.np-upnext__list { list-style: none; display: flex; flex-direction: column; gap: 0.2rem; }
-.np-up {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  min-height: 44px;
-  padding: 0.35rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.np-up:hover { background: color-mix(in srgb, #fff 7%, transparent); }
-.np-up__cover { width: 44px; height: 44px; border-radius: 4px; object-fit: cover; flex: none; }
-.np-up__text { display: flex; flex-direction: column; min-width: 0; }
-.np-up__title,
-.np-up__band { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.np-up__title { color: var(--text-header); font-size: 0.85rem; font-weight: 700; }
-.np-up__band { color: var(--text-footer); font-size: 0.75rem; }
-
 /* ─── Mobile: bigger tap targets, and room for the name in a 72px bar ─────────*/
 @media (max-width: 767px) {
   #now-playing-bar { padding-left: 0.6em; padding-right: 0.6em; }
-  #now-playing-bar .np-cover { width: 40px; height: 40px; }
   #now-playing-progress { max-width: 100%; }
 
-  /* #11: prev/play/next measured 38-40px here (below the 44px minimum the
-     bar already applies to .np-yt-link below), matching the treatment the
-     YouTube link gets a few lines down. */
-  .np-icon-btn { width: 44px; height: 44px; }
+  /* #11: the play/pause toggle measured 38-40px here, below the 44px minimum. */
   .np-toggle { width: 44px; height: 44px; }
-
-  /* The controls take their natural width so the album name gets the rest. The
-     video is now always on screen while playing, and "Open on YouTube" stays in
-     its error overlay, so the bar drops its own YouTube link here to make room
-     for the close button. */
-  .np-center { flex: 0 0 auto; }
-  /* 12px between next and close: two 44px buttons side by side are easy to
-     mis-hit, and close ends the music. */
-  .np-right { flex: 0 0 auto; margin-left: 12px; }
-  .np-yt-link { display: none; }
 }
 @media (max-width: 480px) {
   #now-playing-name, #now-playing-artist { max-width: 140px; }
 }
 
-/* ─── Browse page ────────────────────────────────────────────────────────────*/
-.browse-page {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 1.5rem var(--gutter) 4rem;
-}
-
-.browse-header {
-  margin-bottom: 1.25rem;
-}
-
-.browse-title {
-  font-size: clamp(1.5rem, 3.4vw, 2rem);
-  color: var(--text-header);
-  font-family: var(--font-default);
-  font-weight: 700;
-  margin: 0 0 0.25rem;
-}
-
-.browse-subtitle {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-/* ─── Search island controls ─────────────────────────────────────────────────*/
-.search-island {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.search-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.search-input-wrap {
-  width: 100%;
-}
-
-/* A pill, like the navbar's. The ring is an inset shadow; focus makes it thicker
-   and white, so it is not a colour-only change. */
-.search-input {
-  width: 100%;
-  padding: 0.75rem 1.5rem;
-  background: var(--ma-surface-2);
-  border: none;
-  border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 1px var(--ma-line);
-  color: var(--text-header);
-  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
-  font-size: 1rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: box-shadow 0.15s ease;
-}
-.search-input:hover { box-shadow: inset 0 0 0 1px #fff; }
-.search-input:focus { box-shadow: inset 0 0 0 2px #fff; }
-
-.search-input::placeholder {
-  color: var(--text-footer);
-}
-
-/* The five filters are dark pills in a wrapping row. */
-.search-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.search-select {
-  /* 9.25rem fits "All countries" at 16px with its chevron, so a tablet-width row wraps
-     (4 + 1) instead of clipping the label. */
-  flex: 1 1 9.25rem;
-  /* F4 (Oct 2026 UI audit): without min-width:0, a flex item's automatic
-     minimum size is its content's intrinsic width — for a <select> that can
-     be wider than its longest <option> text, which overflowed the mobile
-     layout (382px measured at a 375px viewport) despite flex-wrap on the
-     parent .search-filters row. */
-  min-width: 0;
-  padding: 0.55rem 1rem;
-  background: var(--ma-surface-2);
-  border: none;
-  border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 1px var(--ma-line);
-  color: var(--text-header);
-  /* 16px minimum: WebKit auto-zooms on any focused input under 16px (#1). */
-  font-size: 1rem;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.search-select:hover {
-  background: var(--ma-hover-2);
-  box-shadow: inset 0 0 0 1px #fff;
-}
-
-.search-select:focus {
-  box-shadow: inset 0 0 0 2px #fff;
-}
-
-.search-result-count {
-  color: var(--text-footer);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.search-empty {
-  color: var(--text-body);
-  text-align: center;
-  padding: 3rem 0;
-  font-size: 0.95rem;
-}
+/* ─── Load more / Show more buttons ───────────────────────────────────────────*/
 
 /* Load more button */
 .search-load-more {
@@ -1986,26 +758,6 @@ a.np-name:hover { text-decoration: underline; }
 .btn-load-more:hover {
   box-shadow: inset 0 0 0 1px #fff;
   transform: scale(1.04);
-}
-
-/* Phones: the playing video docks over the lower half of the screen, so the
-   controls have to be short or no result shows above it. The five filters become
-   one swipeable row, and the h1 + count line replace the subtitle. */
-@media (max-width: 639px) {
-  .browse-page { padding-top: 1rem; }
-  .browse-header { margin-bottom: 0.75rem; }
-  .browse-title { font-size: 1.5rem; margin: 0; }
-  .browse-subtitle { display: none; }
-  .search-island { gap: 0.75rem; }
-  .search-filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-block: 0.25rem;
-    scrollbar-width: none;
-  }
-  .search-filters::-webkit-scrollbar { display: none; }
-  .search-select { flex: 0 0 8.25rem; width: 8.25rem; min-height: 44px; }
-  .search-input { min-height: 44px; }
 }
 
 /* ─── Form pages (submit / promo / newsletter, and the 404) ──────────────────
@@ -2644,12 +1396,7 @@ a.np-name:hover { text-decoration: underline; }
   font-weight: 700;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE CHROME (metal-archive only) — minimal top + bottom tab bar, matching
-   the player mockups. Scoped via .navbar--ma and :has(): the bio (/) renders no
-   tab bar and keeps its full navbar, so it stays untouched.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.tabbar { display: none; }   /* desktop: the top navbar handles navigation */
+/* ─── The tab bar's height, for the now-playing bar (--np-tab-h) ─────────────*/
 
 /* #8: also cover landscape phones with the same swap -- a portrait-only
    breakpoint let the nav tap targets fall back under the 44px minimum and
@@ -2662,147 +1409,10 @@ a.np-name:hover { text-decoration: underline; }
    regardless of width, and (pointer: coarse) excludes a mouse-driven window
    that happens to be short. */
 @media (max-width: 1099px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  /* Compact top on metal-archive: drop the text links (the tab bar takes over
-     primary nav). Below 1100px they do not fit beside the brand on one row; from
-     1100px the desktop navbar holds them. The Surprise me button stays as the one
-     compact icon button, a 44px target, with the brand on the left. It is the
-     same element the desktop navbar uses, so it keeps its handler. */
-  .navbar--ma .navbar__links a { display: none; }
-  .navbar--ma .navbar__surprise-label { display: none; }
-  .navbar--ma .navbar__surprise { width: 44px; height: 44px; justify-content: center; padding: 0; }
-  .navbar--ma { justify-content: space-between; padding-block: 0.5rem; }
-
-  /* Bottom tab bar */
-  .tabbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 110;
-    display: flex;
-    align-items: stretch;
-    justify-content: space-around;
-    height: 58px;
-    background: var(--bg);
-    box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.08);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .tabbar__item {
-    flex: 1 1 0;
-    min-width: 0;   /* allow 4–5 columns to shrink evenly without overflow */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 0 2px;
-    color: var(--text-footer);
-    /* #15: fixed 0.6rem + a fixed 20px icon didn't shrink enough for the 5
-       items to fit under an extreme-zoom effective viewport (195px wide at
-       200% zoom measured scrollWidth 200 vs clientWidth 195) -- scale both
-       down with the available width via clamp(). The 0.5rem floor only applies at
-       that extreme zoom; on a 390px phone the labels are 10px. */
-    font-size: clamp(0.5rem, 2.6vw, 0.6875rem);
-    font-weight: 400;
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-  .tabbar__item span {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .tabbar__item svg { width: clamp(14px, 5vw, 20px); height: clamp(14px, 5vw, 20px); }
-  .tabbar__item.is-active,
-  .tabbar__item:active { color: var(--text-header); }
-  .tabbar__item.is-active { font-weight: 700; }
 
   /* The now-playing bar and the docked video sit ABOVE the tab bar (mockups
      #4 / #6): the player rules read its height from --np-tab-h. */
   :root { --np-tab-h: 58px; }
-
-  /* Reserve space so the fixed bars never cover content. :has() scopes the
-     padding to metal-archive pages only — the bio has no tab bar. The open
-     player adds its own bar + video height (see the player block). */
-  body:has(.tabbar) { padding-bottom: 58px; }
-}
-
-/* Phones only: the header has no room for the search field, so the Search tab
-   takes over. From 768px the field stays in the header beside the brand. */
-@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  .navbar--ma .navbar__search { display: none; }
-}
-
-/* The tab bar also serves tablets and small windows (768-1099px), where its
-   phone-sized labels (9.6px) are too small to read. */
-@media (min-width: 768px) and (max-width: 1099px) {
-  .tabbar__item { font-size: 0.75rem; }
-  .tabbar__item svg { width: 22px; height: 22px; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   BAND ("artist") PAGE HEADER — a round cover avatar, the name and real stats.
-   Flat on the page: no backdrop, no gradient. No fabricated monthly-listeners /
-   follow.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.artist-header {
-  padding: clamp(1.5rem, 5vw, 3rem) 0 0;
-  margin-bottom: 2rem;
-}
-.artist-header__inner {
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(1.2rem, 4vw, 2.2rem);
-}
-.artist-header__avatar {
-  width: clamp(120px, 26vw, 196px);
-  height: clamp(120px, 26vw, 196px);
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  box-shadow: var(--ma-shadow-float);
-}
-.artist-header__avatar--empty { background: var(--ma-hover-2); }
-.artist-header__info { min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; }
-.artist-header__eyebrow {
-  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--text-footer);
-}
-.artist-header__name {
-  margin: 0;
-  font-size: clamp(2rem, 7vw, 4rem);
-  font-weight: 700; line-height: 1.05;
-  color: var(--title-white); overflow-wrap: anywhere;
-}
-.artist-header__stats { color: var(--text-body); font-size: 0.9375rem; }
-.artist-header__stats .sep { color: var(--text-footer); }
-.artist-header__origin { color: var(--text-footer); font-size: 0.875rem; }
-.artist-header__actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.7rem; }
-/* Accent pill with an uppercase label, and an outlined one beside it. */
-.artist-header__play {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  min-height: 44px;
-  padding: 0.5em 1.6em; border-radius: var(--radius-pill);
-  background: var(--accent); color: var(--on-accent);
-  font-weight: 700; font-size: 0.8125rem; letter-spacing: 0.12em;
-  text-transform: uppercase; text-decoration: none;
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-.artist-header__play:hover { transform: scale(1.04); filter: brightness(1.08); color: var(--on-accent); }
-.artist-header__action {
-  display: inline-flex; align-items: center; gap: 0.5em;
-  min-height: 44px;
-  padding: 0.5em 1.4em; border: none; border-radius: var(--radius-pill);
-  background: transparent; box-shadow: inset 0 0 0 1px var(--ma-line);
-  color: var(--text-header); font-family: var(--font-default);
-  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; cursor: pointer;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-.artist-header__action:hover { box-shadow: inset 0 0 0 1px #fff; transform: scale(1.04); }
-@media (max-width: 640px) {
-  .artist-header__inner { flex-direction: column; align-items: flex-start; }
 }
 
 /* ─── Archive-wide: reduced motion and touch ─────────────────────────────────
@@ -2817,19 +1427,17 @@ a.np-name:hover { text-decoration: underline; }
   .navbar__surprise:hover,
   .facet-refine:hover,
   .btn-load-more:hover,
-  .form-page .form-submit:hover:not(:disabled),
-  .artist-header__play:hover,
-  .artist-header__action:hover { transform: none; }
+  .form-page .form-submit:hover:not(:disabled) { transform: none; }
 }
 
 /* Small text links get a 44px touch target on a phone without moving anything: the
    link keeps its size and an invisible ::after extends the area that takes the tap.
    (Padding would push the hover underline away from the text.) */
 @media (pointer: coarse) {
-  :where(body:not(.bio-page)) :is(.navbar__brand, .footer a, .stage__artist-link, .stage__metarow .meta-link, .related-section__more) {
+  :where(body:not(.bio-page)) :is(.navbar__brand, .footer a) {
     position: relative;
   }
-  :where(body:not(.bio-page)) :is(.navbar__brand, .footer a, .stage__artist-link, .stage__metarow .meta-link, .related-section__more)::after {
+  :where(body:not(.bio-page)) :is(.navbar__brand, .footer a)::after {
     content: '';
     position: absolute;
     inset: -0.9rem -0.5rem;

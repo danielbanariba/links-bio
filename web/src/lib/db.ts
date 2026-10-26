@@ -13,7 +13,7 @@ import { thumb } from './thumb.js';
 import { coverUrl } from './coverStore.js';
 import { pickCollage } from './coverDisplay.js';
 import { slugify } from './slug.js';
-import type { Album, BandCard, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
+import type { Album, BandCard, Card, Track, SimilarBand, Facet, BrowseEntry } from './types.js';
 
 const candidates = [
   process.env.REFLEX_DB,
@@ -145,25 +145,6 @@ export function getCountryRotation(n = 6): Array<{ country: string; album: Card 
       return row ? { country: c.country, album: toCard(row) } : null;
     })
     .filter((x): x is { country: string; album: Card } => x !== null);
-}
-
-// Top N genres by album count, 8 random albums each. Live recordings are
-// excluded from both the genre ranking and the sampled covers so showcases
-// stay official-album only.
-export function getGenreShowcases(n = 2): GenreShowcase[] {
-  const genres: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE genre != '' AND genre IS NOT NULL AND ${NOT_LIVE}
-       GROUP BY genre ORDER BY c DESC LIMIT ?`
-    )
-    .all(n);
-  return genres.map((g) => {
-    const albums: any[] = db
-      .prepare(`SELECT ${CARD_COLS} FROM albums WHERE genre = ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 8`)
-      .all(g.genre);
-    return { genre: g.genre, count: g.c, albums: albums.map(toCard) };
-  });
 }
 
 // ─── Album detail queries ─────────────────────────────────────────────────────
@@ -577,37 +558,6 @@ export function getBandsWithMultipleAlbums(): BandEntry[] {
 // real band page or falls back to a Browse search.
 export function getBandPageNameSet(): Set<string> {
   return new Set(getBandsWithMultipleAlbums().map((b) => b.band_name));
-}
-
-// Top bands by album count, each with a representative (most-recent) cover.
-// Powers the home "Bandas" circular row. Live recordings excluded; only bands
-// with 2+ albums (so they all have a real band page to link to).
-export function getTopBands(
-  limit = 12,
-): Array<{ band_name: string; count: number; thumb: string; album_id: number }> {
-  const bands = db
-    .prepare(
-      `SELECT band_name, COUNT(id) AS count FROM albums
-       WHERE band_name IS NOT NULL AND band_name != '' AND ${NOT_LIVE}
-       GROUP BY band_name HAVING count >= 2
-       ORDER BY count DESC, band_name LIMIT ?`
-    )
-    .all(limit) as Array<{ band_name: string; count: number }>;
-  return bands.map((b) => {
-    const cover: any = db
-      .prepare(
-        `SELECT album_artwork_url, id FROM albums
-         WHERE band_name = ? AND ${NOT_LIVE}
-         ORDER BY upload_date DESC LIMIT 1`
-      )
-      .get(b.band_name);
-    return {
-      band_name: b.band_name,
-      count: b.count,
-      thumb: thumb(cover?.album_artwork_url),
-      album_id: cover?.id ?? 0,
-    };
-  });
 }
 
 // All albums for a given band, newest-first so the most recent work is prominent.

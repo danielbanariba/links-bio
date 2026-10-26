@@ -69,12 +69,6 @@ export interface Facet {
   count: number;
 }
 
-export interface GenreShowcase {
-  genre: string;
-  count: number;
-  albums: Card[];
-}
-
 // Row returned by getBrowseIndex — serialised to /browse-index.json for the Search island.
 export interface BrowseEntry {
   id: number;

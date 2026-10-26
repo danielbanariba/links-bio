@@ -95,8 +95,6 @@ body.ma-shell {
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
 }
-/* The album page tinted its whole background; the ambient light below does that now. */
-body.ma-shell.album-detail-bg { background: var(--ma-deep); }
 
 /* Ambient light: the accent, soft, from the top of the screen. The prototype used a
    blurred copy of the cover; a gradient of the accent follows the same colour with
