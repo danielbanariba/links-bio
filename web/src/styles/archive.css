@@ -72,6 +72,13 @@ body.ma-shell {
   --ma-deep: color-mix(in oklab, var(--accent) 4%, #0b0a09);
   --ma-panel: color-mix(in oklab, var(--accent) 5%, #151413);
   --ma-raised: color-mix(in oklab, var(--accent) 6%, #1d1c1a);
+  /* --accent-bright is lifted to 4.5:1 on #1f1f1f (lib/accent.ts). The
+     now-playing view and the sidebar's playing entry draw accent text on lighter
+     surfaces (--ma-raised, fills, the cover's glow, the current queue row), where
+     a mid-grey accent fell to 3.7-4.3:1: there it gets an OKLCH lightness floor.
+     A browser without relative colours drops the value and the text inherits its
+     parent's colour. */
+  --accent-raised: oklch(from var(--accent-bright) max(l, 0.8) c h);
   --ma-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ma-spring: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -469,7 +476,8 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: linear-gradient(180deg, rgb(0 0 0 / 0.62) 0%, rgb(0 0 0 / 0.22) 15%, transparent 28%, transparent 50%, rgb(0 0 0 / 0.35) 100%);
+    /* The lower stop is strong enough for the kicker over a white cover (4.5:1). */
+    background: linear-gradient(180deg, rgb(0 0 0 / 0.62) 0%, rgb(0 0 0 / 0.22) 15%, transparent 28%, transparent 45%, rgb(0 0 0 / 0.42) 70%, rgb(0 0 0 / 0.5) 100%);
   }
   .ma-hero__inner { position: relative; z-index: 6; display: block; margin-top: -116px; padding: 0 var(--gutter); }
   .ma-hero__art { display: none !important; }
@@ -1134,7 +1142,7 @@ a.ma-topres:hover { transform: translateY(-3px); }
 .ma-recent__list small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ma-recent__list b { font-size: 14px; font-weight: 600; color: var(--ma-text); }
 .ma-recent__list small { font-size: 12.5px; color: var(--ma-text-3); }
-.ma-recent__list .is-playing b { color: var(--accent-bright); }
+.ma-recent__list .is-playing b { color: var(--accent-raised); }
 
 .ma-submit-card { margin-top: auto; padding: 18px; border-radius: 16px; background: var(--ma-fill); }
 .ma-submit-card b { display: block; font-size: 15px; font-weight: 600; color: var(--ma-text); }
@@ -1425,7 +1433,10 @@ button.np-trk:active { transform: scale(0.99); background: var(--ma-fill-2); }
 .np-trk__len { font-size: 14px; color: var(--ma-text-3); }
 .np-trk.is-current { background: color-mix(in oklab, var(--accent) 9%, transparent); }
 .np-trk.is-current .np-trk__n { background: color-mix(in oklab, var(--accent) 18%, transparent); }
-.np-trk.is-current b { color: var(--accent-bright); }
+.np-trk.is-current b { color: var(--accent-raised); }
+/* The row's tint over the cover's glow is the view's lightest text background. */
+.np-trk.is-current .np-trk__name small,
+.np-trk.is-current .np-trk__len { color: var(--ma-text-2); }
 .np-trk.is-past b { color: var(--ma-text-2); }
 .np-next {
   display: grid;
@@ -1641,19 +1652,19 @@ body.ma-shell .np-notice { bottom: calc(100% + 8px); left: 0; right: 0; }
   border-radius: 8px;
   font-size: 17px;
   font-weight: 500;
-  color: var(--accent-bright);
+  color: var(--accent-raised);
 }
 .np-from a::after { content: ''; position: absolute; inset: -9px -6px; }
 .np-from a span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .np-from a .ma-i { width: 16px; height: 16px; transition: transform 160ms var(--ma-ease); }
-.np-from a:hover { color: var(--accent-bright); }
+.np-from a:hover { color: var(--accent-raised); }
 .np-from a:hover .ma-i { transform: translateX(3px); }
 .np-from--head { display: none; }
 .np-id { margin: auto 0; padding: 20px 0; }
 .np-title { margin: 0; font-size: 36px; line-height: 1.06; font-weight: 700; letter-spacing: -0.03em; color: var(--ma-text); text-wrap: balance; overflow-wrap: anywhere; }
-.np-band { position: relative; display: inline-block; margin-top: 10px; font-size: 21px; font-weight: 500; color: var(--accent-bright); }
+.np-band { position: relative; display: inline-block; margin-top: 10px; font-size: 21px; font-weight: 500; color: var(--accent-raised); }
 .np-band::after { content: ''; position: absolute; inset: -9px -6px; }
-.np-band:hover { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 4px; }
+.np-band:hover { color: var(--accent-raised); text-decoration: underline; text-underline-offset: 4px; }
 .np-meta { margin: 8px 0 0; font-size: 14.5px; color: var(--ma-text-2); }
 .np-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .np-tag {
@@ -1664,12 +1675,17 @@ body.ma-shell .np-notice { bottom: calc(100% + 8px); left: 0; right: 0; }
   border-radius: 7px;
   background: color-mix(in oklab, var(--accent) 11%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 32%, transparent);
-  color: var(--accent-bright);
+  color: var(--accent-raised);
   font-size: 12.5px;
   font-weight: 600;
   transition: background 160ms;
 }
-.np-tag:hover { background: color-mix(in oklab, var(--accent) 20%, transparent); color: var(--accent-bright); }
+.np-tag:hover { background: color-mix(in oklab, var(--accent) 20%, transparent); color: var(--accent-raised); }
+/* Touch: the 28px chip takes a 44px tall tap. */
+@media (pointer: coarse) {
+  .np-tag { position: relative; }
+  .np-tag::after { content: ''; position: absolute; inset: -8px 0; }
+}
 .np-actions { display: flex; gap: 10px; margin-top: 20px; }
 .np-iconbtn {
   position: relative;
@@ -1832,7 +1848,7 @@ body.ma-shell .np-notice { bottom: calc(100% + 8px); left: 0; right: 0; }
 .np-vol input::-moz-range-track { height: 4px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--v), var(--ma-fill-2) var(--v)); }
 .np-vol input::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; }
 .np-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px; border-radius: 10px; font-size: 14px; color: var(--ma-text-2); transition: color 160ms; }
-.np-link:hover { color: var(--accent-bright); }
+.np-link:hover { color: var(--accent-raised); }
 .np-link .ma-i { width: 18px; height: 18px; }
 /* Phone only: the actions as pills; phone and tablet: the tracklist. */
 .np-secondary,
