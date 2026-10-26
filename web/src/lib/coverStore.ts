@@ -2,7 +2,7 @@
 // the lookup the page build uses to pick each card's image.
 // Paths resolve from process.cwd() (web/), like db.ts, because import.meta.url is
 // unreliable once Astro bundles this module.
-import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { coverFileName, coverSrc, parseOverrides } from './cover.ts';
 import type { CoverCache } from './cover.ts';
@@ -37,8 +37,21 @@ export function writeCoverCache(file: string, cache: CoverCache): void {
   renameSync(tmp, file);
 }
 
-export function readCoverOverrides(file: string): ReturnType<typeof parseOverrides> {
-  return parseOverrides(readJson(file));
+/**
+ * The tracked override file. A missing file means no overrides; a file that is
+ * there but not valid JSON is `unreadable`, never read as empty: that would
+ * silently re-crop every album a reviewer decided by hand.
+ */
+export function readCoverOverrides(file: string): ReturnType<typeof parseOverrides> & { unreadable: boolean } {
+  if (!existsSync(file)) return { ...parseOverrides(undefined), unreadable: false };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf-8'));
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    return { overrides: {}, problems: [`(file): not valid JSON: ${why}`], unreadable: true };
+  }
+  return { ...parseOverrides(raw), unreadable: false };
 }
 
 // ─── Page-build lookup (used by db.ts) ───────────────────────────────────────

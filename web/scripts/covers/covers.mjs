@@ -14,6 +14,10 @@
 //
 // Never fails the build: one bad album is logged and keeps the mqdefault frame; an
 // unexpected error is logged loudly and the build goes on with whatever exists.
+// Without reflex.db the step skips itself (the page build reports the missing
+// database on its own), and so it does when cover-overrides.json is not valid
+// JSON: running without the reviewers' decisions would re-crop the albums they
+// fixed by hand, so the crops and the cache stay exactly as they are.
 import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -24,8 +28,8 @@ import { coverPaths, readCoverCache, readCoverOverrides, writeCoverCache } from 
 const candidates = [process.env.REFLEX_DB, resolve(process.cwd(), '../reflex.db'), resolve(process.cwd(), 'reflex.db')].filter(Boolean);
 const dbPath = candidates.find((p) => existsSync(p));
 if (!dbPath) {
-  console.error(`[covers] reflex.db not found. Tried: ${candidates.join(', ')}`);
-  process.exit(1);
+  console.error(`[covers] reflex.db not found, covers step skipped. Tried: ${candidates.join(', ')}`);
+  process.exit(0);
 }
 
 const limitArg = process.argv.indexOf('--limit');
@@ -48,7 +52,11 @@ try {
   }));
 
   const paths = coverPaths();
-  const { overrides, problems } = readCoverOverrides(paths.overrides);
+  const { overrides, problems, unreadable } = readCoverOverrides(paths.overrides);
+  if (unreadable) {
+    console.error(`[covers] FAILED to read ${paths.overrides}, covers step skipped, the existing crops stay: ${problems.join('; ')}`);
+    process.exit(0);
+  }
   for (const p of problems) console.warn(`[covers] cover-overrides.json ignored an entry: ${p}`);
 
   const { cache, summary } = await runCovers({
