@@ -1020,6 +1020,58 @@ a.ma-topres:hover { transform: translateY(-3px); }
   .ma-facet { margin-bottom: 20px; padding: 22px 20px 24px; }
 }
 
+/* ─── Form pages in the shell (submit, promo, newsletter) ───────────────────────
+   Styling only: the forms, their fields and what they POST are the pages' own.
+   Rounded panels and fields, sentence-case pill buttons and the shell's type, so
+   they sit in the shell like the album page's panels. Scoped to .ma-shell: the
+   404 shares .form-page and the bio's contact form shares the field classes, and
+   both keep global.css's look. */
+.ma-shell.form-page .form-page__main { gap: 28px; padding: 24px var(--gutter) 56px; }
+.ma-shell.form-page .form-page__title { font-size: clamp(32px, 5vw, 42px); line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: var(--ma-text); }
+.ma-shell.form-page .form-page__subtitle { color: var(--ma-text-2); font-size: 15.5px; line-height: 1.5; }
+.ma-shell.form-page .form-card,
+.ma-shell.form-page .promo-pkg { border-radius: 20px; background: rgb(255 255 255 / 0.035); box-shadow: inset 0 0 0 1px var(--ma-hair); }
+.ma-shell.form-page .promo-pkg--featured { box-shadow: inset 0 0 0 2px var(--accent-bright); }
+.ma-shell.form-page .form-label { color: var(--ma-text); font-size: 14px; font-weight: 600; }
+.ma-shell.form-page .form-input,
+.ma-shell.form-page .form-select,
+.ma-shell.form-page .form-textarea { min-height: 48px; padding: 0.75rem 1rem; border-radius: 12px; background: var(--ma-fill); }
+.ma-shell.form-page .form-textarea { min-height: 120px; }
+.ma-shell.form-page .form-select option { background: #1d1c1a; }
+.ma-shell.form-page .form-toast { border-radius: 12px; }
+.ma-shell.form-page .form-submit {
+  min-height: 52px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 10px 30px -10px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  transition: transform 160ms var(--ma-ease), filter 160ms;
+}
+.ma-shell.form-page .form-submit:hover:not(:disabled) { transform: none; filter: brightness(1.07); }
+.ma-shell.form-page .form-submit:active:not(:disabled) { transform: scale(0.98); }
+.ma-shell.form-page .btn-add-link,
+.ma-shell.form-page .form-success__back {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--ma-fill-2);
+  box-shadow: inset 0 0 0 1px var(--ma-hair);
+  color: var(--ma-text);
+}
+.ma-shell.form-page .btn-add-link:hover,
+.ma-shell.form-page .form-success__back:hover { background: var(--ma-fill-3); box-shadow: inset 0 0 0 1px var(--ma-hair); }
+.ma-shell.form-page .form-steps__title,
+.ma-shell.form-page .promo-packages__title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--ma-text); }
+.ma-shell.form-page .promo-example__frame { border-radius: 16px; }
+
+@media (max-width: 767px) {
+  .ma-shell.form-page .form-page__main { padding-top: 12px; }
+  .ma-shell.form-page .form-card { padding: 20px; }
+}
+
 /* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
 .ma-side { display: none; }
 .ma-brand { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 22px; border-radius: 10px; }
