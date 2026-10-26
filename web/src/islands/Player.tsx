@@ -84,7 +84,7 @@ import { rememberRecent, browserStorage, RECENT_EVENT } from '../lib/recent.js';
 import { coverArtElement } from '../lib/coverArtDom.js';
 import { NOW_EVENT, type NowInfo } from '../lib/now.js';
 import { loadAlbumInfo, type AlbumInfo } from '../lib/albumInfo.js';
-import { trackSpans, trackAt, timeAtX, xAtTime, type Span, type Box } from '../lib/segments.js';
+import { trackSpans, trackAt, timeAtX, xAtTime, lastTrackLength, clock, type Span, type Box } from '../lib/segments.js';
 import {
   pickSurface,
   videoBox,
@@ -1297,6 +1297,7 @@ export default function Player() {
       if (!(d > 0) || Math.abs(d - durationRef.current) < 0.5) return;
       durationRef.current = d;
       if (refreshSpans()) { paintQueue(); paintSegments(); }
+      fillLastTrackLength();
     };
 
     // ─── the album page's tracklist rows: "make track N the active one" ──────
@@ -1580,6 +1581,7 @@ export default function Player() {
     const syncPlayingTrack = (data: NpData) => {
       if (data.tracks && data.tracks.length) playingTracksRef.current = data.tracks;
       if (refreshSpans()) { paintQueue(); paintSegments(); }
+      fillLastTrackLength();
       const tracks = playingTracksRef.current;
       let idx = currentIdxRef.current;
       if (idx < 0 && spansRef.current.length) {
@@ -1596,6 +1598,20 @@ export default function Player() {
     // Is the album on the CURRENT page the same one currently loaded/playing?
     const pageIsPlayingAlbum = (data: NpData | null): boolean =>
       !!data && !!loadedVideoIdRef.current && data.videoId === loadedVideoIdRef.current;
+
+    // The album page builds every track length but the last one's, which runs to
+    // the end of the video: once this album plays and the player knows how long
+    // the video is, that row gets it too (null, and left blank, when the starts or
+    // the duration cannot be trusted).
+    const fillLastTrackLength = () => {
+      const data = readNpData();
+      if (!data?.tracks?.length || !pageIsPlayingAlbum(data)) return;
+      const last = data.tracks.length - 1;
+      const cell = document.querySelector(`[data-track-idx="${last}"] .ma-trk__len`);
+      if (!cell || cell.textContent?.trim()) return;
+      const len = lastTrackLength(data.tracks.map((t) => t.seconds || 0), durationRef.current);
+      if (len !== null) cell.textContent = clock(len);
+    };
 
     // YT player state: 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued, -1
     // unstarted. -1 as well while the player does not exist or is not ready.

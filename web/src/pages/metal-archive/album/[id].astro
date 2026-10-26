@@ -35,7 +35,7 @@ import { thumb } from '../../../lib/thumb.js';
 import { coverUrl as squareCover } from '../../../lib/coverStore.js';
 import { coverMode } from '../../../lib/coverDisplay.js';
 import { displayTitle } from '../../../lib/title.js';
-import { tsToSeconds, trackLengths } from '../../../lib/segments.js';
+import { tsToSeconds, trackLengths, clock } from '../../../lib/segments.js';
 import { formatCardMeta, formatUploadDay, NO_GENRE } from '../../../lib/cardMeta.js';
 import { playAttrs, bandHref } from '../../../lib/cardPlay.js';
 import { getAlbumAccent } from '../../../lib/vibrant.js';
@@ -91,10 +91,6 @@ const tracks = rawTracks.map((t, i) => ({
   seconds: starts[i],
   length: lengths[i],
 }));
-// "0:08", "11:10", "1:02:03": a clock, without the database's leading zero.
-const two = (n: number) => String(n).padStart(2, '0');
-const clock = (s: number) =>
-  s >= 3600 ? `${Math.floor(s / 3600)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}` : `${Math.floor(s / 60)}:${two(s % 60)}`;
 const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
 // ─── Artwork: the square crop or the whole frame (CoverArt); thumb for og ────

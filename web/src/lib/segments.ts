@@ -47,6 +47,24 @@ export function trackLengths(starts: number[]): Array<number | null> {
 }
 
 /**
+ * The last track's length, which only the player can give (it runs to the end of
+ * the video): whole seconds from its start to `duration`. Null when trackSpans
+ * would reject the starts or the duration, so a length is never invented.
+ */
+export function lastTrackLength(starts: number[], duration: number): number | null {
+  const spans = trackSpans(starts, duration);
+  const last = spans[spans.length - 1];
+  return last ? Math.floor(last.end - last.start) : null;
+}
+
+/** "0:08", "11:10", "1:02:03": a track clock, in whole seconds. */
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const two = (n: number) => String(n).padStart(2, '0');
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}` : `${Math.floor(s / 60)}:${two(s % 60)}`;
+}
+
+/**
  * The track playing at `t`: the last one that has started. Before the first
  * start that is the first track, past the end the last; -1 without spans.
  */

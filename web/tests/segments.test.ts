@@ -3,7 +3,7 @@
 // bring back.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tsToSeconds, trackSpans, trackAt, timeAtX, xAtTime, trackLengths } from '../src/lib/segments.ts';
+import { tsToSeconds, trackSpans, trackAt, timeAtX, xAtTime, trackLengths, lastTrackLength, clock } from '../src/lib/segments.ts';
 
 test('a timestamp with hours counts them', () => {
   // Defect: reading "1:02:03" as minutes and seconds, so every track after the
@@ -43,6 +43,25 @@ test('the album page lists a length only where the next start gives it', () => {
   assert.deepEqual(trackLengths([0, 8, 234]), [8, 226, null]);
   assert.deepEqual(trackLengths([0, 0, 0]), [null, null, null]);
   assert.deepEqual(trackLengths([0, 120, 90]), [null, null, null]);
+});
+
+test('the last track takes its length from the video only when the starts allow it', () => {
+  // Defect: the album page's last row, filled in while the album plays, showing a
+  // length the data cannot give: a negative one when the video ends before the
+  // last timestamp, one from untrusted starts, or a guess before the player knows
+  // the duration (0). Whole seconds: the player's duration has a fraction.
+  assert.equal(lastTrackLength([0, 8, 234], 300.7), 66);
+  assert.equal(lastTrackLength([0, 8, 234], 0), null);
+  assert.equal(lastTrackLength([0, 8, 234], 200), null);
+  assert.equal(lastTrackLength([0, 120, 90], 300), null);
+});
+
+test('a track clock shows hours past the first one and never a fraction', () => {
+  // Defect: the runtime last length printed as "62:03" or "1:06.7" next to rows
+  // the build printed as "1:02:03" and "1:06".
+  assert.equal(clock(8), '0:08');
+  assert.equal(clock(670.9), '11:10');
+  assert.equal(clock(3723), '1:02:03');
 });
 
 test('the moment a track starts belongs to that track', () => {
