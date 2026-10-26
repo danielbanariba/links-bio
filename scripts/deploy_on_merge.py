@@ -45,6 +45,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -72,6 +73,10 @@ FETCH_ALERT_AFTER = 12
 # systemd's kill.
 NPM_CI_TIMEOUT_SECONDS = 20 * 60
 PIP_TIMEOUT_SECONDS = 15 * 60
+# A failed install is retried once after this pause: most failures are a
+# registry or network blip. npm ci starts from an empty node_modules, so the
+# retry also repairs what the failed attempt left behind.
+RETRY_PAUSE_SECONDS = 30
 
 NPM_CI = "npm-ci"
 PIP_INSTALL = "pip-install"
@@ -316,14 +321,14 @@ def _deploy(repo: Path, remote: str, state: State) -> None:
     for action in plan:
         logger.info("step %s", action)
         if action == NPM_CI:
-            _run(
+            _run_install(
                 ["npm", "ci"],
                 cwd=repo / "web",
                 env=bg.node_env(),
                 timeout=NPM_CI_TIMEOUT_SECONDS,
             )
         elif action == PIP_INSTALL:
-            _run(
+            _run_install(
                 [sys.executable, "-m", "pip", "install", "-r", "requirements-dev.txt"],
                 cwd=repo,
                 timeout=PIP_TIMEOUT_SECONDS,
@@ -455,6 +460,22 @@ def _run(
     returncode = _stream(cmd, cwd, env, timeout=timeout)
     if returncode != 0:
         raise DeployError(f"{' '.join(cmd)} failed with exit code {returncode}")
+
+
+def _run_install(
+    cmd: list[str], cwd: Path, env: dict | None = None, timeout: float | None = None
+) -> None:
+    """_run, retried once after RETRY_PAUSE_SECONDS if the command fails.
+    A timeout is not retried: a hang would likely hang again and push the
+    tick past the unit's hour."""
+    try:
+        _run(cmd, cwd, env, timeout)
+    except StepTimedOut:
+        raise
+    except DeployError as exc:
+        logger.warning("%s; retrying once in %ds", exc, RETRY_PAUSE_SECONDS)
+        time.sleep(RETRY_PAUSE_SECONDS)
+        _run(cmd, cwd, env, timeout)
 
 
 def _stream(

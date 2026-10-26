@@ -139,6 +139,8 @@ class Recorder:
     commands: list[Command] = field(default_factory=list)
     sequence: list[str] = field(default_factory=list)
     failing: set[str] = field(default_factory=set)
+    flaky: dict[str, int] = field(default_factory=dict)
+    hanging: set[str] = field(default_factory=set)
     db_revision: str | None = "rev-head"
     head_revision: str = "rev-head"
     on_build: Callable[[], None] | None = None
@@ -157,7 +159,8 @@ def _action_name(cmd: list[str]) -> str:
 @pytest.fixture
 def actions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Record every deploy action instead of running it. Add an action name
-    to `.failing` to make that action fail. reflex.db's alembic revision and
+    to `.failing` to make that action fail, map it in `.flaky` to how many
+    first calls fail, or add it to `.hanging` to make it time out. reflex.db's alembic revision and
     the checkout's head come from `.db_revision` and `.head_revision`, which
     match unless a test says otherwise."""
     node_bin = tmp_path / "nvm-bin"
@@ -169,6 +172,11 @@ def actions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Recorder:
         name = _action_name(cmd)
         recorder.commands.append(Command(list(cmd), Path(cwd), env, timeout))
         recorder.sequence.append(name)
+        if name in recorder.hanging:
+            raise dom.StepTimedOut(f"{name} timed out")
+        if recorder.flaky.get(name, 0) > 0:
+            recorder.flaky[name] -= 1
+            return 1
         return 1 if name in recorder.failing else 0
 
     def fake_build_and_deploy(skip_deploy: bool = False):
@@ -667,3 +675,65 @@ def test_hung_step_is_killed_at_its_timeout_with_its_children(tmp_path):
         dom._stream(hang, tmp_path, timeout=0.5)
 
     assert time.monotonic() - started < 10
+
+
+
+# --- one retry for the installs ------------------------------------------
+
+
+LOCKFILE_BUMP = {"web/package-lock.json": '{"lockfileVersion": 3, "v": 2}\n'}
+
+
+@pytest.mark.parametrize(
+    ("action", "change"),
+    [
+        pytest.param("npm-ci", LOCKFILE_BUMP, id="npm-ci"),
+        pytest.param("pip-install", {"requirements.txt": "fastapi==2.0\n"}, id="pip-install"),
+    ],
+)
+def test_install_that_fails_once_is_retried_and_still_deploys(
+    repos, actions, monkeypatch, action, change
+):
+    """Catches one registry or network blip failing the whole merge: a
+    failed npm ci leaves node_modules missing or half-installed, and pip a
+    half-upgraded env/, until someone steps in. One retry after a short
+    pause must carry the deploy through."""
+    monkeypatch.setattr(dom, "RETRY_PAUSE_SECONDS", 0)
+    repos.mark_deployed()
+    merged = repos.land(change)
+    actions.flaky[action] = 1
+
+    assert dom.main() == 0
+
+    assert actions.sequence.count(action) == 2
+    assert "build-deploy" in actions.sequence
+    assert repos.shas() == {"deployed_sha": merged, "failed_sha": None}
+
+
+def test_install_that_fails_twice_latches_without_building(repos, actions, monkeypatch):
+    """Catches a retry that loops, or that swallows the second failure, on a
+    real dependency break: after its one retry the tick must fail, latch
+    failed_sha, and build nothing on half-installed packages."""
+    monkeypatch.setattr(dom, "RETRY_PAUSE_SECONDS", 0)
+    good = repos.mark_deployed()
+    merged = repos.land(LOCKFILE_BUMP)
+    actions.flaky["npm-ci"] = 2
+
+    assert dom.main() == 1
+
+    assert actions.sequence == ["npm-ci", "npm-ci"]
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
+
+
+def test_install_that_times_out_is_not_retried(repos, actions, monkeypatch):
+    """Catches a hang retried like a blip: a second 20-minute npm ci would
+    push the tick past the unit's hour and into systemd's kill, instead of
+    failing cleanly at the first timeout."""
+    monkeypatch.setattr(dom, "RETRY_PAUSE_SECONDS", 0)
+    repos.mark_deployed()
+    repos.land(LOCKFILE_BUMP)
+    actions.hanging.add("npm-ci")
+
+    assert dom.main() == 1
+
+    assert actions.sequence == ["npm-ci"]
