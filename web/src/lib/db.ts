@@ -368,12 +368,29 @@ export interface FacetTile {
 
 const NOT_A_TILE = new Set(['Metal', 'Género desconocido']);
 
+// Every facet that gets a tile, biggest first: the tiles' order and the facet
+// pages' banner colours both come from this one list. Built once per build.
+const tileGroupsCache = new Map<'genre' | 'country', FacetGroup[]>();
+function tileGroups(kind: 'genre' | 'country'): FacetGroup[] {
+  let groups = tileGroupsCache.get(kind);
+  if (!groups) {
+    groups = groupFacetsBySlug(kind === 'genre' ? getAllGenres() : getAllCountries())
+      .filter((g) => !NOT_A_TILE.has(g.label))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    tileGroupsCache.set(kind, groups);
+  }
+  return groups;
+}
+
+/** Where this facet's tile sits (its colour in lib/tiles.ts), or null when it has none. */
+export function facetTileRank(kind: 'genre' | 'country', slug: string): number | null {
+  const rank = tileGroups(kind).findIndex((g) => g.slug === slug);
+  return rank < 0 ? null : rank;
+}
+
 export function getFacetTiles(kind: 'genre' | 'country', limit = 8): FacetTile[] {
   const column = kind === 'genre' ? 'genre' : 'country';
-  const groups = groupFacetsBySlug(kind === 'genre' ? getAllGenres() : getAllCountries())
-    .filter((g) => !NOT_A_TILE.has(g.label))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-    .slice(0, limit);
+  const groups = tileGroups(kind).slice(0, limit);
   return groups.map((g) => {
     const rows = db
       .prepare(
@@ -458,8 +475,8 @@ export function getAllCountries(): Facet[] {
 // The fix: group raw rows by slug first, so exactly one page is built per
 // slug and it lists the union of every raw variant that collides into it.
 // `label` is the raw value with the highest count — used for the page title /
-// genreLabel()/countryLabel() lookup and the "Refine in Browse" link, so the
-// page reads as the dominant variant while still listing every album.
+// genreLabel()/countryLabel() lookup, so the page reads as the dominant variant
+// while still listing every album.
 // Does NOT touch the database: colliding raw strings remain separate rows
 // (scripts/normalize_db.py is the real data-layer fix, out of scope here).
 export interface FacetGroup {

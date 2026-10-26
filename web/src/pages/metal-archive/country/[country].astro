@@ -8,9 +8,11 @@
 // replaced the ~95-entry flag map that used to be duplicated here and on the
 // archive home page.
 import { ClientRouter } from 'astro:transitions';
-import { getAllCountries, getAlbumsByCountry, slugify } from '../../../lib/db.js';
-import { countryFlag, countryLabel } from '../../../lib/labels.js';
+import { getAllCountries, getAlbumsByCountry, slugify, facetTileRank } from '../../../lib/db.js';
+import { countryLabel } from '../../../lib/labels.js';
+import { tileColor } from '../../../lib/tiles.js';
 import AlbumGrid from '../../../components/AlbumGrid.astro';
+import FacetBanner from '../../../components/FacetBanner.astro';
 import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
@@ -35,12 +37,10 @@ const { realCountry } = Astro.props;
 // list so the header number and the grid agree (comparable to Browse).
 const albums = getAlbumsByCountry(realCountry);
 const count = albums.length;
-const flag = countryFlag(realCountry);
 const label = countryLabel(realCountry);
-
-// Chain to Browse with this country pre-applied. Search restores from the exact
-// value (e.country === country), so the URL carries the REAL country, not the slug.
-const browseHref = `/metal-archive/browse?country=${encodeURIComponent(realCountry)}`;
+// The banner wears this country's tile colour.
+const rank = facetTileRank('country', slugify(realCountry));
+const bannerColor = rank === null ? null : tileColor('country', rank);
 
 const pageTitle = `${label} — Metal Archive`;
 const metaDesc = `${count} ${count === 1 ? 'album' : 'albums'} from ${label} in the Metal Archive.`;
@@ -70,22 +70,11 @@ const ogImage = albums[0]?.thumb || undefined;
   <body class="ma-shell">
     <ArchiveChrome />
 
-    <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
-      <header class="facet-hero">
-        <h1 class="facet-hero__title">
-          {flag && <span aria-hidden="true" style="margin-right: 0.4em;">{flag}</span>}{label}
-        </h1>
-        <p class="facet-hero__count">
-          {count} {count === 1 ? 'album' : 'albums'}
-        </p>
-        {albums.length > 0 && (
-          <a class="facet-refine" href={browseHref}>Refine in Browse →</a>
-        )}
-      </header>
-
+    <main class="ma-facetpage" id="main" tabindex="-1">
+      <FacetBanner name={label} count={count} color={bannerColor} />
       {albums.length > 0
         ? <AlbumGrid albums={albums} />
-        : <p style="color: var(--text-footer);">No albums from this country yet.</p>
+        : <p class="ma-muted">No albums from this country yet.</p>
       }
     </main>
 

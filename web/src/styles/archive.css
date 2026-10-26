@@ -991,6 +991,35 @@ a.ma-topres:hover { transform: translateY(-3px); }
   .ma-blist__title { font-size: 26px; }
 }
 
+/* ─── Facet pages (genre, country, year; components/FacetBanner.astro) ──────────
+   The prototype's facet screen: a banner in the facet's tile colour, then the
+   page's album grid (AlbumGrid, with its Show more). */
+.ma-facetpage { padding: 24px var(--gutter) 56px; container-type: inline-size; }
+.ma-facet {
+  --tile: var(--ma-raised);
+  margin-bottom: 26px;
+  padding: 28px 28px 30px;
+  border-radius: 20px;
+  background: var(--tile);
+  color: #fff;
+}
+.ma-facet__name {
+  margin: 0;
+  font-size: clamp(36px, 8cqi, 64px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.ma-facet__count { margin: 8px 0 0; font-size: 15px; font-weight: 500; color: rgb(255 255 255 / 0.92); }
+.ma-facetpage > .ma-muted { margin: 0; }
+
+@media (max-width: 767px) {
+  .ma-facetpage { padding-top: 12px; }
+  .ma-facet { margin-bottom: 20px; padding: 22px 20px 24px; }
+}
+
 /* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
 .ma-side { display: none; }
 .ma-brand { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 22px; border-radius: 10px; }

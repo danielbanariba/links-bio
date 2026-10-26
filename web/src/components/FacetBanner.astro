@@ -1,0 +1,18 @@
+---
+// The coloured banner at the top of a genre, country or year page, as in the
+// prototype's facet screen: the name and how many albums the page lists. A genre
+// or country banner takes its tile's colour (lib/tiles.ts, facetTileRank), so the
+// colour carries over from the tile to the page; null gives the neutral surface
+// (a catch-all genre with no tile).
+interface Props {
+  name: string;
+  count: number;
+  color: string | null;
+}
+const { name, count, color } = Astro.props;
+const total = `${count.toLocaleString('en-US')} ${count === 1 ? 'album' : 'albums'} in the archive`;
+---
+<header class="ma-facet" style={color ? `--tile: ${color}` : undefined}>
+  <h1 class="ma-facet__name">{name}</h1>
+  <p class="ma-facet__count">{total}</p>
+</header>
