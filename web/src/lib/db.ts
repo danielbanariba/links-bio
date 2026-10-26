@@ -60,60 +60,6 @@ function toCard(row: any): Card {
 
 // ─── Home page queries ────────────────────────────────────────────────────────
 
-// Featured hero — random featured album (fallback: any random album).
-export function getFeaturedAlbum(): (Card & { description: string | null; youtube_url: string | null }) | null {
-  let row: any = db
-    .prepare(`SELECT ${CARD_COLS}, description, youtube_url FROM albums WHERE featured = 1 ORDER BY RANDOM() LIMIT 1`)
-    .get();
-  if (!row) {
-    row = db.prepare(`SELECT ${CARD_COLS}, description, youtube_url FROM albums ORDER BY RANDOM() LIMIT 1`).get();
-  }
-  if (!row) return null;
-  return { ...toCard(row), description: row.description ?? null, youtube_url: row.youtube_url ?? null };
-}
-
-// "This week in the archive" — last 7 days by upload_date, fallback to 30 days.
-// Kept available for reuse; the home page no longer renders this carousel.
-export function getThisWeek(): Card[] {
-  let rows: any[] = db
-    .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE upload_date >= datetime('now', '-7 days')
-       ORDER BY upload_date DESC LIMIT 8`
-    )
-    .all();
-  if (rows.length < 4) {
-    rows = db
-      .prepare(
-        `SELECT ${CARD_COLS} FROM albums
-         WHERE upload_date >= datetime('now', '-30 days')
-         ORDER BY upload_date DESC LIMIT 8`
-      )
-      .all();
-  }
-  return rows.map(toCard);
-}
-
-// Editor's picks — featured albums, latest first. Live recordings excluded.
-export function getEditorPicks(): Card[] {
-  const rows: any[] = db
-    .prepare(`SELECT ${CARD_COLS} FROM albums WHERE featured = 1 AND ${NOT_LIVE} ORDER BY upload_date DESC LIMIT 8`)
-    .all();
-  return rows.map(toCard);
-}
-
-// Hidden gems — non-featured, low view count, random order. Live recordings excluded.
-export function getHiddenGems(): Card[] {
-  const rows: any[] = db
-    .prepare(
-      `SELECT ${CARD_COLS} FROM albums
-       WHERE featured = 0 AND (views IS NULL OR views < 500) AND ${NOT_LIVE}
-       ORDER BY RANDOM() LIMIT 8`
-    )
-    .all();
-  return rows.map(toCard);
-}
-
 // Live recordings — Daniel's own live sets, surfaced in their own home section.
 export function getLiveRecordings(limit = 12): Card[] {
   const rows: any[] = db
@@ -124,27 +70,6 @@ export function getLiveRecordings(limit = 12): Card[] {
     )
     .all(limit);
   return rows.map(toCard);
-}
-
-// Country rotation — random selection of distinct countries with one random
-// (non-live) album each. Only countries that actually have a non-live album are
-// considered, so the sampled album below can never be null.
-export function getCountryRotation(n = 6): Array<{ country: string; album: Card }> {
-  const countries: any[] = db
-    .prepare(
-      `SELECT country FROM albums
-       WHERE country IS NOT NULL AND country != '' AND ${NOT_LIVE}
-       GROUP BY country ORDER BY RANDOM() LIMIT ?`
-    )
-    .all(n);
-  return countries
-    .map((c) => {
-      const row: any = db
-        .prepare(`SELECT ${CARD_COLS} FROM albums WHERE country = ? AND ${NOT_LIVE} ORDER BY RANDOM() LIMIT 1`)
-        .get(c.country);
-      return row ? { country: c.country, album: toCard(row) } : null;
-    })
-    .filter((x): x is { country: string; album: Card } => x !== null);
 }
 
 // ─── Album detail queries ─────────────────────────────────────────────────────
@@ -589,44 +514,6 @@ export function getBandAlbumCount(bandName: string): number {
     .prepare(`SELECT COUNT(id) AS count FROM albums WHERE band_name = ?`)
     .get(bandName);
   return row?.count ?? 0;
-}
-
-// Header stats for the band page ("artist" header): album count, year range,
-// distinct genres and a representative (most-recent) cover. Real data only — no
-// fabricated "monthly listeners". Used by the upcoming band-page redesign.
-export function getBandStats(bandName: string): {
-  albumCount: number;
-  firstYear: number | null;
-  lastYear: number | null;
-  genres: string[];
-  thumb: string;
-} {
-  const row: any = db
-    .prepare(
-      `SELECT COUNT(id) AS c, MIN(year) AS miny, MAX(year) AS maxy
-       FROM albums WHERE band_name = ?`
-    )
-    .get(bandName);
-  const genreRows: any[] = db
-    .prepare(
-      `SELECT genre, COUNT(id) c FROM albums
-       WHERE band_name = ? AND genre IS NOT NULL AND genre != ''
-       GROUP BY genre ORDER BY c DESC`
-    )
-    .all(bandName);
-  const cover: any = db
-    .prepare(
-      `SELECT album_artwork_url FROM albums WHERE band_name = ?
-       ORDER BY upload_date DESC LIMIT 1`
-    )
-    .get(bandName);
-  return {
-    albumCount: row?.c ?? 0,
-    firstYear: row?.miny ?? null,
-    lastYear: row?.maxy ?? null,
-    genres: genreRows.map((g) => g.genre),
-    thumb: thumb(cover?.album_artwork_url),
-  };
 }
 
 // ─── Browse index ─────────────────────────────────────────────────────────────
