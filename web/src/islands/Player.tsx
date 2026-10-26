@@ -844,6 +844,10 @@ export default function Player() {
         // [data-glyph] marks the ▶ inside a cover button, which may hold other
         // drawings (the live recordings' microphone).
         (b.querySelector('[data-glyph] path') || b.querySelector('path'))?.setAttribute('d', on ? PAUSE_PATH : PLAY_PATH);
+        // A button that names itself ("Play album" on the album page) says Pause
+        // while its album plays; the label is its visible text, so it follows.
+        const text = b.querySelector<HTMLElement>('[data-label-on]');
+        if (text) text.textContent = (on ? text.dataset.labelOn : text.dataset.labelOff) ?? text.textContent;
       });
     };
 

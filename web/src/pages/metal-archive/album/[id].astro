@@ -1,17 +1,22 @@
 ---
-// Album detail page — one static page per album (1298 total).
-// Faithful port of links_bio/pages/metal_archive/album_detail.py.
+// Album page, as in the prototype: the cover beside the title, the band in the
+// accent and one line of facts; Play album, Share and YouTube; then the
+// Tracklist and the Details side by side (stacked below 1100px), and rows of
+// more albums: the band's others, similar albums, a random handful.
 //
 // Build-time work in the frontmatter:
 //   - getAlbum / getTracks / getSimilarBands / getSimilarAlbums / getMoreToExplore
+//     / getAlbumsByBand
 //   - parse each track timestamp ("MM:SS" / "HH:MM:SS") to seconds
 //   - getAlbumAccent() extracts the dominant swatch from the square crop (else
 //     the thumb; cached), turns it into readable accent tokens (lib/accent.ts)
 //     and bakes them on <html> -> zero runtime Vibrant.
 //
-// Interactivity lives in the GLOBAL persistent <Player> (rendered from the
-// Navbar, transition:persist). This page only exposes its album as a JSON data
-// island (#metal-np-data) that the Player reads on astro:page-load.
+// Playback lives in the persistent <Player> (Footer.astro, transition:persist).
+// "Play album" is a ▶ like a card's (lib/cardPlay.ts), so it shows Pause only
+// while THIS album plays; a tracklist row ([data-track-idx]) starts or seeks the
+// album through the Player's click handler, which reads the album's tracks from
+// the JSON data island (#metal-np-data) below.
 import {
   getAllAlbumIds,
   getAlbum,
@@ -19,23 +24,31 @@ import {
   getSimilarBands,
   getSimilarAlbums,
   getMoreToExplore,
+  getAlbumsByBand,
   getBandAlbumCount,
-  getBandPageNameSet,
+  hasFacetPage,
+  isLiveRecording,
   slugify,
 } from '../../../lib/db.js';
-import { countryLabel, genreLabel } from '../../../lib/labels.js';
+import { countryFlag, countryLabel, genreLabel } from '../../../lib/labels.js';
 import { thumb } from '../../../lib/thumb.js';
 import { coverUrl as squareCover } from '../../../lib/coverStore.js';
+import { coverMode } from '../../../lib/coverDisplay.js';
 import { displayTitle } from '../../../lib/title.js';
-import { tsToSeconds } from '../../../lib/segments.js';
-import { formatCardMeta } from '../../../lib/cardMeta.js';
+import { tsToSeconds, trackLengths } from '../../../lib/segments.js';
+import { formatCardMeta, formatUploadDay, NO_GENRE } from '../../../lib/cardMeta.js';
+import { playAttrs, bandHref } from '../../../lib/cardPlay.js';
 import { getAlbumAccent } from '../../../lib/vibrant.js';
 import { accentHtmlAttrs, encodeAccent } from '../../../lib/accent.js';
+import { GLYPH_PLAY } from '../../../lib/icons.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import { ClientRouter } from 'astro:transitions';
 import AlbumCard from '../../../components/AlbumCard.astro';
 import ArchiveChrome from '../../../components/ArchiveChrome.astro';
+import CoverArt from '../../../components/CoverArt.astro';
 import Footer from '../../../components/Footer.astro';
+import Icon from '../../../components/Icon.astro';
+import Row from '../../../components/Row.astro';
 import '../../../styles/global.css';
 import '../../../styles/archive.css';
 
@@ -61,35 +74,33 @@ const rawTracks = getTracks(id);
 const similarBands = getSimilarBands(id);
 const similarAlbums = getSimilarAlbums(album.genre, id);
 const moreToExplore = getMoreToExplore(id);
-
-// Names of bands that have their own page (2+ albums), built from a single query
-// so each "Similar bands" pill can resolve its destination without an N+1.
-// A pill links to the band page when it exists, else to a Browse text search so
-// the discovery jump always lands somewhere.
-const bandPageNames = getBandPageNameSet();
-function similarBandHref(name: string): string {
-  return bandPageNames.has(name)
-    ? `/metal-archive/band/${slugify(name)}`
-    : `/metal-archive/browse?q=${encodeURIComponent(name)}`;
-}
+// The band's other albums, newest first; its live sets keep their microphone tile.
+const moreFromBand = getAlbumsByBand(album.band_name).filter((a) => a.id !== album.id);
 
 // Timestamps ("MM:SS" / "HH:MM:SS") to seconds: lib/segments.ts, shared with the
-// per-album JSON the Player fetches (album/[id].json.ts).
+// per-album JSON the Player fetches (album/[id].json.ts). A length is shown only
+// up to the next start; without trustworthy starts there are none, and no
+// "Starts at" line either.
+const starts = rawTracks.map((t) => tsToSeconds(t.timestamp));
+const lengths = trackLengths(starts);
+const timed = lengths.some((l) => l !== null);
 const tracks = rawTracks.map((t, i) => ({
   idx: i,
   number: t.track_number ?? i + 1,
   name: t.track_name,
-  timestamp: t.timestamp ?? '',
-  seconds: tsToSeconds(t.timestamp),
+  seconds: starts[i],
+  length: lengths[i],
 }));
+// "0:08", "11:10", "1:02:03": a clock, without the database's leading zero.
+const two = (n: number) => String(n).padStart(2, '0');
+const clock = (s: number) =>
+  s >= 3600 ? `${Math.floor(s / 3600)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}` : `${Math.floor(s / 60)}:${two(s % 60)}`;
+const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
-// Big "now playing" title defaults to the first track; the Player swaps it to
-// the active track on play. The album NAME lives in the small line below it.
-const heroTitle = tracks.length > 0 ? tracks[0].name : album.album_title;
-
-// ─── Artwork: full cover for the hero (eager), small thumb for the bar/og ────
+// ─── Artwork: the square crop or the whole frame (CoverArt); thumb for og ────
 const coverUrl = album.album_artwork_url || '';
 const coverThumb = thumb(album.album_artwork_url);
+const title = displayTitle(album.album_title);
 
 // ─── Build-time color: the album's accent tokens, baked on <html> ────────────
 // From the square crop when the covers step made one; else the small thumb
@@ -165,15 +176,37 @@ function platformIcon(label: string): string {
 
 const releaseType = album.release_type && album.release_type.trim() !== '' ? album.release_type : 'Album';
 
-// ─── Discovery links (genre / year / band) ────────────────────────────────────
-const genreSlug = album.genre ? slugify(album.genre) : null;
+// ─── Discovery links (genre / year / band / country) ─────────────────────────
+// A fact links to its page only when the build makes one (hasFacetPage: a value
+// only a live set has gets none). The band link is its page when it has one,
+// else a Browse search (bandHref), so it always lands somewhere.
 const bandAlbumCount = getBandAlbumCount(album.band_name);
 const bandSlug = bandAlbumCount >= 2 ? slugify(album.band_name) : null;
+const genreRaw = album.genre && album.genre.trim() !== '' && album.genre !== NO_GENRE ? album.genre : null;
+const genreSlug = genreRaw ? slugify(genreRaw) : null;
+const genreHref = genreSlug && hasFacetPage('genre', genreSlug) ? `/metal-archive/genre/${genreSlug}` : null;
+const yearHref = album.year && hasFacetPage('year', String(album.year)) ? `/metal-archive/year/${album.year}` : null;
+const countrySlug = album.country ? slugify(album.country) : null;
+const countryHref = countrySlug && hasFacetPage('country', countrySlug) ? `/metal-archive/country/${countrySlug}` : null;
 
 // Country (and one placeholder genre) are stored in Spanish in the DB —
 // translate for display only; slugs and queries still use the raw values.
 const countryName = countryLabel(album.country);
+const flag = countryFlag(album.country);
 const genreName = genreLabel(album.genre);
+const live = isLiveRecording(album.album_title);
+
+// The line under the band: genre, country, tracks and length, what is known.
+const metaLine = [
+  genreRaw ? genreName : null,
+  countryName || null,
+  tracks.length > 0 ? plural(tracks.length, 'track') : null,
+  album.duration_minutes ? `${album.duration_minutes} min` : null,
+].filter(Boolean).join(' · ');
+const tracklistNote = [
+  tracks.length > 0 ? plural(tracks.length, 'track') : null,
+  album.duration_minutes ? `${album.duration_minutes} min` : null,
+].filter(Boolean).join(' · ');
 
 const pageTitle = `${album.band_name} — ${album.album_title}`;
 const metaDesc = `${album.band_name} · ${album.album_title}${genreName ? ' · ' + genreName : ''}${album.year ? ' · ' + album.year : ''}. Listen to the full album on the Metal Archive.`;
@@ -202,7 +235,7 @@ const npData = hasVideo
       // the square crop like the cards, else the frame; and the band's page.
       cover: squareCover(album.youtube_video_id, album.album_artwork_url),
       meta: formatCardMeta(album),
-      bandHref: similarBandHref(album.band_name),
+      bandHref: bandHref(album.band_name),
       tracks: tracks.map((t) => ({ idx: t.idx, name: t.name, seconds: t.seconds })),
     }
   : null;
@@ -230,6 +263,25 @@ const albumJsonLd = safeJsonLd({
   ...(album.duration_minutes ? { duration: `PT${album.duration_minutes}M` } : {}),
   ...(album.youtube_url ? { sameAs: [album.youtube_url] } : {}),
 });
+
+// ─── The ▶ and the rows below ────────────────────────────────────────────────
+// "Play album" carries the same attributes as a card's ▶, from this album's
+// card projection; null without a video (nothing to play: no button).
+const card = {
+  id: album.id,
+  band_name: album.band_name,
+  album_title: album.album_title,
+  genre: album.genre,
+  year: album.year,
+  country: album.country,
+  thumb: coverThumb,
+  cover: squareCover(album.youtube_video_id, album.album_artwork_url),
+  youtube_video_id: album.youtube_video_id,
+};
+const playBtn = await playAttrs(card);
+// The header's image: the square crop, else the full-size frame (sharper than
+// the card's mqdefault at this size), drawn whole by CoverArt.
+const heroSrc = coverMode(card.cover) === 'square' ? card.cover : coverUrl || card.cover;
 ---
 
 <!doctype html>
@@ -252,194 +304,184 @@ const albumJsonLd = safeJsonLd({
     <script type="application/ld+json" set:html={albumJsonLd} />
     <ClientRouter />
   </head>
-  <body class="ma-shell ma album-detail album-detail-bg">
+  <body class="ma-shell ma">
     <ArchiveChrome />
 
-    <main class="album-detail-main" id="main" tabindex="-1">
-      <!-- ─── Now Playing (REQ-001..008) ───────────────────────────────────── -->
-      <section class="stage" aria-label={`Now playing: ${album.album_title}`}>
-        <div class="stage__inner">
-          <!-- Square 1:1 cover, the protagonist (REQ-001) -->
-          <div class="stage__cover-wrap">
-            {coverUrl
-              ? <img
-                  class="stage__cover"
-                  src={coverUrl}
-                  srcset={coverThumb ? `${coverThumb} 320w, ${coverUrl} 1280w` : undefined}
-                  sizes="(min-width: 880px) clamp(340px, 42vw, 560px), 100vw"
-                  alt={album.album_title}
-                  loading="eager"
-                  decoding="async"
-                  width="640"
-                  height="640"
-                />
-              : <div class="stage__cover stage__cover--empty" aria-hidden="true"></div>
-            }
+    <main id="main" tabindex="-1">
+      <article class="ma-album">
+        <header class="ma-album__head">
+          <div class="ma-album__art"><CoverArt src={heroSrc} alt={`${title} cover`} loading="eager" /></div>
+          <div class="ma-album__text">
+            <p class="ma-kicker">
+              {live ? 'Live recording' : releaseType}{!!album.year && <><span class="ma-kicker__dot" aria-hidden="true">·</span>{album.year}</>}
+            </p>
+            <h1 class="ma-album__title">{title}</h1>
+            <a class="ma-album__band" href={bandHref(album.band_name)}>{album.band_name}</a>
+            {metaLine && <p class="ma-album__meta">{metaLine}</p>}
           </div>
-
-          <div class="stage__panel">
-            <div class="stage__eyebrow">{releaseType}</div>
-            <!-- F6 (Oct 2026 UI audit): the only <h1> on this page used to be
-                 this "now playing" track-name line, not the album — a wrong
-                 page heading for SEO/a11y (and it changed as the Player
-                 advanced tracks). It is now a plain paragraph; the Player
-                 still updates it via the .js-np-title class hook below, which
-                 doesn't care about tag name. The real h1 (band + album title)
-                 follows, keeping the exact same two-line visual split. -->
-            <p class="stage__title js-np-title">{heroTitle}</p>
-            <h1 class="stage__heading">
-              <!-- Band name in the accent color, high contrast (REQ-003) -->
-              <div class="stage__artist">
-                {bandSlug
-                  ? <a href={`/metal-archive/band/${bandSlug}`} class="stage__artist-link">{album.band_name}</a>
-                  // #4: bandSlug is only set when this EXACT casing has 2+
-                  // albums (getBandAlbumCount is a plain band_name = ?), so a
-                  // band entered with inconsistent casing across uploads
-                  // rendered as dead text with no way to find its other
-                  // releases. Fall back to the same Browse-search link the
-                  // "Similar bands" pills already use when a band has no page.
-                  : <a href={similarBandHref(album.band_name)} class="stage__artist-link">{album.band_name}</a>
-                }
-              </div>
-              <!-- Album name in the small line (stays put while the big title changes) -->
-              <div class="stage__album">{album.album_title}</div>
-            </h1>
-            <div class="stage__metarow">
-              {album.genre && genreSlug && <a href={`/metal-archive/genre/${genreSlug}`} class="meta-link">{genreName}</a>}
-              {album.genre && !genreSlug && <span>{genreName}</span>}
-              {/* year 0 means "unknown". The !! is required, since a bare `0 && ...` renders a literal "0" (see lib/cardMeta.ts) */}
-              {!!album.genre && !!album.year && <span class="sep"> · </span>}
-              {!!album.year && <a href={`/metal-archive/year/${album.year}`} class="meta-link">{album.year}</a>}
-              {(!!album.genre || !!album.year) && countryName && <span class="sep"> · </span>}
-              {countryName && <span>{countryName}</span>}
-            </div>
-
-            <!-- Progress (accent fill) -->
-            <div class="stage__progress">
-              <div
-                class="stage__bar js-progressbar"
-                role="progressbar"
-                aria-label="Playback progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="0"
-              >
-                <div class="stage__bar-fill js-progress-fill"></div>
-              </div>
-              <div class="stage__times">
-                <span class="js-time-current">0:00</span>
-                <span class="js-time-total">{album.duration_minutes ? `${album.duration_minutes} min` : ''}</span>
-              </div>
-            </div>
-
-            <!-- Transport: prev · play/pause · next (REQ-004).
-                 Prev/next move between ALBUMS in the play queue (this album first, then
-                 the other playable cards on this page); tracks are picked in the tracklist. -->
-            <div class="stage__transport">
-              <button type="button" class="stage__ctl" aria-label="Previous album" data-np-prev="1">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
+          {/* One set of actions: beside the text on wider screens, under the
+              cover on a phone (the grid moves it). The ▶ is a card's ▶, so it
+              reads Pause only while THIS album plays, never another one. */}
+          <div class="ma-album__actions">
+            {playBtn && (
+              <button type="button" class="ma-btn ma-btn--accent" {...playBtn} data-keep-label>
+                <svg class="ma-i ma-i--fill" data-glyph viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
+                <span data-label-off="Play album" data-label-on="Pause">Play album</span>
               </button>
-              <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
-                <svg class="ic ic-play" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
-                <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
-                <span class="ic ic-spinner" aria-hidden="true"></span>
-              </button>
-              <button type="button" class="stage__ctl" aria-label="Next album" data-np-next="1">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 6h2v12h-2zM5 6v12l9-6z"/></svg>
-              </button>
-            </div>
+            )}
+            <button type="button" class="ma-circle ma-circle--glass" data-share aria-label="Share this album">
+              <Icon name="share" />
+            </button>
+            {album.youtube_url && (
+              <a class="ma-circle ma-circle--glass" href={album.youtube_url} target="_blank" rel="noopener noreferrer" aria-label="Open on YouTube">
+                <Icon name="yt" />
+              </a>
+            )}
+          </div>
+        </header>
 
-            <!-- Real actions only (no invented features) -->
-            <div class="stage__actions">
-              {album.youtube_url && (
-                <a class="stage__action" href={album.youtube_url} target="_blank" rel="noopener noreferrer">
-                  <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM10 15.5v-7l6 3.5z"/></svg>
-                  <span>YouTube</span>
-                </a>
+        <div class="ma-album__body">
+          {tracks.length > 0 && (
+            <section class="ma-panel ma-album__tracks" aria-labelledby="tl-h">
+              <div class="ma-panel__head">
+                <h2 id="tl-h">Tracklist</h2>
+                {tracklistNote && <small>{tracklistNote}</small>}
+              </div>
+              {/* A row starts the album at that track, or seeks to it when the album
+                  is already in the player (Player.tsx, [data-track-idx]). */}
+              <ol class="ma-trks">
+                {tracks.map((t) => (
+                  <li>
+                    <button
+                      type="button"
+                      class="ma-trk"
+                      data-track-idx={String(t.idx)}
+                      data-seconds={String(t.seconds)}
+                      aria-label={`Play track ${t.number}: ${t.name}`}
+                    >
+                      <span class="ma-trk__n">
+                        <span class="ma-trk__num">{t.number}</span>
+                        <span class="ma-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      </span>
+                      <span class="ma-trk__name">
+                        <b data-track-name="1">{t.name}</b>
+                        {timed && <small>Starts at {clock(t.seconds)}</small>}
+                      </span>
+                      <span class="ma-trk__len">{t.length !== null ? clock(t.length) : ''}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          <section class="ma-panel ma-album__details" aria-labelledby="dt-h">
+            <div class="ma-panel__head"><h2 id="dt-h">Details</h2></div>
+            {/* A row with a page links the whole row (the link's ::after covers it). */}
+            <dl class="ma-info">
+              <div class="ma-info__row">
+                <Icon name="user" />
+                <dt>Band</dt>
+                <dd><a href={bandHref(album.band_name)}>{album.band_name}</a></dd>
+                <Icon name="right" class="ma-info__chev" />
+              </div>
+              {!!album.year && (
+                <div class="ma-info__row">
+                  <Icon name="calendar" />
+                  <dt>Year</dt>
+                  <dd>{yearHref ? <a href={yearHref}>{album.year}</a> : album.year}</dd>
+                  {yearHref ? <Icon name="right" class="ma-info__chev" /> : <span />}
+                </div>
               )}
-              <button type="button" class="stage__action" data-share="1" aria-label="Share this album">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
-                <span>Share</span>
-              </button>
-              {/* Streaming / social links — brand logos, pulled from the description + DB */}
-              {platformLinks.map((l) => (
-                <a class="stage__action" href={l.url} target="_blank" rel="noopener noreferrer">
-                  <span class="stage__action-ico" set:html={platformIcon(l.label)}></span>
-                  <span>{l.label}</span>
-                </a>
-              ))}
-            </div>
-          </div>
+              <div class="ma-info__row">
+                <Icon name="genres" />
+                <dt>Genre</dt>
+                <dd>{genreRaw ? (genreHref ? <a href={genreHref}>{genreName}</a> : genreName) : <span class="ma-muted">Not listed</span>}</dd>
+                {genreHref ? <Icon name="right" class="ma-info__chev" /> : <span />}
+              </div>
+              <div class="ma-info__row">
+                <Icon name="globe" />
+                <dt>Country</dt>
+                <dd>
+                  {countryName
+                    ? (countryHref
+                        ? <a href={countryHref}>{flag && <span aria-hidden="true">{flag} </span>}{countryName}</a>
+                        : <>{flag && <span aria-hidden="true">{flag} </span>}{countryName}</>)
+                    : <span class="ma-muted">Not listed</span>}
+                </dd>
+                {countryHref ? <Icon name="right" class="ma-info__chev" /> : <span />}
+              </div>
+              {(!!album.duration_minutes || tracks.length > 0) && (
+                <div class="ma-info__row">
+                  <Icon name="clock" />
+                  <dt>Duration</dt>
+                  <dd>{tracklistNote}</dd>
+                  <span />
+                </div>
+              )}
+              {formatUploadDay(album.upload_date) && (
+                <div class="ma-info__row">
+                  <Icon name="upload" />
+                  <dt>Uploaded</dt>
+                  <dd>{formatUploadDay(album.upload_date)}</dd>
+                  <span />
+                </div>
+              )}
+              <div class="ma-info__row">
+                <Icon name="eye" />
+                <dt>Views</dt>
+                <dd>{(album.views ?? 0).toLocaleString('en-US')} on YouTube</dd>
+                <span />
+              </div>
+            </dl>
+            {/* Streaming / social links, pulled from the description + DB. */}
+            {platformLinks.length > 0 && (
+              <ul class="ma-album__links" aria-label="Listen and follow elsewhere">
+                {platformLinks.map((l) => (
+                  <li>
+                    <a class="ma-pill" href={l.url} target="_blank" rel="noopener noreferrer">
+                      <span class="ma-album__link-ico" set:html={platformIcon(l.label)}></span>{l.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
-      </section>
 
-      <!-- ─── Body ─────────────────────────────────────────────────────────── -->
-      <div class="album-detail-body">
-        <!-- Tracklist -->
-        {tracks.length > 0 && (
-          <section class="tracklist-section">
-            <div class="track-header">
-              <div style="text-align: center;">#</div>
-              <div>Title</div>
-              <div style="text-align: right;">⏱</div>
-            </div>
-            <div class="track-rows">
-              {tracks.map((t) => (
-                <button
-                  type="button"
-                  class="track-row"
-                  data-track-idx={String(t.idx)}
-                  data-seconds={String(t.seconds)}
-                  aria-label={`Play track ${t.number}: ${t.name}`}
-                >
-                  <span class="track-row__index">
-                    <span class="track-number">{t.number}</span>
-                    <span class="track-play-icon">▸</span>
-                    <span class="track-active-icon">▸</span>
-                  </span>
-                  <span class="track-row__title" data-track-name="1">{t.name}</span>
-                  <span class="track-row__time">{t.timestamp}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        <div class="ma-album__rows">
+          {moreFromBand.length > 0 && (
+            <Row
+              id="more-from-band"
+              title={`More from ${album.band_name}`}
+              more={bandSlug ? { label: 'Band page', href: `/metal-archive/band/${bandSlug}` } : undefined}
+            >
+              {moreFromBand.map((a) => <AlbumCard album={a} livePlaceholder={isLiveRecording(a.album_title)} />)}
+            </Row>
+          )}
 
-        <!-- Similar bands -->
-        {similarBands.length > 0 && (
-          <section class="similar-bands-section">
-            <h2>Similar bands</h2>
-            <div class="similar-bands">
-              {similarBands.map((b) => (
-                <a class="band-pill" href={similarBandHref(b.band_name)}>{b.band_name}</a>
-              ))}
-            </div>
-          </section>
-        )}
+          {similarBands.length > 0 && (
+            <section class="ma-row ma-album__similar" aria-labelledby="similar-bands-h">
+              <div class="ma-row__head"><h2 class="ma-row__title" id="similar-bands-h">Similar bands</h2></div>
+              <ul class="ma-pills">
+                {similarBands.map((b) => <li><a class="ma-pill" href={bandHref(b.band_name)}>{b.band_name}</a></li>)}
+              </ul>
+            </section>
+          )}
 
-        <!-- Similar albums -->
-        {similarAlbums.length > 0 && (
-          <section class="related-section">
-            <h2>If you liked this...</h2>
-            <div class="album-grid">
+          {similarAlbums.length > 0 && (
+            <Row id="similar" title="If you liked this">
               {similarAlbums.map((a) => <AlbumCard album={a} />)}
-            </div>
-          </section>
-        )}
+            </Row>
+          )}
 
-        <!-- More to explore -->
-        {moreToExplore.length > 0 && (
-          <section class="related-section related-section--bordered">
-            <div class="related-section__header">
-              <h2>Keep exploring</h2>
-              <a href="/metal-archive/browse" class="related-section__more">See all →</a>
-            </div>
-            <div class="album-grid">
+          {moreToExplore.length > 0 && (
+            <Row id="explore" title="Keep exploring" more={{ label: 'See all', href: '/metal-archive/browse?sort=newest' }}>
               {moreToExplore.map((a) => <AlbumCard album={a} />)}
-            </div>
-          </section>
-        )}
-      </div>
+            </Row>
+          )}
+        </div>
+      </article>
     </main>
 
     <!-- ─── Player data island ─────────────────────────────────────────────── -->

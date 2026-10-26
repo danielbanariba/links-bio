@@ -527,6 +527,22 @@ export function getAllYears(): Facet[] {
     .all() as Facet[];
 }
 
+// Whether the build makes a facet page for this slug: the genre, country and year
+// pages' getStaticPaths use these same queries, and those leave live recordings
+// out, so a value that only a live set has (10 genres and 1 country today) has no
+// page to link to. Read once per build, then kept.
+const facetPages: Partial<Record<'genre' | 'country' | 'year', Set<string>>> = {};
+export function hasFacetPage(kind: 'genre' | 'country' | 'year', slug: string): boolean {
+  facetPages[kind] ??= new Set(
+    kind === 'genre'
+      ? getGenreFacetGroups().map((g) => g.slug)
+      : kind === 'country'
+        ? getAllCountries().map((f) => slugify(f.value))
+        : getAllYears().map((f) => String(f.value)),
+  );
+  return facetPages[kind]!.has(slug);
+}
+
 // ─── Album navigation ─────────────────────────────────────────────────────────
 
 // All album IDs — used by album/[id].astro getStaticPaths().

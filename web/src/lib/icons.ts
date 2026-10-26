@@ -26,6 +26,11 @@ export const ICONS = {
   down: '<path d="m6 9 6 6 6-6"/>',
   expand: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  // The album page's Details rows.
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  clock: '<circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3 2"/>',
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
 } as const;
 
 export type IconName = keyof typeof ICONS;

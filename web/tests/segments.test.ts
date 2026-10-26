@@ -3,7 +3,7 @@
 // bring back.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tsToSeconds, trackSpans, trackAt, timeAtX, xAtTime } from '../src/lib/segments.ts';
+import { tsToSeconds, trackSpans, trackAt, timeAtX, xAtTime, trackLengths } from '../src/lib/segments.ts';
 
 test('a timestamp with hours counts them', () => {
   // Defect: reading "1:02:03" as minutes and seconds, so every track after the
@@ -33,6 +33,16 @@ test('starts that do not move forward give no segments instead of invented ones'
   assert.deepEqual(trackSpans([0, 120, 90], 300), []);
   assert.deepEqual(trackSpans([0, 120, 300], 300), []);
   assert.deepEqual(trackSpans([0, 120], 0), []);
+});
+
+test('the album page lists a length only where the next start gives it', () => {
+  // Defect: a tracklist without timestamps (every start 0) listing "0:00" for
+  // every track, a typo listing a negative length, or the last track getting a
+  // length the database cannot give (it keeps the album's length in whole
+  // minutes, so that one could be off by most of a minute).
+  assert.deepEqual(trackLengths([0, 8, 234]), [8, 226, null]);
+  assert.deepEqual(trackLengths([0, 0, 0]), [null, null, null]);
+  assert.deepEqual(trackLengths([0, 120, 90]), [null, null, null]);
 });
 
 test('the moment a track starts belongs to that track', () => {

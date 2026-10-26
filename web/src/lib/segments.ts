@@ -36,6 +36,17 @@ export function trackSpans(starts: number[], duration: number): Span[] {
 }
 
 /**
+ * Each track's length for the album page's tracklist: up to the next start, so
+ * the last one has none (the database keeps the album's length in whole
+ * minutes, too coarse for it). All null when the starts cannot be trusted, by the
+ * same rule as trackSpans.
+ */
+export function trackLengths(starts: number[]): Array<number | null> {
+  const valid = starts.length > 0 && starts[0] >= 0 && starts.every((s, i) => i === 0 || s > starts[i - 1]);
+  return starts.map((s, i) => (valid && i + 1 < starts.length ? starts[i + 1] - s : null));
+}
+
+/**
  * The track playing at `t`: the last one that has started. Before the first
  * start that is the first track, past the end the last; -1 without spans.
  */
