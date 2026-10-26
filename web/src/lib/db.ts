@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 import { thumb } from './thumb.js';
 import { coverUrl } from './coverStore.js';
 import { pickCollage } from './coverDisplay.js';
+import { slugify } from './slug.js';
 import type { Album, BandCard, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
 
 const candidates = [
@@ -40,12 +41,8 @@ const LIVE_MATCH = `(album_title LIKE '%live in%' OR album_title LIKE '%(live%')
 // Reusable predicate to EXCLUDE live recordings from the main feeds.
 const NOT_LIVE = `NOT ${LIVE_MATCH}`;
 
-// True when an album title denotes a live recording (used by browse tagging).
-export function isLiveRecording(title: string | null | undefined): boolean {
-  if (!title) return false;
-  const t = title.toLowerCase();
-  return t.includes('live in') || t.includes('(live');
-}
+// True when an album title denotes a live recording: lib/live.ts, browser-safe.
+export { isLiveRecording } from './live.js';
 
 function toCard(row: any): Card {
   return {
@@ -390,21 +387,8 @@ export function getFacetTiles(kind: 'genre' | 'country', limit = 8): FacetTile[]
 }
 
 // ─── Slug helper — single source of truth for band/genre/country URLs ─────────
-// Imported by BOTH the getStaticPaths that GENERATE facet/band paths and the
-// pages that RENDER links to them, so the two can never drift out of sync.
-// A name with no latin alphanumerics (e.g. Cyrillic "Сын Собаки") collapses to ""
-// and crashes the static build with "Missing parameter: band"; fall back to a
-// stable ascii slug built from code points so every name yields a valid URL.
-export function slugify(value: string): string {
-  const base = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  if (base) return base;
-  return 'u-' + Array.from(value.trim().toLowerCase())
-    .map((ch) => ch.codePointAt(0)!.toString(36))
-    .join('-');
-}
+// lib/slug.ts (browser-safe, so the Search island builds the same links).
+export { slugify } from './slug.js';
 
 // ─── Facet queries (getStaticPaths for genre/country/year pages) ──────────────
 

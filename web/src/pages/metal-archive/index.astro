@@ -23,7 +23,7 @@ import {
   slugify,
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
-import { countryLabel, genreLabel, fromCountry } from '../../lib/labels.js';
+import { genreLabel, fromCountry } from '../../lib/labels.js';
 import { heroMeta, formatUploadDay } from '../../lib/cardMeta.js';
 import { displayTitle } from '../../lib/title.js';
 import { playAttrs, bandHref } from '../../lib/cardPlay.js';
@@ -35,6 +35,7 @@ import Footer from '../../components/Footer.astro';
 import Row from '../../components/Row.astro';
 import AlbumCard from '../../components/AlbumCard.astro';
 import CoverArt from '../../components/CoverArt.astro';
+import FacetTile from '../../components/FacetTile.astro';
 import Icon from '../../components/Icon.astro';
 import '../../styles/global.css';
 import '../../styles/archive.css';
@@ -70,10 +71,6 @@ const heroAccent = hero?.youtube_video_id
   ? await getAlbumAccent({ videoId: hero.youtube_video_id, thumbUrl: hero.thumb })
   : null;
 
-// Tile colours by rank, as in the prototype: ten hues that all keep white text
-// above 5.2:1, so a row of tiles never turns into ten shades of brown.
-const GENRE_TILES = ['#4d7000', '#0068a6', '#9f4500', '#865900', '#a8353a', '#716400', '#007558', '#9e366f', '#724aab', '#00717a'];
-const COUNTRY_TILES = ['#716400', '#4d7000', '#865900', '#9f4500', '#a8353a', '#9e366f', '#007558', '#724aab', '#0068a6', '#00717a'];
 const albums = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'album' : 'albums'}`;
 
 const ogImage = hero?.thumb;
@@ -160,7 +157,7 @@ const ogImage = hero?.thumb;
           </section>
         )}
 
-        <Row id="latest" title="Latest uploads" more={{ label: 'See all', href: '/metal-archive/browse' }} queue={false}>
+        <Row id="latest" title="Latest uploads" more={{ label: 'See all', href: '/metal-archive/browse?sort=newest' }} queue={false}>
           {latest.map((a) => <AlbumCard album={a} />)}
         </Row>
       </div>
@@ -173,15 +170,7 @@ const ogImage = hero?.thumb;
 
       {genreTiles.length > 0 && (
         <Row id="genre-tiles" title="Browse by genre" more={{ label: 'See all', href: '/metal-archive/browse#genres' }} queue={false} tiles>
-          {genreTiles.map((t, i) => (
-            <a class="ma-tile" href={`/metal-archive/genre/${t.slug}`} style={`--tile: ${GENRE_TILES[i % GENRE_TILES.length]}`}>
-              <span class="ma-tile__name">{genreLabel(t.value)}</span>
-              <span class="ma-tile__count">{albums(t.count)}</span>
-              <span class="ma-tile__stack" aria-hidden="true">
-                {t.covers.map((src) => <img src={src} alt="" loading="lazy" decoding="async" width="400" height="400" draggable="false" />)}
-              </span>
-            </a>
-          ))}
+          {genreTiles.map((t, i) => <FacetTile kind="genre" tile={t} rank={i} />)}
         </Row>
       )}
 
@@ -209,15 +198,7 @@ const ogImage = hero?.thumb;
 
       {countryTiles.length > 0 && (
         <Row id="country-tiles" title="Browse by country" more={{ label: 'See all', href: '/metal-archive/browse#countries' }} queue={false} tiles>
-          {countryTiles.map((t, i) => (
-            <a class="ma-tile" href={`/metal-archive/country/${t.slug}`} style={`--tile: ${COUNTRY_TILES[i % COUNTRY_TILES.length]}`}>
-              <span class="ma-tile__name">{countryLabel(t.value)}</span>
-              <span class="ma-tile__count">{albums(t.count)}</span>
-              <span class="ma-tile__stack" aria-hidden="true">
-                {t.covers.map((src) => <img src={src} alt="" loading="lazy" decoding="async" width="400" height="400" draggable="false" />)}
-              </span>
-            </a>
-          ))}
+          {countryTiles.map((t, i) => <FacetTile kind="country" tile={t} rank={i} />)}
         </Row>
       )}
 

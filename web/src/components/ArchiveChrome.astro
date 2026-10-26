@@ -151,10 +151,16 @@ const isSub = !isHome && !onBrowse;
     box.hidden = entries.length === 0;
   }
 
-  // ─── Genres / Countries are #sections of Browse: the hash picks the item ───
+  // ─── Genres / Countries are #sections of Browse: the hash picks the item,
+  // and so does an old ?genre= / ?country= link (Browse filtered by one) ───
   function markBrowseNav() {
     if (location.pathname.replace(/\/$/, '') !== '/metal-archive/browse') return;
-    const which = location.hash === '#genres' ? 'genres' : location.hash === '#countries' ? 'countries' : 'search';
+    const sp = new URLSearchParams(location.search);
+    const which = location.hash === '#genres' || (!sp.get('q') && sp.get('genre'))
+      ? 'genres'
+      : location.hash === '#countries' || (!sp.get('q') && sp.get('country'))
+        ? 'countries'
+        : 'search';
     document.querySelectorAll<HTMLAnchorElement>('[data-ma-nav] [data-nav]').forEach((a) => {
       if (a.dataset.nav === which) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');

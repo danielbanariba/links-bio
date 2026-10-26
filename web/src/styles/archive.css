@@ -745,9 +745,250 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
   .ma-facts { padding: 0 8px; }
   .ma-arows--ranked .ma-arow { grid-template-columns: 22px 52px minmax(0, 1fr); gap: 12px; padding-left: 6px; }
   .ma-arows--ranked .ma-arow__art { width: 52px; height: 52px; }
-  .ma-arow__views,
+  .ma-arows--ranked .ma-arow__views,
   .ma-arow__wide { display: none; }
   .ma-arow__narrow { display: inline; }
+}
+
+/* ─── Search / Browse (pages/metal-archive/browse.astro, islands/Search.tsx) ─────
+   The title, a big field that stays under the top bar, then one of: the genre
+   and country tiles (the page's own HTML, hidden while the island shows
+   anything else), the results, or a filtered list. */
+.ma-searchpage { padding: 24px var(--gutter) 56px; }
+/* No box of its own, so the sticky field's containing block is the whole page. */
+.ma-search-island { display: contents; }
+.ma-page-title { margin: 0; font-size: 42px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: var(--ma-text); }
+.ma-bigsearch {
+  --band-top: 8px;
+  position: sticky;
+  top: var(--ma-top-h);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 58px;
+  margin: 18px 0 8px;
+  padding: 0 8px 0 20px;
+  border-radius: 16px;
+  color: var(--ma-text-2);
+}
+/* The field's surface is ::after; ::before is a full-width band behind it, shown
+   once the top bar turns solid, so what scrolls under the field never peeks out
+   around its corners. */
+.ma-bigsearch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--ma-raised) 92%, black);
+  box-shadow: inset 0 0 0 1px var(--ma-hair), 0 18px 40px -24px rgb(0 0 0 / 0.9);
+  transition: box-shadow 200ms;
+}
+.ma-bigsearch::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  top: calc(-1 * var(--band-top));
+  bottom: -12px;
+  left: calc(-1 * var(--gutter));
+  right: calc(-1 * var(--gutter));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms;
+  background: color-mix(in oklab, var(--ma-deep) 82%, transparent);
+  box-shadow: 0 1px 0 var(--ma-hair);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+}
+.ma-top.is-solid ~ main .ma-bigsearch::before { opacity: 1; }
+.ma-bigsearch:focus-within::after {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-bright) 70%, transparent),
+    0 0 0 3px color-mix(in oklab, var(--accent-bright) 22%, transparent), 0 18px 40px -24px rgb(0 0 0 / 0.9);
+}
+.ma-bigsearch input { all: unset; flex: 1; min-width: 0; height: 100%; font-size: 17px; color: var(--ma-text); }
+.ma-bigsearch input::placeholder { color: var(--ma-text-3); }
+.ma-bigsearch input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+.ma-bigsearch__clear {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--ma-text-2);
+  cursor: pointer;
+  transition: background 160ms;
+}
+.ma-bigsearch__clear:hover { background: var(--ma-fill); color: var(--ma-text); }
+
+.ma-searchpage:has([data-mode='results'], [data-mode='list']) .ma-browse-empty { display: none; }
+.ma-results { padding-top: 6px; }
+.ma-results__note { margin: 24px 0 0; font-size: 15px; color: var(--ma-text-2); }
+/* The sidebar's Genres and Countries land here, below the top bar and the field. */
+.ma-browse { margin-top: 30px; scroll-margin-top: calc(var(--ma-top-h) + 84px); }
+.ma-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.ma-more-facets { margin-top: 16px; }
+.ma-more-facets summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ma-fill-2);
+  color: var(--ma-text);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.ma-more-facets summary::-webkit-details-marker { display: none; }
+.ma-more-facets summary small { font-weight: 500; color: var(--ma-text-3); }
+.ma-more-facets[open] summary { margin-bottom: 14px; }
+.ma-more-facets summary:hover { background: var(--ma-fill-3); }
+.ma-sect__title small { margin-left: 6px; font-size: 15px; font-weight: 500; color: var(--ma-text-3); }
+
+/* Results: the top result beside the albums (stacked when narrow). */
+.ma-sres { display: grid; grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.6fr); gap: 28px; margin-top: 24px; align-items: start; }
+.ma-sres .ma-sect__title,
+.ma-sres__bands { scroll-margin-top: calc(var(--ma-top-h) + 84px); }
+.ma-topres {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--ma-fill);
+  color: var(--ma-text);
+  transition: background 160ms, transform 200ms var(--ma-spring);
+}
+.ma-topres:hover { background: var(--ma-fill-2); color: var(--ma-text); }
+a.ma-topres:hover { transform: translateY(-3px); }
+.ma-topres__art {
+  position: relative;
+  display: block;
+  width: 112px;
+  height: 112px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: none;
+  box-shadow: 0 18px 30px -18px rgb(0 0 0 / 0.9);
+  --inset: 5%;
+}
+.ma-topres__art > .ma-art { position: absolute; inset: 0; }
+.ma-topres__play { z-index: 2; cursor: pointer; }
+.ma-topres__play:hover .ma-arow__icon,
+.ma-topres__play:focus-visible .ma-arow__icon,
+.ma-topres__play[data-playing] .ma-arow__icon { opacity: 1; }
+.ma-topres__name { margin-top: 12px; font-size: 30px; line-height: 1.08; font-weight: 700; letter-spacing: -0.025em; color: var(--ma-text); overflow-wrap: anywhere; }
+/* An album's top result: the title links the card; the cover is its ▶. */
+.ma-topres__link::after { content: ''; position: absolute; inset: 0; border-radius: 18px; }
+.ma-topres__link:hover { color: var(--ma-text); }
+.ma-topres__kind { font-size: 14px; color: var(--ma-text-2); }
+.ma-dot { padding: 0 6px; }
+.ma-arows--results .ma-arow { grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; min-height: 70px; }
+.ma-arows--results .ma-arow__art { width: 56px; height: 56px; }
+.ma-arows--results .ma-arow__text b { font-size: 15.5px; }
+.ma-arows--results .ma-arow__text small { font-size: 13.5px; }
+.ma-bgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 22px 20px; }
+.ma-noresults { margin-top: 26px; padding: 22px; border-radius: 16px; background: var(--ma-fill); font-size: 16px; color: var(--ma-text-2); }
+.ma-noresults b { color: var(--ma-text); }
+
+/* A filtered list: its name and size, a sort, removable filters, the grid. */
+.ma-blist { margin-top: 24px; }
+.ma-blist__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.ma-blist__title { margin: 0; font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; color: var(--ma-text); }
+.ma-blist__count { margin: 6px 0 0; font-size: 14.5px; color: var(--ma-text-2); }
+.ma-sort { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ma-text-2); }
+.ma-sort select {
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ma-fill-2);
+  color: var(--ma-text);
+  font: inherit;
+  font-size: 14.5px;
+  box-shadow: inset 0 0 0 1px var(--ma-hair);
+  cursor: pointer;
+}
+.ma-sort select option { background: var(--ma-raised); color: var(--ma-text); }
+.ma-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; }
+.ma-chips:first-child { margin-top: 20px; }
+.ma-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--ma-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ma-chip:hover { background: color-mix(in oklab, var(--accent) 26%, transparent); }
+.ma-chip .ma-i { width: 16px; height: 16px; }
+
+/* "Show more" / "Load more" under a list (Search, AlbumGrid). */
+.ma-shell .search-load-more { display: flex; justify-content: center; margin-top: 22px; }
+.ma-shell .search-load-more[hidden] { display: none; }
+.ma-shell .btn-load-more {
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ma-fill-2);
+  color: var(--ma-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: inset 0 0 0 1px var(--ma-hair);
+  cursor: pointer;
+  transition: background 160ms, transform 160ms var(--ma-ease);
+}
+.ma-shell .btn-load-more:hover { background: var(--ma-fill-3); color: var(--ma-text); }
+.ma-shell .btn-load-more:active { transform: scale(0.96); }
+
+@media (min-width: 1100px) {
+  .ma-bigsearch { top: calc(var(--ma-top-h) + 8px); }
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+  .ma-sres { grid-template-columns: minmax(0, 1fr); }
+  .ma-topres { grid-template-columns: 96px minmax(0, 1fr); align-items: center; column-gap: 18px; }
+  .ma-topres__art { width: 96px; height: 96px; grid-row: 1 / span 2; }
+  .ma-topres__name { margin: 0; align-self: end; font-size: 26px; }
+  .ma-topres__kind { align-self: start; }
+  .ma-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .ma-searchpage { padding-top: 12px; }
+  .ma-page-title { font-size: 34px; }
+  .ma-bigsearch { --band-top: 4px; top: calc(var(--ma-top-h) + 4px); height: 54px; margin-top: 14px; }
+  .ma-sres { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .ma-sres .ma-arows { margin: 0 -14px; }
+  .ma-topres { grid-template-columns: 76px minmax(0, 1fr); align-items: center; column-gap: 16px; padding: 14px; }
+  .ma-topres__art { width: 76px; height: 76px; grid-row: 1 / span 2; }
+  .ma-topres__name { margin: 0; align-self: end; font-size: 22px; }
+  .ma-topres__kind { align-self: start; }
+  .ma-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .ma-tiles .ma-tile { aspect-ratio: 1.35; }
+  .ma-arows--results .ma-arow { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; }
+  .ma-arows--results .ma-arow__art { width: 52px; height: 52px; }
+  .ma-arows--results .ma-arow__views { font-size: 12.5px; }
+  .ma-bgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; }
+  .ma-blist__title { font-size: 26px; }
 }
 
 /* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
@@ -959,10 +1200,7 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
 /* ─── Pages inside the shell ─────────────────────────────────────────────────── */
 .ma-shell #main:focus { outline: none; }
 
-/* Browse: the Genres and Countries sections the sidebar links to (#genres,
-   #countries), one pill per facet page. */
-.ma-facets { margin-top: 40px; scroll-margin-top: calc(var(--ma-top-h) + 16px); }
-.ma-facets__title { margin-bottom: 14px; font-size: 23px; font-weight: 700; letter-spacing: -0.02em; color: var(--ma-text); }
+/* Pills: a facet page link with its album count (Browse, the album page). */
 .ma-pills { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
 .ma-pill {
   display: inline-flex;

@@ -1,19 +1,32 @@
-// Search island — all browse interactivity lives here.
+// Search island: the Browse page's search field and what it shows, as in the
+// prototype's search screen. Three modes, from the URL and the field:
+//   - empty: nothing typed and no filter. The island draws only the field; the
+//     genre and country tiles under it are server-rendered by browse.astro (and
+//     hidden by CSS once the island leaves this mode).
+//   - results (?q=): a Top result, the matching albums as rows with a ▶, the
+//     bands that have a page, and the matching genre and country pages
+//     (lib/search.ts ranks them). Live recordings are searchable.
+//   - list (?genre= ?country= ?year= ?release_type= ?sort=, no q): the albums
+//     those filters keep, live recordings left out like every feed, as a grid
+//     with a sort and "Load more". These are the old Browse links ("Most played:
+//     See all" is ?sort=views); each filter is a chip that removes it.
 //
-// The full browse-index (~1298 entries) is fetched once on mount, then ALL
-// filtering/sorting/pagination is done in memory. 1298 objects is trivial for
-// the browser; no debounce needed for filters, only for the text input.
-//
-// URL query-string is synced on every state change so links are bookmarkable.
-// On mount, URL params are read back to restore state (e.g. from Reflex links
-// like /browse?genre=Death+Metal).
+// The index (/browse-index.json, ~2,700 entries) is fetched once, when the URL
+// asks for results or the field is first used, then everything runs in memory.
+// The URL follows the field and the filters (replaceState, keeping the history
+// entry's state: ClientRouter keeps its scroll position there), and so does the
+// number of results revealed, so Back reopens the list as far as it was.
 
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
-import { countryLabel, genreLabel } from '../lib/labels.js';
-import { formatCardMeta } from '../lib/cardMeta.js';
+import { countryFlag, countryLabel, genreLabel } from '../lib/labels.js';
+import { formatCardMeta, NO_GENRE } from '../lib/cardMeta.js';
 import { displayTitle } from '../lib/title.js';
 import { coverMode } from '../lib/coverDisplay.js';
-import { GLYPH_PLAY } from '../lib/icons.js';
+import { GLYPH_PLAY, ICONS } from '../lib/icons.js';
+import { slugify } from '../lib/slug.js';
+import { isLiveRecording } from '../lib/live.js';
+import { searchAlbums, searchBands, searchFacets, topResult } from '../lib/search.js';
+import type { BrowseEntry } from '../lib/types.js';
 
 // The cover as components/CoverArt.astro draws it: a square crop fills the box, a
 // YouTube frame sits whole over a blurred copy of itself, never centre-cropped.
@@ -37,344 +50,421 @@ function Art({ src }: { src: string }) {
   );
 }
 
-// Mirrors BrowseEntry from types.ts — must stay in sync.
-interface BrowseEntry {
-  id: number;
-  band_name: string;
-  album_title: string;
-  genre: string | null;
-  country: string | null;
-  year: number | null;
-  release_type: string | null;
-  views: number | null;
-  thumb: string;
-  cover: string;
-  youtube_video_id: string | null;
-  accent?: string;   // encoded accent tokens for the ▶ (lib/accent.ts)
+function Icon({ name }: { name: keyof typeof ICONS }) {
+  return <svg class="ma-i" viewBox="0 0 24 24" aria-hidden="true" focusable="false" dangerouslySetInnerHTML={{ __html: ICONS[name] }} />;
 }
 
-interface SearchProps {
-  genres: string[];
-  countries: string[];
-  years: string[];
-  totalCount: number;
-  // First 24 entries from the server-rendered pass — used to render
-  // immediately before the full index download completes.
-  initial: BrowseEntry[];
-}
+const Glyph = () => (
+  <svg data-glyph viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
+);
 
-const PAGE_SIZE = 24;
+const FILTERS = ['genre', 'country', 'year', 'release_type'] as const;
+type FilterKey = (typeof FILTERS)[number];
+type Filters = Record<FilterKey, string>;
+const NO_FILTERS: Filters = { genre: '', country: '', year: '', release_type: '' };
 
-// Sort keys mapped to UI labels. Logic keys off o.value (never the label),
-// so translating the labels is safe and does not affect sorting behavior.
+// Sort keys mapped to UI labels. Logic keys off o.value (never the label).
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'newest', label: 'Newest first' },
   { value: 'oldest', label: 'Oldest first' },
-  { value: 'az',     label: 'A — Z' },
-  { value: 'za',     label: 'Z — A' },
-  { value: 'views',  label: 'Most viewed' },
+  { value: 'az', label: 'A — Z' },
+  { value: 'za', label: 'Z — A' },
+  { value: 'views', label: 'Most viewed' },
 ];
 
-// Read a string param from the current URL search string.
-function qp(name: string): string {
-  if (typeof window === 'undefined') return '';
-  return new URLSearchParams(window.location.search).get(name) ?? '';
+const RESULTS_STEP = 20;
+const GRID_STEP = 24;
+const SHOWN_KEY = 'browseShown';
+
+const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
+
+function sorted(list: BrowseEntry[], sort: string): BrowseEntry[] {
+  const out = list.slice();
+  if (sort === 'az') return out.sort((a, b) => a.band_name.localeCompare(b.band_name));
+  if (sort === 'za') return out.sort((a, b) => b.band_name.localeCompare(a.band_name));
+  if (sort === 'oldest') return out.sort((a, b) => a.id - b.id);
+  // Views: an uncounted album last, a tie to the newer upload.
+  if (sort === 'views') return out.sort((a, b) => (b.views ?? -1) - (a.views ?? -1) || b.id - a.id);
+  return out.sort((a, b) => b.id - a.id); // newest: a higher id was added later
 }
 
-// Sync active filters into the browser URL without a page reload.
-function syncUrl(params: Record<string, string>) {
+function filterLabel(key: FilterKey, value: string): string {
+  if (key === 'genre') return genreLabel(value);
+  if (key === 'country') return `${countryFlag(value) ? countryFlag(value) + ' ' : ''}${countryLabel(value)}`;
+  return value;
+}
+
+/** Replace the URL's query, keeping the history entry's state (ClientRouter's scroll). */
+function writeUrl(params: Record<string, string>, extra: Record<string, unknown> = {}) {
   const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v) sp.set(k, v);
-  }
+  for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
   const qs = sp.toString();
-  const url = window.location.pathname + (qs ? '?' + qs : '');
-  window.history.replaceState(null, '', url);
+  const url = window.location.pathname + (qs ? `?${qs}` : '');
+  history.replaceState({ ...(history.state ?? {}), ...extra }, '', url);
 }
 
-// Case-insensitive substring — faster than .toLowerCase() + .includes() in a
-// loop when called 1298x per keystroke because we avoid allocating new strings.
-function contains(haystack: string | null, needle: string): boolean {
-  if (!haystack) return false;
-  return haystack.toLowerCase().includes(needle);
+interface SearchProps {
+  total: number;
 }
 
-export default function Search({ genres, countries, years, totalCount, initial }: SearchProps) {
-  // ─── Index state ──────────────────────────────────────────────────────────
-  const [index, setIndex] = useState<BrowseEntry[]>(initial);
-  const [indexLoaded, setIndexLoaded] = useState(false);
+export default function Search({ total }: SearchProps) {
+  const [index, setIndex] = useState<BrowseEntry[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [sort, setSort] = useState('');
+  const [shown, setShown] = useState(0);
+  const loading = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Filter / sort state (initialised from URL on mount) ─────────────────
-  const [query, setQuery]       = useState('');
-  const [genre, setGenre]       = useState('');
-  const [country, setCountry]   = useState('');
-  const [year, setYear]         = useState('');
-  const [releaseType, setRelType] = useState('');
-  const [sort, setSort]         = useState('newest');
+  const q = query.trim();
+  const hasFilter = FILTERS.some((k) => filters[k]) || !!sort;
+  const mode: 'empty' | 'results' | 'list' = q ? 'results' : hasFilter ? 'list' : 'empty';
 
-  // Pagination — page is reset on any filter/sort change.
-  const [page, setPage] = useState(1);
-
-  // Whether the user has ever interacted — we suppress the "no results" msg
-  // while the index is still downloading and initial-data is showing.
-  const [active, setActive] = useState(false);
-
-  // Debounce ref for the text input.
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ─── Mount: read URL params + fetch full index ────────────────────────────
-  useEffect(() => {
-    // Restore URL state.
-    const q  = qp('q');
-    const g  = qp('genre');
-    const c  = qp('country');
-    const y  = qp('year');
-    const rt = qp('release_type');
-    const s  = qp('sort');
-    if (q)  { setQuery(q);    setActive(true); }
-    if (g)  { setGenre(g);    setActive(true); }
-    if (c)  { setCountry(c);  setActive(true); }
-    if (y)  { setYear(y);     setActive(true); }
-    if (rt) { setRelType(rt); setActive(true); }
-    if (s)  { setSort(s);     setActive(true); }
-
-    // Fetch full index (served from public/ root — no Astro base).
+  const loadIndex = () => {
+    if (loading.current) return;
+    loading.current = true;
     fetch('/browse-index.json')
-      .then((r) => r.json())
-      .then((data: BrowseEntry[]) => {
-        setIndex(data);
-        setIndexLoaded(true);
-      })
-      .catch(() => {
-        // If fetch fails, keep using the initial 24 entries.
-        setIndexLoaded(true);
-      });
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: BrowseEntry[]) => setIndex(data))
+      .catch(() => setFailed(true));
+  };
+
+  // ─── Mount: the URL's state, and the index when it is needed now ──────────
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const f = { ...NO_FILTERS };
+    for (const k of FILTERS) f[k] = sp.get(k) ?? '';
+    const q0 = sp.get('q') ?? '';
+    setQuery(q0);
+    setFilters(f);
+    setSort(sp.get('sort') ?? '');
+    const saved = history.state?.[SHOWN_KEY];
+    if (Number.isInteger(saved)) setShown(saved);
+    if (q0.trim() || FILTERS.some((k) => f[k]) || sp.get('sort')) loadIndex();
   }, []);
 
-  // ─── URL sync on every filter change ─────────────────────────────────────
-  useEffect(() => {
-    syncUrl({ q: query, genre, country, year, release_type: releaseType, sort: sort === 'newest' ? '' : sort });
-  }, [query, genre, country, year, releaseType, sort]);
+  // ─── URL follows the field (debounced) and the filters ────────────────────
+  const syncUrl = (next: { q?: string; filters?: Filters; sort?: string; shown?: number }) => {
+    const params: Record<string, string> = {
+      q: (next.q ?? query).trim(),
+      ...(next.filters ?? filters),
+      sort: next.sort ?? sort,
+    };
+    writeUrl(params, { [SHOWN_KEY]: next.shown ?? 0 });
+  };
 
-  // ─── Derived: filtered + sorted result list ───────────────────────────────
-  const filtered = useMemo(() => {
-    const needle = query.toLowerCase().trim();
-
-    let result = index.filter((e) => {
-      // Text search over band + album + genre + country, so typing a country
-      // (e.g. "Honduras") returns results instead of silently emptying.
-      if (
-        needle &&
-        !contains(e.band_name, needle) &&
-        !contains(e.album_title, needle) &&
-        !contains(e.genre, needle) &&
-        !contains(e.country, needle)
-      ) {
-        return false;
-      }
-      if (genre       && e.genre        !== genre)       return false;
-      if (country     && e.country      !== country)     return false;
-      if (year        && String(e.year) !== year)        return false;
-      if (releaseType && e.release_type !== releaseType) return false;
-      return true;
-    });
-
-    // Sort.
-    if (sort === 'az') {
-      result = result.slice().sort((a, b) => a.band_name.localeCompare(b.band_name));
-    } else if (sort === 'za') {
-      result = result.slice().sort((a, b) => b.band_name.localeCompare(a.band_name));
-    } else if (sort === 'newest') {
-      // Index is ordered band_name ASC from DB; for newest we reverse by id
-      // (higher id = more recently added). A full sort is done here because the
-      // server sends index alphabetically.
-      result = result.slice().sort((a, b) => b.id - a.id);
-    } else if (sort === 'oldest') {
-      result = result.slice().sort((a, b) => a.id - b.id);
-    } else if (sort === 'views') {
-      // Real "Mas vistos" — views now travels in the index. NULL views sort to
-      // the bottom (treated as -1); ties break by id desc (newer first) so the
-      // order is stable and deterministic.
-      result = result.slice().sort((a, b) => {
-        const av = a.views ?? -1;
-        const bv = b.views ?? -1;
-        return bv - av || b.id - a.id;
-      });
-    }
-
-    return result;
-  }, [index, query, genre, country, year, releaseType, sort]);
-
-  // ─── Pagination ───────────────────────────────────────────────────────────
-  const visible = filtered.slice(0, page * PAGE_SIZE);
-  const hasMore = visible.length < filtered.length;
-
-  // Reset to page 1 when filters/sort change.
-  // useMemo runs synchronously before render so we can't setPage inside it;
-  // use an effect that tracks the dependencies.
-  const prevFilters = useRef('');
-  useEffect(() => {
-    const sig = query + genre + country + year + releaseType + sort;
-    if (sig !== prevFilters.current) {
-      prevFilters.current = sig;
-      setPage(1);
-    }
-  }, [query, genre, country, year, releaseType, sort]);
-
-  // ─── Release-type options derived from the loaded index ──────────────────
-  const releaseTypes = useMemo(() => {
-    const seen = new Set<string>();
-    for (const e of index) {
-      if (e.release_type) seen.add(e.release_type);
-    }
-    return [...seen].sort();
-  }, [index]);
-
-  // ─── Handlers ─────────────────────────────────────────────────────────────
-  function onQueryInput(e: Event) {
-    const val = (e.target as HTMLInputElement).value;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setQuery(val);
-      setActive(true);
-    }, 300);
+  function onInput(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    setQuery(value);
+    setShown(0);
+    loadIndex();
+    if (urlTimer.current) clearTimeout(urlTimer.current);
+    urlTimer.current = setTimeout(() => syncUrl({ q: value, shown: 0 }), 250);
+  }
+  function clearQuery() {
+    setQuery('');
+    setShown(0);
+    syncUrl({ q: '', shown: 0 });
+    inputRef.current?.focus();
+  }
+  function removeFilter(key: FilterKey) {
+    const next = { ...filters, [key]: '' };
+    setFilters(next);
+    setShown(0);
+    syncUrl({ filters: next, shown: 0 });
+  }
+  function onSort(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    setSort(value);
+    setShown(0);
+    syncUrl({ sort: value, shown: 0 });
+  }
+  function showMore(step: number) {
+    const n = (shown || step) + step;
+    setShown(n);
+    syncUrl({ shown: n });
   }
 
-  function handleGenre(e: Event)   { setGenre((e.target as HTMLSelectElement).value);   setActive(true); }
-  function handleCountry(e: Event) { setCountry((e.target as HTMLSelectElement).value); setActive(true); }
-  function handleYear(e: Event)    { setYear((e.target as HTMLSelectElement).value);    setActive(true); }
-  function handleRelType(e: Event) { setRelType((e.target as HTMLSelectElement).value); setActive(true); }
-  function handleSort(e: Event)    { setSort((e.target as HTMLSelectElement).value);    setActive(true); }
+  // ─── Derived ──────────────────────────────────────────────────────────────
+  // Bands with a page (2+ albums under the exact name), for each ▶'s band link.
+  const bandPages = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of index ?? []) counts.set(a.band_name, (counts.get(a.band_name) ?? 0) + 1);
+    return counts;
+  }, [index]);
+  const bandHref = (band: string) =>
+    (bandPages.get(band) ?? 0) >= 2
+      ? `/metal-archive/band/${slugify(band)}`
+      : `/metal-archive/browse?q=${encodeURIComponent(band)}`;
+
+  const results = useMemo(() => {
+    if (mode !== 'results' || !index) return null;
+    const pool = index.filter((a) => FILTERS.every((k) => !filters[k] || String(a[k] ?? '') === filters[k]));
+    const albums = searchAlbums(pool, q);
+    const bands = searchBands(index, q);
+    return { albums, bands, facets: searchFacets(index, q), top: topResult(q, bands, albums) };
+  }, [mode, index, q, filters]);
+
+  const list = useMemo(() => {
+    if (mode !== 'list' || !index) return null;
+    const kept = index.filter(
+      (a) => !isLiveRecording(a.album_title) && FILTERS.every((k) => !filters[k] || String(a[k] ?? '') === filters[k]),
+    );
+    return sorted(kept, sort || 'newest');
+  }, [mode, index, filters, sort]);
+
+  // ─── Pieces ───────────────────────────────────────────────────────────────
+  const playAttrs = (a: BrowseEntry) => {
+    const videoId = (a.youtube_video_id || '').trim();
+    if (!videoId) return null;
+    return {
+      'data-play-card': '',
+      'data-video-id': videoId,
+      'data-album-id': String(a.id),
+      'data-band': a.band_name,
+      'data-title': displayTitle(a.album_title),
+      'data-thumb': a.thumb || '',
+      'data-cover': a.cover || a.thumb || '',
+      'data-href': `/metal-archive/album/${a.id}`,
+      'data-meta': formatCardMeta(a),
+      'data-band-href': bandHref(a.band_name),
+      ...(a.accent ? { 'data-accent': a.accent } : {}),
+    };
+  };
+
+  const albumRow = (a: BrowseEntry) => {
+    const title = displayTitle(a.album_title);
+    const attrs = playAttrs(a);
+    const src = a.cover || a.thumb;
+    const sub = [a.band_name, a.year ? String(a.year) : '', a.genre === NO_GENRE ? '' : genreLabel(a.genre)].filter(Boolean).join(' · ');
+    return (
+      <li key={a.id} class="ma-arow">
+        {attrs ? (
+          <button type="button" class="ma-arow__art" aria-label={`Play ${title} by ${a.band_name}`} {...attrs}>
+            <Art src={src} />
+            <span class="ma-arow__icon" aria-hidden="true"><Glyph /></span>
+          </button>
+        ) : (
+          <span class="ma-arow__art"><Art src={src} /></span>
+        )}
+        <a class="ma-arow__text" href={`/metal-archive/album/${a.id}`}>
+          <b>{title}</b>
+          <small>{sub}</small>
+        </a>
+        {a.views != null && <span class="ma-arow__views">{plural(a.views, 'view')}</span>}
+      </li>
+    );
+  };
+
+  const card = (a: BrowseEntry) => {
+    const meta = formatCardMeta(a);
+    const attrs = playAttrs(a);
+    const href = `/metal-archive/album/${a.id}`;
+    const title = displayTitle(a.album_title);
+    const src = a.cover || a.thumb;
+    return (
+      <div key={a.id} class="ma-card">
+        {attrs ? (
+          <button type="button" class="ma-card__cover" aria-label={`Play ${title} by ${a.band_name}`} {...attrs}>
+            <Art src={src} />
+            <span class="ma-card__play" aria-hidden="true"><Glyph /></span>
+          </button>
+        ) : (
+          <a class="ma-card__cover" href={href} tabIndex={-1} aria-hidden="true"><Art src={src} /></a>
+        )}
+        <a class="ma-card__meta" href={href}>
+          <span class="ma-card__title">{title}</span>
+          <span class="ma-card__band">{a.band_name}</span>
+          {meta && <span class="ma-card__line" title={meta}>{meta}</span>}
+        </a>
+      </div>
+    );
+  };
+
+  const topCard = () => {
+    const top = results?.top;
+    if (!top) return null;
+    if (top.kind === 'band') {
+      const b = top.band;
+      return (
+        <a class="ma-topres" href={b.href}>
+          <span class="ma-topres__art"><Art src={b.cover} /></span>
+          <span class="ma-topres__name">{b.name}</span>
+          <span class="ma-topres__kind">Band<span class="ma-dot" aria-hidden="true">·</span>{plural(b.albums, 'album')}</span>
+        </a>
+      );
+    }
+    const a = top.album;
+    const attrs = playAttrs(a);
+    const title = displayTitle(a.album_title);
+    return (
+      <div class="ma-topres">
+        {attrs ? (
+          <button type="button" class="ma-topres__art ma-topres__play" aria-label={`Play ${title} by ${a.band_name}`} {...attrs}>
+            <Art src={a.cover || a.thumb} />
+            <span class="ma-arow__icon" aria-hidden="true"><Glyph /></span>
+          </button>
+        ) : (
+          <span class="ma-topres__art"><Art src={a.cover || a.thumb} /></span>
+        )}
+        <a class="ma-topres__name ma-topres__link" href={`/metal-archive/album/${a.id}`}>{title}</a>
+        <span class="ma-topres__kind">Album<span class="ma-dot" aria-hidden="true">·</span>{a.band_name}</span>
+      </div>
+    );
+  };
+
+  const chips = FILTERS.filter((k) => filters[k]).map((k) => (
+    <li key={k}>
+      <button type="button" class="ma-chip" onClick={() => removeFilter(k)} aria-label={`Remove the filter ${filterLabel(k, filters[k])}`}>
+        {filterLabel(k, filters[k])}
+        <Icon name="close" />
+      </button>
+    </li>
+  ));
 
   // ─── Render ───────────────────────────────────────────────────────────────
-  const showEmpty = active && indexLoaded && filtered.length === 0;
-  // While the full index is downloading, hide the result count so it doesn't
-  // flash "24 resultados" (initial data) then jump to the real number.
-  const resultLabel = indexLoaded
-    ? `${filtered.length} ${filtered.length === 1 ? 'result' : 'results'}`
-    : '';
+  const waiting = mode !== 'empty' && !index;
+  const listTitle = (() => {
+    const set = FILTERS.filter((k) => filters[k]);
+    if (set.length === 1 && set[0] !== 'release_type') return filterLabel(set[0], filters[set[0]]);
+    return set.length ? 'Filtered albums' : 'All albums';
+  })();
 
   return (
-    <div class="search-island">
-      {/* ── Controls ──────────────────────────────────────────────────── */}
-      <div class="search-controls">
-        <div class="search-input-wrap">
-          <input
-            type="search"
-            class="search-input"
-            placeholder="Search bands, albums, genres…"
-            defaultValue={query}
-            onInput={onQueryInput}
-            aria-label="Search albums"
-          />
-        </div>
-
-        <div class="search-filters">
-          <select class="search-select" value={genre} onChange={handleGenre} aria-label="Filter by genre">
-            <option value="">All genres</option>
-            {genres.map((g) => <option value={g}>{genreLabel(g)}</option>)}
-          </select>
-
-          {/* The option VALUE stays the raw (Spanish) database string so
-              filtering and ?country= links keep working; only the visible text
-              is translated. */}
-          <select class="search-select" value={country} onChange={handleCountry} aria-label="Filter by country">
-            <option value="">All countries</option>
-            {countries.map((c) => <option value={c}>{countryLabel(c)}</option>)}
-          </select>
-
-          <select class="search-select" value={year} onChange={handleYear} aria-label="Filter by year">
-            <option value="">All years</option>
-            {years.map((y) => <option value={y}>{y}</option>)}
-          </select>
-
-          <select class="search-select" value={releaseType} onChange={handleRelType} aria-label="Filter by release type">
-            <option value="">All types</option>
-            {releaseTypes.map((rt) => <option value={rt}>{rt}</option>)}
-          </select>
-
-          <select class="search-select" value={sort} onChange={handleSort} aria-label="Sort">
-            {SORT_OPTIONS.map((o) => <option value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* ── Result count ──────────────────────────────────────────────── */}
-      {resultLabel && (
-        <p class="search-result-count" aria-live="polite">{resultLabel}</p>
-      )}
-
-      {/* ── Empty state ───────────────────────────────────────────────── */}
-      {showEmpty && (
-        <p class="search-empty">No albums match these filters.</p>
-      )}
-
-      {/* ── Album grid ────────────────────────────────────────────────── */}
-      {/* data-queue: the ▶ of a result queues the results as shown here, in this
-          order, so "next" goes on to the next displayed result. The cards are the
-          same markup as components/AlbumCard.astro, plus the muted line
-          "country · year · genre" (lib/cardMeta.ts), which says why a result
-          matched the filters. */}
-      {!showEmpty && (
-        <div class="album-grid search-grid" data-queue>
-          {visible.map((a) => {
-            const meta = formatCardMeta(a);
-            const videoId = (a.youtube_video_id || '').trim();
-            const href = `/metal-archive/album/${a.id}`;
-            const title = displayTitle(a.album_title);
-            const src = a.cover || a.thumb;
-            return (
-            <div key={a.id} class="ma-card">
-              {videoId
-                ? (
-                  <button
-                    type="button"
-                    class="ma-card__cover"
-                    aria-label={`Play ${title} by ${a.band_name}`}
-                    data-play-card=""
-                    data-video-id={videoId}
-                    data-album-id={String(a.id)}
-                    data-band={a.band_name}
-                    data-title={title}
-                    data-thumb={a.thumb || ''}
-                    data-cover={src || ''}
-                    data-href={href}
-                    data-meta={meta}
-                    data-accent={a.accent}
-                  >
-                    <Art src={src} />
-                    <span class="ma-card__play" aria-hidden="true">
-                      <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
-                    </span>
-                  </button>
-                )
-                : (
-                  <a class="ma-card__cover" href={href} tabIndex={-1} aria-hidden="true">
-                    <Art src={src} />
-                  </a>
-                )}
-              <a class="ma-card__meta" href={href}>
-                <span class="ma-card__title">{title}</span>
-                <span class="ma-card__band">{a.band_name}</span>
-                {meta && <span class="ma-card__line" title={meta}>{meta}</span>}
-              </a>
-            </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Load more ─────────────────────────────────────────────────── */}
-      {hasMore && (
-        <div class="search-load-more">
-          <button
-            class="btn-load-more"
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Load more ({filtered.length - visible.length} remaining)
+    <div class="ma-search-island" data-mode={mode}>
+      <h1 class="ma-page-title">{mode === 'list' ? 'Browse' : 'Search'}</h1>
+      <form class="ma-bigsearch" role="search" action="/metal-archive/browse" method="get" onSubmit={(e) => { e.preventDefault(); inputRef.current?.blur(); }}>
+        <Icon name="search" />
+        <input
+          ref={inputRef}
+          type="search"
+          name="q"
+          value={query}
+          onInput={onInput}
+          onFocus={loadIndex}
+          placeholder="Bands, albums, genres, countries"
+          aria-label="Search the archive"
+          autocomplete="off"
+          enterkeyhint="search"
+        />
+        {query && (
+          <button type="button" class="ma-bigsearch__clear" onClick={clearQuery} aria-label="Clear the search">
+            <Icon name="close" />
           </button>
-        </div>
-      )}
+        )}
+      </form>
+
+      <div class="ma-results" aria-live="polite">
+        {waiting && !failed && <p class="ma-results__note">Loading the archive…</p>}
+        {waiting && failed && <p class="ma-results__note">The archive could not be loaded. Check the connection and reload the page.</p>}
+
+        {results && (() => {
+          const { albums, bands, facets } = results;
+          const n = shown || RESULTS_STEP;
+          if (albums.length === 0 && bands.length === 0 && facets.length === 0) {
+            return (
+              <div class="ma-noresults">
+                <p><b>No match for “{q}”.</b> Try a band, a genre or a country.</p>
+              </div>
+            );
+          }
+          return (
+            <>
+              {chips.length > 0 && <ul class="ma-chips">{chips}</ul>}
+              {/* data-queue: a ▶ here plays these results in this order. */}
+              <div class="ma-sres" data-queue data-from={`Search: ${q}`} data-from-href={`/metal-archive/browse?q=${encodeURIComponent(q)}`}>
+                {results.top && (
+                  <section class="ma-sres__top" aria-labelledby="top-h">
+                    <h2 class="ma-sect__title" id="top-h">Top result</h2>
+                    {topCard()}
+                  </section>
+                )}
+                {albums.length > 0 && (
+                  <section class="ma-sres__albums" aria-labelledby="alb-h">
+                    <h2 class="ma-sect__title" id="alb-h">Albums <small>{albums.length.toLocaleString('en-US')}</small></h2>
+                    <ol class="ma-arows ma-arows--results">{albums.slice(0, n).map(albumRow)}</ol>
+                    {albums.length > n && (
+                      <div class="search-load-more">
+                        <button type="button" class="btn-load-more" onClick={() => showMore(RESULTS_STEP)}>
+                          Show more ({(albums.length - n).toLocaleString('en-US')} remaining)
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
+              </div>
+              {bands.length > 0 && (
+                <section class="ma-sect ma-sres__bands" aria-labelledby="bands-h">
+                  <h2 class="ma-sect__title" id="bands-h">Bands</h2>
+                  <div class="ma-bgrid">
+                    {bands.slice(0, 8).map((b) => (
+                      <a key={b.name} class="ma-bcard" href={b.href}>
+                        <span class="ma-bcard__art"><Art src={b.cover} /></span>
+                        <span class="ma-bcard__name">{b.name}</span>
+                        <span class="ma-bcard__sub">{plural(b.albums, 'album')}</span>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {facets.length > 0 && (
+                <section class="ma-sect" aria-labelledby="fac-h">
+                  <h2 class="ma-sect__title" id="fac-h">Genres and countries</h2>
+                  <ul class="ma-pills">
+                    {facets.slice(0, 16).map((f) => (
+                      <li key={f.href}>
+                        <a class="ma-pill" href={f.href}>
+                          {f.flag && <span aria-hidden="true">{f.flag}</span>}
+                          {f.label}
+                          <small>{f.count.toLocaleString('en-US')}</small>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+          );
+        })()}
+
+        {list && (() => {
+          const n = shown || GRID_STEP;
+          const from = `${listTitle}${sort ? ` · ${SORT_OPTIONS.find((o) => o.value === sort)?.label ?? ''}` : ''}`;
+          return (
+            <section class="ma-blist" aria-labelledby="list-h">
+              <div class="ma-blist__head">
+                <div>
+                  <h2 class="ma-blist__title" id="list-h">{listTitle}</h2>
+                  <p class="ma-blist__count">{plural(list.length, 'album')}{FILTERS.some((k) => filters[k]) ? '' : ` of ${total.toLocaleString('en-US')}`}</p>
+                </div>
+                <label class="ma-sort">
+                  <span>Sort</span>
+                  <select value={sort || 'newest'} onChange={onSort}>
+                    {SORT_OPTIONS.map((o) => <option value={o.value}>{o.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              {chips.length > 0 && <ul class="ma-chips">{chips}</ul>}
+              {list.length === 0 ? (
+                <p class="ma-noresults">No albums match these filters.</p>
+              ) : (
+                <div class="album-grid" data-queue data-from={from} data-from-href={typeof window === 'undefined' ? '/metal-archive/browse' : location.pathname + location.search}>
+                  {list.slice(0, n).map(card)}
+                </div>
+              )}
+              {list.length > n && (
+                <div class="search-load-more">
+                  <button type="button" class="btn-load-more" onClick={() => showMore(GRID_STEP)}>
+                    Load more ({(list.length - n).toLocaleString('en-US')} remaining)
+                  </button>
+                </div>
+              )}
+            </section>
+          );
+        })()}
+      </div>
     </div>
   );
 }

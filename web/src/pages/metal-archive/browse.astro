@@ -1,19 +1,21 @@
 ---
-// Browse page — static shell that writes browse-index.json at build time,
-// renders an initial server-side grid of the first 24 albums (SEO + no blank
-// page before JS), then mounts the Search island which owns all interactivity.
+// Browse page: the archive's search, as in the prototype's search screen. It
+// writes browse-index.json at build time and mounts the Search island, which
+// owns the field and its results (islands/Search.tsx). Under it, the page's own
+// HTML is the empty state: a tile per big genre and country (the sidebar's
+// Genres and Countries land on #genres and #countries), the rest as links. The
+// island hides that while it shows results or a filtered list (archive.css).
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ClientRouter } from 'astro:transitions';
-import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, getGenreFacetGroups, groupFacetsBySlug, isLiveRecording } from '../../lib/db.js';
+import { getBrowseIndex, getAllCountries, getGenreFacetGroups, groupFacetsBySlug, getFacetTiles, isLiveRecording } from '../../lib/db.js';
 import { countryFlag, countryLabel, genreLabel } from '../../lib/labels.js';
 import { encodeAccent } from '../../lib/accent.js';
 import { getAlbumAccent } from '../../lib/vibrant.js';
 import ArchiveChrome from '../../components/ArchiveChrome.astro';
+import FacetTile from '../../components/FacetTile.astro';
 import Footer from '../../components/Footer.astro';
 import Search from '../../islands/Search.tsx';
-import CoverArt from '../../components/CoverArt.astro';
-import { displayTitle } from '../../lib/title.js';
 import '../../styles/global.css';
 import '../../styles/archive.css';
 
@@ -59,34 +61,31 @@ for (const target of [
   }
 }
 
-// ─── Initial static grid (first 24, by band_name ASC — same default as index).
-// Live recordings (Daniel's own live sets) are excluded from the DEFAULT browse
-// view so official albums lead; they remain in the full index JSON and stay
-// searchable, just not surfaced as part of the unfiltered default grid.
-const officialIndex = index.filter((a) => !isLiveRecording(a.album_title));
-const initial = officialIndex.slice(0, 24);
-
-// ─── Filter option lists for the dropdowns (passed as props to avoid redundant
-//     JS parsing of the full index just to build option arrays on mount).
-const genres = getAllGenres().map((f) => f.value);
-const countries = getAllCountries().map((f) => f.value);
-const years = getAllYears().map((f) => String(f.value));
-
 const totalCount = index.length;
 
-// Genres and Countries (the shell's sidebar links here, #genres / #countries):
-// one link per facet page, biggest first, with the same slugs as getStaticPaths.
-const genreLinks = getGenreFacetGroups()
+// ─── Empty state: tiles for the biggest facets, links for the rest ───────────
+// The tiles take the same ranks and colours as the home's rows; the links list
+// every other facet page (the catch-all "Metal" and the unknown-genre page
+// included), biggest first, with the same slugs as getStaticPaths.
+const TILES = 18;
+const genreTiles = getFacetTiles('genre', TILES);
+const countryTiles = getFacetTiles('country', TILES);
+const tiled = (list: { slug: string }[]) => new Set(list.map((t) => t.slug));
+const genreTiled = tiled(genreTiles);
+const countryTiled = tiled(countryTiles);
+const moreGenres = getGenreFacetGroups()
+  .filter((g) => !genreTiled.has(g.slug))
   .sort((a, b) => b.count - a.count)
   .map((g) => ({ href: `/metal-archive/genre/${g.slug}`, label: genreLabel(g.label), count: g.count }));
-const countryLinks = groupFacetsBySlug(getAllCountries())
+const moreCountries = groupFacetsBySlug(getAllCountries())
+  .filter((g) => !countryTiled.has(g.slug))
   .sort((a, b) => b.count - a.count)
   .map((g) => ({ href: `/metal-archive/country/${g.slug}`, label: countryLabel(g.label), flag: countryFlag(g.label), count: g.count }));
 
-const pageTitle = 'Browse albums | Metal Archive';
-const metaDesc = `Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`;
+const pageTitle = 'Search | Metal Archive';
+const metaDesc = `Search ${totalCount} underground metal albums by band, album, genre or country.`;
 const canonical = 'https://danielbanariba.com/metal-archive/browse';
-const ogImage = initial[0]?.thumb || undefined;
+const ogImage = index.find((a) => !isLiveRecording(a.album_title))?.thumb || undefined;
 ---
 
 <!DOCTYPE html>
@@ -108,67 +107,42 @@ const ogImage = initial[0]?.thumb || undefined;
   <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
-<body class="ma-shell">
+<body class="ma-shell ma">
   <ArchiveChrome />
 
-  <main class="browse-page" id="main" tabindex="-1">
-    <div class="browse-header">
-      <h1 class="browse-title">Browse albums</h1>
-      <p class="browse-subtitle">{totalCount} albums in the archive</p>
+  <main class="ma-searchpage" id="main" tabindex="-1">
+    <Search client:load total={totalCount} />
+
+    <div class="ma-browse-empty">
+      <section class="ma-browse" id="genres" aria-labelledby="genres-h">
+        <h2 class="ma-sect__title" id="genres-h">Genres</h2>
+        <div class="ma-tiles">
+          {genreTiles.map((t, i) => <FacetTile kind="genre" tile={t} rank={i} />)}
+        </div>
+        {moreGenres.length > 0 && (
+          <details class="ma-more-facets">
+            <summary>All genres <small>{moreGenres.length} more</small></summary>
+            <ul class="ma-pills">
+              {moreGenres.map((g) => <li><a class="ma-pill" href={g.href}>{g.label}<small>{g.count}</small></a></li>)}
+            </ul>
+          </details>
+        )}
+      </section>
+      <section class="ma-browse" id="countries" aria-labelledby="countries-h">
+        <h2 class="ma-sect__title" id="countries-h">Countries</h2>
+        <div class="ma-tiles">
+          {countryTiles.map((t, i) => <FacetTile kind="country" tile={t} rank={i} />)}
+        </div>
+        {moreCountries.length > 0 && (
+          <details class="ma-more-facets">
+            <summary>All countries <small>{moreCountries.length} more</small></summary>
+            <ul class="ma-pills">
+              {moreCountries.map((c) => <li><a class="ma-pill" href={c.href}>{c.flag && <span aria-hidden="true">{c.flag}</span>}{c.label}<small>{c.count}</small></a></li>)}
+            </ul>
+          </details>
+        )}
+      </section>
     </div>
-
-    <!--
-      Search island owns ALL interactivity.
-      The `initial` prop gives it the first-page data without an extra fetch,
-      so cards are visible before the full index download completes.
-      `client:load` hydrates immediately (search is the primary purpose of
-      this page — no point deferring).
-    -->
-    <Search
-      client:load
-      genres={genres}
-      countries={countries}
-      years={years}
-      totalCount={totalCount}
-      initial={initial}
-    />
-
-    <!--
-      No-JS fallback: a static grid that mirrors what the island will render.
-      Hidden once the island takes over (the island replaces .browse-static).
-    -->
-    <noscript>
-      <div class="album-grid browse-static">
-        {initial.map((a) => (
-          <div class="ma-card">
-            <a class="ma-card__cover" href={`/metal-archive/album/${a.id}`} tabindex="-1" aria-hidden="true">
-              <CoverArt src={a.cover || a.thumb} />
-            </a>
-            <a class="ma-card__meta" href={`/metal-archive/album/${a.id}`}>
-              <span class="ma-card__title">{displayTitle(a.album_title)}</span>
-              <span class="ma-card__band">{a.band_name}</span>
-            </a>
-          </div>
-        ))}
-      </div>
-    </noscript>
-
-    <section class="ma-facets" id="genres" aria-labelledby="genres-h">
-      <h2 class="ma-facets__title" id="genres-h">Genres</h2>
-      <ul class="ma-pills">
-        {genreLinks.map((g) => (
-          <li><a class="ma-pill" href={g.href}>{g.label}<small>{g.count}</small></a></li>
-        ))}
-      </ul>
-    </section>
-    <section class="ma-facets" id="countries" aria-labelledby="countries-h">
-      <h2 class="ma-facets__title" id="countries-h">Countries</h2>
-      <ul class="ma-pills">
-        {countryLinks.map((c) => (
-          <li><a class="ma-pill" href={c.href}>{c.flag && <span aria-hidden="true">{c.flag}</span>}{c.label}<small>{c.count}</small></a></li>
-        ))}
-      </ul>
-    </section>
   </main>
 
   <Footer />
