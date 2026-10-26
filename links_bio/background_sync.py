@@ -143,6 +143,19 @@ def find_node_bin():
     return None
 
 
+def node_env() -> dict:
+    """A copy of os.environ with nvm's bin first on PATH, so npm, node, npx
+    AND vercel all resolve in a subprocess. Shared by the Astro build+deploy
+    and by scripts/deploy_on_merge.py's `npm ci`. Raises if no nvm install
+    with npm and vercel is found (see find_node_bin())."""
+    node_bin = find_node_bin()
+    if not node_bin:
+        raise RuntimeError("npm/vercel not found under ~/.local/share/nvm/v*/bin")
+    env = dict(os.environ)
+    env["PATH"] = node_bin + os.pathsep + env.get("PATH", "")
+    return env
+
+
 def _masked_cmd(cmd: list) -> str:
     """Render a subprocess argv list for logging with any `--token` value
     redacted. Never used to build the real argv passed to subprocess.run --
@@ -371,13 +384,7 @@ def run_astro_build_and_deploy(skip_deploy: bool = False) -> None:
     if not web_dir.exists():
         raise RuntimeError(f"web/ directory not found at {web_dir}")
 
-    node_bin = find_node_bin()
-    if not node_bin:
-        raise RuntimeError("npm/vercel not found under ~/.local/share/nvm/v*/bin")
-
-    # Prepend nvm's bin so npm, node, npx AND vercel all resolve in the subprocess.
-    env = dict(os.environ)
-    env["PATH"] = node_bin + os.pathsep + env.get("PATH", "")
+    env = node_env()
 
     build_astro_site(env)
 

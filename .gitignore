@@ -49,3 +49,5 @@ node_modules
 
 # links_bio/deploy_lock.py: the flock the sync and deploy jobs share.
 .deploy.lock
+# scripts/deploy_on_merge.py: this host's deployed_sha and failed_sha.
+.deploy-state.json
