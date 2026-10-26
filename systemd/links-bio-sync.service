@@ -19,5 +19,7 @@ EnvironmentFile=/home/banar/Desktop/links-bio/.env
 ExecStart=/home/banar/Desktop/links-bio/env/bin/python /home/banar/Desktop/links-bio/scripts/sync_and_deploy.py
 # Generous: YouTube sync + artwork lookups + a full Astro build (~1300
 # covers, vibrant color extraction) + a Vercel deploy can legitimately take
-# a while.
-TimeoutStartSec=3600
+# a while. On top of that hour, scripts/sync_and_deploy.py may first wait up
+# to 65 minutes for the deploy lock while links-bio-deploy.service deploys a
+# merge (LOCK_WAIT_SECONDS), hence 3600 + 3900.
+TimeoutStartSec=7500

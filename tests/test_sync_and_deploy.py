@@ -21,6 +21,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -29,7 +31,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from links_bio import background_sync as bg  # noqa: E402
+from links_bio import deploy_lock  # noqa: E402
 from scripts import sync_and_deploy  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _private_deploy_lock(tmp_path, monkeypatch):
+    """main() takes the shared deploy lock: point it at a scratch file so
+    no test creates or contends for the checkout's own .deploy.lock."""
+    monkeypatch.setattr(deploy_lock, "LOCK_PATH", tmp_path / ".deploy.lock")
+    monkeypatch.setattr(deploy_lock, "POLL_SECONDS", 0.05)
 
 
 def _fake_vercel_popen(deploy_results=((0, []),), whoami_exits=(0,)):
@@ -387,3 +398,47 @@ def test_deploy_retry_exhausted_never_leaks_token(monkeypatch, caplog, capsys):
     assert "fake-token-xyz" not in captured.out
     assert "fake-token-xyz" not in captured.err
     assert len(calls["deploy"]) == 2
+
+
+def test_sync_waits_for_a_running_deploy_instead_of_building_alongside_it(monkeypatch):
+    """Catches the sync building and deploying while a merge deploy is
+    mid-build (two builds racing over web/dist and node_modules), and a sync
+    that gives up at once and loses its twice-daily cycle just because a
+    deploy happened to be running."""
+    started = []
+    monkeypatch.setattr(
+        sync_and_deploy, "run_cycle", lambda *a, **k: started.append(time.monotonic()) or []
+    )
+    holder = deploy_lock.hold()
+    holder.__enter__()
+    released = []
+
+    def release():
+        released.append(time.monotonic())
+        holder.__exit__(None, None, None)
+
+    timer = threading.Timer(0.3, release)
+    timer.start()
+    try:
+        rc = sync_and_deploy.main(["--skip-youtube"])
+    finally:
+        timer.join()
+
+    assert rc == 0
+    assert started and started[0] >= released[0]
+
+
+def test_sync_fails_loudly_when_the_lock_never_frees(monkeypatch):
+    """Catches a sync that waits forever on a stuck lock holder (the unit
+    then dies on its own timeout with no clear reason), or one that skips
+    its cycle silently: past the wait limit it must exit non-zero without
+    running any step, so OnFailure sends the alert."""
+    monkeypatch.setattr(sync_and_deploy, "LOCK_WAIT_SECONDS", 0.2)
+    ran = []
+    monkeypatch.setattr(sync_and_deploy, "run_cycle", lambda *a, **k: ran.append(1) or [])
+
+    with deploy_lock.hold():
+        rc = sync_and_deploy.main(["--skip-youtube"])
+
+    assert rc == 1
+    assert ran == []
