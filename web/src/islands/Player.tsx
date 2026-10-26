@@ -332,26 +332,12 @@ export default function Player() {
       hide(timeoutRef.current);
     };
 
-    // ─── multi-surface sync (the album page's hero + the player's surfaces) ──
-    // The album page renders a big "now playing" hero with play/pause + progress;
-    // the player has its own. Every matching element is updated by class, so all
-    // control surfaces stay in lockstep no matter which one was pressed.
-    //
-    // The player's surfaces always show the album that plays. The hero (outside
-    // the player) belongs to the album of its page: it shows time and progress
-    // only while THAT album plays, and its own idle state otherwise.
-    const heroLive = () => isOpen() && pageIsPlayingAlbum(readNpData());
+    // ─── play/pause controls, inside the player and on the page ─────────────
+    // Every .js-pp control (the bar's, the view's, the home hero's art) follows
+    // the player's state by class, so they stay in lockstep whichever was pressed.
+    // The bar's thin progress line is the player's own.
     const setAllProgress = (pct: string) => {
-      const live = heroLive();
-      const shown = (el: Element) => (live || root.contains(el) ? pct : '0%');
-      document.querySelectorAll<HTMLElement>('.js-progress-fill').forEach((el) => {
-        el.style.width = shown(el);
-      });
-      // Mirror the visual fill onto the accessible progressbar (read-only): the
-      // role="progressbar" container exposes aria-valuenow for screen readers.
-      document.querySelectorAll('.js-progressbar').forEach((el) => {
-        el.setAttribute('aria-valuenow', String(Math.round(parseFloat(shown(el)) || 0)));
-      });
+      $$('.js-progress-fill').forEach((el) => { el.style.width = pct; });
     };
     // The label says what pressing the control does, so it replaces aria-pressed
     // (a toggle whose name already flips would be announced twice over). The
@@ -384,16 +370,6 @@ export default function Player() {
       const sec = Math.floor(s % 60);
       return `${m}:${sec < 10 ? '0' : ''}${sec}`;
     };
-    const setTimes = (cur: number, dur: number) => {
-      const live = heroLive();
-      document.querySelectorAll('.js-time-current').forEach((el) => { el.textContent = live ? fmtTime(cur) : '0:00'; });
-      document.querySelectorAll<HTMLElement>('.js-time-total').forEach((el) => {
-        // The page renders the album's length ("37 min"); keep it to restore when idle.
-        if (el.dataset.idle === undefined) el.dataset.idle = el.textContent || '';
-        if (!live) el.textContent = el.dataset.idle;
-        else if (dur > 0) el.textContent = fmtTime(dur);
-      });
-    };
     // The polite live region keeps the player from being "mute" for screen
     // readers. The node lives in the persistent render below (#np-live) so it
     // survives navigation. Callers write it once per change, never per tick.
@@ -402,10 +378,9 @@ export default function Player() {
       if (live) live.textContent = text;
     };
     const nowPlayingText = (item: QItem) => `Now playing: ${item.title} by ${item.band}`;
-    const setNpTitle = (name: string) => {
-      if (!name) return;
-      document.querySelectorAll('.js-np-title').forEach((el) => { el.textContent = name; });
-      announce(`Now playing: ${name}`);
+    // A new track inside the album: the bar shows it, a screen reader hears it.
+    const announceTrack = (name: string) => {
+      if (name) announce(`Now playing: ${name}`);
     };
 
     // ─── active-row highlight on the album page (class + aria-current) ───────
@@ -799,18 +774,18 @@ export default function Player() {
       }
       const name = trackNameAt(idx, playingTracksRef.current);
       setBarName(name);
-      setNpTitle(name);
+      announceTrack(name);
       markQueueRow();
       markChapter();
     };
 
-    // Prev/next are album-level and only meaningful once a queue exists. Also
-    // re-run on every navigation: the album page's own copies are fresh markup.
+    // Prev/next (the bar's and the view's) are album-level and only meaningful
+    // once a queue exists.
     const updateTransport = () => {
       const q = queueRef.current;
       const hasNext = !!q && nextIndex(q) >= 0;
-      document.querySelectorAll<HTMLButtonElement>('[data-np-next]').forEach((b) => { b.disabled = !hasNext; });
-      document.querySelectorAll<HTMLButtonElement>('[data-np-prev]').forEach((b) => { b.disabled = !q; });
+      $$<HTMLButtonElement>('[data-np-next]').forEach((b) => { b.disabled = !hasNext; });
+      $$<HTMLButtonElement>('[data-np-prev]').forEach((b) => { b.disabled = !q; });
     };
 
     // The open/closed state lives on #np-root, a PERSISTED element: <body> is
@@ -1309,7 +1284,6 @@ export default function Player() {
     // Without this the bars keep the OLD position until the next 1s tick.
     const npResetProgress = () => {
       setAllProgress('0%');
-      setTimes(0, 0);
       paintProgress(0);
     };
     const currentTime = (): number => {
@@ -1326,8 +1300,8 @@ export default function Player() {
     };
 
     // ─── the album page's tracklist rows: "make track N the active one" ──────
-    // Click, play-album and the page's own controls funnel through here so the
-    // track name, the row highlight and the progress update the same way.
+    // A row click on the album that plays comes here, so the track name, the row
+    // highlight and the progress update the same way as when the video moves on.
     //
     // CRITICAL: seekTo + playVideo run synchronously here. No await before the
     // play call — when this is reached from a click the user gesture is
@@ -1359,7 +1333,7 @@ export default function Player() {
       const nameNode = rowEl.querySelector('[data-track-name]');
       const name = nameNode ? (nameNode.textContent || '').trim() : '';
       if (name) setBarName(name);
-      setNpTitle(name);   // big hero title follows the active track
+      announceTrack(name);
       markQueueRow();
       markChapter();
     };
@@ -1436,7 +1410,7 @@ export default function Player() {
         name = trackNameAt(idx, tracks);
       }
       setBarName(name);
-      if (name) setNpTitle(name);
+      announceTrack(name);
       topUpQueue();
       paintQueue();
       paintSegments();
@@ -1616,7 +1590,7 @@ export default function Player() {
       const row = document.querySelector(`[data-track-idx="${idx}"]`);
       if (row) markRowActive(row);
       const name = trackNameAt(idx, tracks);
-      if (name) { setBarName(name); setNpTitle(name); }
+      if (name) { setBarName(name); announceTrack(name); }
     };
 
     // Is the album on the CURRENT page the same one currently loaded/playing?
@@ -1637,28 +1611,6 @@ export default function Player() {
         return;
       }
       try { p.playVideo(); } catch { /* ignore */ }
-    };
-
-    const playAlbum = () => {
-      const first = document.querySelector('[data-track-idx]');
-      if (first) { activateRow(first); return; }
-      // No tracklist — just play the video from the start.
-      const p = playerRef.current;
-      if (p && typeof p.playVideo === 'function') {
-        try { p.seekTo(0, true); } catch { /* ignore */ }
-        p.playVideo();
-      }
-    };
-
-    // Smart main button (the album page's big play/pause): toggles when something
-    // is loaded, otherwise starts the album from the first track.
-    const mainPlayPause = () => {
-      const p = playerRef.current;
-      if (!p) return;
-      const state = playerState();
-      if (state === 1) { try { p.pauseVideo(); } catch { /* ignore */ } return; }   // playing -> pause
-      if (state === 2 || state === 3) { try { p.playVideo(); } catch { /* ignore */ } return; } // paused/buffering -> resume
-      playAlbum();   // unstarted / cued / ended -> start (keeps the row highlight)
     };
 
     // Share: the native share sheet when there is one, else copy the URL, and
@@ -1730,7 +1682,6 @@ export default function Player() {
         if (!dur) return;
         const pct = Math.min(100, (cur / dur) * 100);
         setAllProgress(pct + '%');
-        setTimes(cur, dur);
         paintProgress(cur);
         syncCards();
         // "Load more" may have added cards while the last album plays: Next and
@@ -1859,7 +1810,8 @@ export default function Player() {
         return;
       }
 
-      // The player's own controls and the page's, that do NOT start a NEW album.
+      // The player's controls (and the home hero's open / play-pause), which do
+      // NOT start a new album.
       const openBtn = t.closest<HTMLElement>('[data-np-open]');
       if (openBtn) { openView(openBtn); return; }
       if (t.closest('[data-np-close-view]')) { closeView(); return; }
@@ -1888,41 +1840,26 @@ export default function Player() {
         return;
       }
 
-      // Play actions on an album page: a track row, the "play album" button, or
-      // the big main play/pause. They may target the album that is already
-      // loaded and open (seek / toggle) OR start it: the first play on this page,
-      // or a different album than the one loaded. Starting builds the queue.
+      // A track row on an album page: it seeks inside the album that is already
+      // loaded and open, OR starts it (the first play on this page, or another
+      // album than the one loaded). Starting builds the queue. The page's "Play
+      // album" is a card's ▶ ([data-play-card], above).
       const row = t.closest('[data-track-idx]');
-      const play = row ? null : t.closest('[data-play-album]');
-      const main = row || play ? null : t.closest('[data-np-main]');
-      if (!row && !play && !main) return;
+      if (!row) return;
 
       const pageData = readNpData();
-      // A row or play button only means something on the page of a playable album.
-      // A page with a tracklist but no video id has no #metal-np-data and nothing to
-      // start: acting on its rows would seek the OTHER album that is loaded, or move
-      // that album's pending start.
+      // A row only means something on the page of a playable album. A page with a
+      // tracklist but no video id has no #metal-np-data and nothing to start:
+      // acting on its rows would seek the OTHER album that is loaded, or move that
+      // album's pending start.
       if (!pageData) return;
-      const needsStart = !pageIsPlayingAlbum(pageData) || !isOpen();
-      const hasTracks = !!(pageData.tracks && pageData.tracks.length);
-
-      if (row) {
-        if (needsStart) {
-          const idx = parseInt(row.getAttribute('data-track-idx') || '-1', 10);
-          const sec = parseInt(row.getAttribute('data-seconds') || '0', 10) || 0;
-          startPageAlbum(pageData, sec, idx);
-          return;
-        }
-        activateRow(row);
+      if (!pageIsPlayingAlbum(pageData) || !isOpen()) {
+        const idx = parseInt(row.getAttribute('data-track-idx') || '-1', 10);
+        const sec = parseInt(row.getAttribute('data-seconds') || '0', 10) || 0;
+        startPageAlbum(pageData, sec, idx);
         return;
       }
-      if (needsStart) {
-        // Play album / the big main button: start THIS album from its first track.
-        startPageAlbum(pageData, hasTracks ? pageData.tracks[0].seconds || 0 : 0, hasTracks ? 0 : -1);
-        return;
-      }
-      if (play) { playAlbum(); return; }
-      if (main) { mainPlayPause(); return; }
+      activateRow(row);
     };
     document.addEventListener('click', onClick, true);
 
@@ -1958,7 +1895,6 @@ export default function Player() {
     const onPageLoad = () => {
       paintAccent(document.documentElement);
       cueFromPage();
-      updateTransport();
       syncCards();
       // The hero .js-pp button on the page we just swapped in is fresh markup
       // (default "paused"), while the PERSISTENT player toggles keep their state.
