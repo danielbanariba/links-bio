@@ -16,7 +16,7 @@
 import { countryLabel, genreLabel } from './labels.js';
 
 // The raw placeholder `albums.genre` holds for "no genre" (labels.ts translates it).
-const NO_GENRE = 'Género desconocido';
+export const NO_GENRE = 'Género desconocido';
 
 export interface CardMetaInput {
   country?: string | null;
