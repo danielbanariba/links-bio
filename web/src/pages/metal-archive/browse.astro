@@ -12,6 +12,8 @@ import { getAlbumAccent } from '../../lib/vibrant.js';
 import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import Search from '../../islands/Search.tsx';
+import CoverArt from '../../components/CoverArt.astro';
+import { displayTitle } from '../../lib/title.js';
 import '../../styles/global.css';
 import '../../styles/archive.css';
 
@@ -138,18 +140,15 @@ const ogImage = initial[0]?.thumb || undefined;
     <noscript>
       <div class="album-grid browse-static">
         {initial.map((a) => (
-          <a class="album-card" href={`/metal-archive/album/${a.id}`}>
-            <div class="album-card__art">
-              {a.thumb
-                ? <img class="album-card__cover" src={a.thumb} alt={`${a.band_name} — ${a.album_title}`} loading="lazy" decoding="async" width="400" height="400" />
-                : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-              }
-            </div>
-            <div class="album-card__body">
-              <div class="album-card__album">{a.album_title}</div>
-              <div class="album-card__band">{a.band_name}</div>
-            </div>
-          </a>
+          <div class="ma-card">
+            <a class="ma-card__cover" href={`/metal-archive/album/${a.id}`} tabindex="-1" aria-hidden="true">
+              <CoverArt src={a.cover || a.thumb} />
+            </a>
+            <a class="ma-card__meta" href={`/metal-archive/album/${a.id}`}>
+              <span class="ma-card__title">{displayTitle(a.album_title)}</span>
+              <span class="ma-card__band">{a.band_name}</span>
+            </a>
+          </div>
         ))}
       </div>
     </noscript>

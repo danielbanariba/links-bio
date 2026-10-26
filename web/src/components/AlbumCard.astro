@@ -1,90 +1,60 @@
 ---
-// AlbumCard: a cover-first card. A large square cover with nothing written over it
-// but the ▶ control; under it the album title, the band as plain text, and one muted
-// line "country · year · genre" (lib/cardMeta.ts, English labels). The card itself is
-// a plain link to the album page.
-// The play button is a SIBLING of that link (a <button> inside an <a> is invalid
-// HTML) laid over the cover. The persistent Player island handles its click through
-// the data attributes: the queue is the nearest [data-queue] row or grid, or every
-// [data-play-card] on the page. A card with no youtube_video_id has nothing to play
-// and renders no button. The button carries the album's accent tokens, computed
-// at build time from its cover (data-accent, lib/accent.ts): the Player paints
-// them on <html> when this album starts, so it never extracts a colour itself.
-// `accent` (optional) sets the ▶ colour for this card; by default it is the
-// archive's --accent (the album in the player, else the page's album colour on
-// album, band and genre pages, else amber).
-// The cover is decorative (alt=""): the title and band text right under it is the
-// link's name, so a screen reader would otherwise read both twice.
-// `livePlaceholder` (optional) renders a flat tile instead of the API-sourced
-// thumbnail (used for Live Recordings cards). It carries an icon, no text.
+// AlbumCard, as in the prototype: a square cover that IS the ▶, and under it the
+// album title and the band, which link to the album page.
+//   - The cover is a <button> carrying the Player's data attributes
+//     (lib/cardPlay.ts): one tap plays the album, queued with the cards of its
+//     row or grid ([data-queue]). Its name says what it does ("Play X by Y"); the
+//     Player flips it to "Pause ..." and the glyph to ⏸ while that album plays.
+//     The ▶ disc shows on hover and focus, and stays while the album plays.
+//   - An album with no video has nothing to play: its cover is a second link to
+//     the album page, hidden from assistive tech and the tab order (the text link
+//     right under it is the same destination).
+//   - The cover is drawn by CoverArt: a square crop fills it, a YouTube frame is
+//     letterboxed whole over a blurred copy, never centre-cropped.
+//   - The title drops the "(Full Álbum)" suffix (lib/title.ts), display only.
+// `livePlaceholder` draws a flat tile with a microphone instead of the image
+// (Daniel's own live sets).
+// The same markup is built by islands/Search.tsx for the Browse results.
 import type { Card } from '../lib/types.js';
-import { formatCardMeta } from '../lib/cardMeta.js';
-import { encodeAccent } from '../lib/accent.js';
-import { getAlbumAccent } from '../lib/vibrant.js';
+import { playAttrs } from '../lib/cardPlay.js';
+import { displayTitle } from '../lib/title.js';
+import { GLYPH_PLAY } from '../lib/icons.js';
+import CoverArt from './CoverArt.astro';
+import Icon from './Icon.astro';
 
 interface Props {
   album: Card;
   loading?: 'lazy' | 'eager';
-  accent?: string;
   livePlaceholder?: boolean;
 }
 
-const { album, loading = 'lazy', accent, livePlaceholder = false } = Astro.props;
+const { album, loading = 'lazy', livePlaceholder = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
-// Inline custom property only when an accent is passed; the CSS falls back to
-// the page's --accent otherwise.
-const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
-const videoId = (album.youtube_video_id || '').trim();
-const meta = formatCardMeta(album);
-// The square crop when one exists, else the mqdefault frame (cropped square by CSS).
-const cover = album.cover || album.thumb;
-const playAccent = videoId ? await getAlbumAccent({ videoId, thumbUrl: album.thumb }) : null;
+const title = displayTitle(album.album_title);
+const attrs = await playAttrs(album);
+const src = album.cover || album.thumb;
 ---
-
-<div class="album-card-wrap">
-  <a class="album-card" href={href} style={accentStyle}>
-    <div class="album-card__art">
-      {livePlaceholder
-        ? (
-          <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-          </div>
-        )
-        : cover
-          ? <img
-              class="album-card__cover"
-              src={cover}
-              alt=""
-              loading={loading}
-              decoding="async"
-              width="400"
-              height="400"
-            />
-          : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-      }
-    </div>
-    <div class="album-card__body">
-      <div class="album-card__album">{album.album_title}</div>
-      <div class="album-card__band">{album.band_name}</div>
-      {meta && <div class="album-card__meta" title={meta}>{meta}</div>}
-    </div>
+<div class="ma-card">
+  {attrs
+    ? (
+      <button type="button" class="ma-card__cover" aria-label={`Play ${title} by ${album.band_name}`} {...attrs}>
+        {livePlaceholder
+          ? <span class="ma-art ma-art--live"><Icon name="mic" /></span>
+          : <CoverArt src={src} loading={loading} />}
+        <span class="ma-card__play" aria-hidden="true">
+          <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
+        </span>
+      </button>
+    )
+    : (
+      <a class="ma-card__cover" href={href} tabindex="-1" aria-hidden="true">
+        {livePlaceholder
+          ? <span class="ma-art ma-art--live"><Icon name="mic" /></span>
+          : <CoverArt src={src} loading={loading} />}
+      </a>
+    )}
+  <a class="ma-card__meta" href={href}>
+    <span class="ma-card__title">{title}</span>
+    <span class="ma-card__band">{album.band_name}</span>
   </a>
-  {videoId && (
-    <button
-      type="button"
-      class="album-card__play"
-      style={accentStyle}
-      aria-label={`Play ${album.album_title} by ${album.band_name}`}
-      data-play-card
-      data-video-id={videoId}
-      data-album-id={String(album.id)}
-      data-band={album.band_name}
-      data-title={album.album_title}
-      data-thumb={album.thumb || ''}
-      data-href={href}
-      data-accent={playAccent ? encodeAccent(playAccent) : undefined}
-    >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
-    </button>
-  )}
 </div>

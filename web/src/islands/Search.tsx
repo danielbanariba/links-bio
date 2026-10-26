@@ -11,6 +11,31 @@
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { countryLabel, genreLabel } from '../lib/labels.js';
 import { formatCardMeta } from '../lib/cardMeta.js';
+import { displayTitle } from '../lib/title.js';
+import { coverMode } from '../lib/coverDisplay.js';
+import { GLYPH_PLAY } from '../lib/icons.js';
+
+// The cover as components/CoverArt.astro draws it: a square crop fills the box, a
+// YouTube frame sits whole over a blurred copy of itself, never centre-cropped.
+function Art({ src }: { src: string }) {
+  const mode = coverMode(src);
+  if (mode === 'none') return <span class="ma-art ma-art--none" aria-hidden="true" />;
+  if (mode === 'square') {
+    return (
+      <span class="ma-art">
+        <img class="ma-art__img" src={src} alt="" loading="lazy" decoding="async" width={400} height={400} />
+      </span>
+    );
+  }
+  return (
+    <span class="ma-art ma-art--frame">
+      <img class="ma-art__bg" src={src} alt="" loading="lazy" decoding="async" width={320} height={180} />
+      <span class="ma-art__frame">
+        <img class="ma-art__img" src={src} alt="" loading="lazy" decoding="async" width={320} height={180} />
+      </span>
+    </span>
+  );
+}
 
 // Mirrors BrowseEntry from types.ts — must stay in sync.
 interface BrowseEntry {
@@ -287,55 +312,52 @@ export default function Search({ genres, countries, years, totalCount, initial }
       {/* ── Album grid ────────────────────────────────────────────────── */}
       {/* data-queue: the ▶ of a result queues the results as shown here, in this
           order, so "next" goes on to the next displayed result. The cards are the
-          same markup as components/AlbumCard.astro. */}
+          same markup as components/AlbumCard.astro, plus the muted line
+          "country · year · genre" (lib/cardMeta.ts), which says why a result
+          matched the filters. */}
       {!showEmpty && (
         <div class="album-grid search-grid" data-queue>
           {visible.map((a) => {
             const meta = formatCardMeta(a);
             const videoId = (a.youtube_video_id || '').trim();
             const href = `/metal-archive/album/${a.id}`;
+            const title = displayTitle(a.album_title);
+            const src = a.cover || a.thumb;
             return (
-            <div key={a.id} class="album-card-wrap">
-              <a class="album-card" href={href}>
-                <div class="album-card__art">
-                  {a.cover || a.thumb
-                    ? (
-                      <img
-                        class="album-card__cover"
-                        src={a.cover || a.thumb}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        width="400"
-                        height="400"
-                      />
-                    )
-                    : <div class="album-card__cover album-card__cover--empty" aria-hidden="true" />
-                  }
-                </div>
-                <div class="album-card__body">
-                  <div class="album-card__album">{a.album_title}</div>
-                  <div class="album-card__band">{a.band_name}</div>
-                  {meta && <div class="album-card__meta" title={meta}>{meta}</div>}
-                </div>
+            <div key={a.id} class="ma-card">
+              {videoId
+                ? (
+                  <button
+                    type="button"
+                    class="ma-card__cover"
+                    aria-label={`Play ${title} by ${a.band_name}`}
+                    data-play-card=""
+                    data-video-id={videoId}
+                    data-album-id={String(a.id)}
+                    data-band={a.band_name}
+                    data-title={title}
+                    data-thumb={a.thumb || ''}
+                    data-cover={src || ''}
+                    data-href={href}
+                    data-meta={meta}
+                    data-accent={a.accent}
+                  >
+                    <Art src={src} />
+                    <span class="ma-card__play" aria-hidden="true">
+                      <svg data-glyph viewBox="0 0 24 24" fill="currentColor"><path d={GLYPH_PLAY} /></svg>
+                    </span>
+                  </button>
+                )
+                : (
+                  <a class="ma-card__cover" href={href} tabIndex={-1} aria-hidden="true">
+                    <Art src={src} />
+                  </a>
+                )}
+              <a class="ma-card__meta" href={href}>
+                <span class="ma-card__title">{title}</span>
+                <span class="ma-card__band">{a.band_name}</span>
+                {meta && <span class="ma-card__line" title={meta}>{meta}</span>}
               </a>
-              {videoId && (
-                <button
-                  type="button"
-                  class="album-card__play"
-                  aria-label={`Play ${a.album_title} by ${a.band_name}`}
-                  data-play-card=""
-                  data-video-id={videoId}
-                  data-album-id={String(a.id)}
-                  data-band={a.band_name}
-                  data-title={a.album_title}
-                  data-thumb={a.thumb || ''}
-                  data-href={href}
-                  data-accent={a.accent}
-                >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
-                </button>
-              )}
             </div>
             );
           })}

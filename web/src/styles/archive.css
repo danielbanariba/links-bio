@@ -231,6 +231,76 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
   background: radial-gradient(90% 70% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.35));
 }
 
+/* ─── Album cards (AlbumCard.astro, Search.tsx) ──────────────────────────────────
+   The square cover is the ▶; title and band under it link to the album. */
+.ma-card { min-width: 0; scroll-snap-align: start; }
+.ma-card__cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+  box-shadow: 0 16px 30px -20px rgb(0 0 0 / 0.85);
+  transition: transform 260ms var(--ma-spring), box-shadow 260ms;
+}
+.ma-card__cover > .ma-art { position: absolute; inset: 0; border-radius: inherit; }
+.ma-art > .ma-art__img { transition: transform 600ms var(--ma-spring); }
+.ma-card__play {
+  position: absolute;
+  z-index: 4;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 10px 24px -6px rgb(0 0 0 / 0.75), 0 0 24px -6px var(--accent-glow);
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition: opacity 200ms, transform 260ms var(--ma-spring);
+}
+.ma-card__play svg { width: 18px; height: 18px; margin-left: 2px; }
+.ma-card__cover[data-playing] .ma-card__play svg { margin-left: 0; }
+.ma-card__cover:focus-visible .ma-card__play,
+.ma-card__cover[data-playing] .ma-card__play { opacity: 1; transform: none; }
+.ma-card__cover:active { transform: scale(0.96); }
+.ma-card:has([data-playing]) .ma-card__cover { box-shadow: 0 0 0 2px var(--accent), 0 18px 34px -18px var(--accent-glow); }
+.ma-card__meta { display: block; margin-top: 10px; padding: 2px 0 4px; border-radius: 8px; min-height: 44px; }
+.ma-card__title,
+.ma-card__band,
+.ma-card__line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-card__title { font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--ma-text); }
+.ma-card__band { margin-top: 2px; font-size: 13.5px; color: var(--ma-text-2); }
+.ma-card__line { margin-top: 2px; font-size: 12.5px; color: var(--ma-text-3); }
+.ma-card:has([data-playing]) .ma-card__title { color: var(--accent-bright); }
+@media (hover: hover) {
+  .ma-card:hover .ma-card__cover { transform: translateY(-5px); box-shadow: 0 26px 40px -20px rgb(0 0 0 / 0.95); }
+  .ma-card:has([data-playing]):hover .ma-card__cover { box-shadow: 0 0 0 2px var(--accent), 0 26px 40px -20px var(--accent-glow); }
+  .ma-card:hover .ma-art > .ma-art__img,
+  .ma-card:hover .ma-art__frame { transform: scale(1.045); }
+  .ma-card:hover .ma-card__play { opacity: 1; transform: none; }
+  .ma-card__play:hover { filter: brightness(1.08); }
+  .ma-card__meta:hover .ma-card__title { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ma-fill-3); }
+}
+/* Daniel's own live sets: a flat accent tile with a microphone. */
+.ma-art--live {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 34%, #141312), #141312 80%);
+  color: var(--ma-text-2);
+}
+.ma-art--live .ma-i { width: 38%; height: 38%; stroke-width: 1.4; }
+
+/* Grids of cards (genre, country, year, band, album and Browse pages). */
+.ma-shell .album-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 20px; }
+
 /* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
 .ma-side { display: none; }
 .ma-brand { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 22px; border-radius: 10px; }
@@ -661,6 +731,9 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
   .ma-tabbar a .ma-i { width: 24px; height: 24px; }
   .ma-tabbar a[aria-current='page'] { color: var(--ma-text); }
   .ma-tabbar a[aria-current='page'] .ma-i { color: var(--accent-bright); }
+
+  .ma-shell .album-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; }
+  .ma-card__play { width: 44px; height: 44px; right: 8px; bottom: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
