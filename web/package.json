@@ -13,6 +13,7 @@
   "dependencies": {
     "@astrojs/preact": "^6.1.1",
     "@astrojs/vercel": "^11.0.16",
+    "@fontsource-variable/onest": "^5.3.1",
     "astro": "^7.4.2",
     "better-sqlite3": "^13.0.3",
     "preact": "^11.0.2",

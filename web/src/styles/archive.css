@@ -1,0 +1,673 @@
+/* ═══ Metal Archive shell ══════════════════════════════════════════════════════
+   The archive's look, from the approved prototype (scratchpad proto/assets/app.css,
+   round 3). Every archive page imports this AFTER global.css and puts
+   class="ma-shell" on <body>; the bio (/) never loads it, so it stays untouched.
+   Everything here is scoped under .ma-shell (or to elements only archive pages
+   render), so equal-specificity global rules lose by source order and nothing
+   leaks into the 404, which shares global.css.
+
+   One face, Onest, self-hosted from @fontsource-variable/onest (latin, latin-ext,
+   cyrillic: band names are Latin with accents, Cyrillic or English). The
+   {daniel_banariba}; wordmark keeps DinaRemasterII (global --font-logo).
+
+   One accent, T10's (AccentTheme.astro, lib/accent.ts): playing album > the
+   page's album > amber. The prototype's single --accent maps onto its tokens:
+     fills (buttons, bars, rings)   var(--accent)
+     text and icons in the accent   var(--accent-bright)  (>= 4.5:1 on #1f1f1f)
+     ink on an accent fill          var(--on-accent)
+     glows                          var(--accent-glow)
+   Surfaces are near-black with 4-6% of the accent mixed in, all darker than
+   #1f1f1f, so --accent-bright keeps its contrast on every one of them.
+
+   Layouts (the prototype's three):
+     >= 1100px   left sidebar | centre column with a top bar | right panel
+     768-1099px  88px icon rail | centre column with a top bar
+     < 768px     top bar + bottom tab bar
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Onest Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/onest/files/onest-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Onest Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/onest/files/onest-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Onest Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/onest/files/onest-cyrillic-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Onest Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/onest/files/onest-cyrillic-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────────── */
+body.ma-shell {
+  --font-default: 'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --ma-text: #fbf7f2;
+  --ma-text-2: rgb(251 247 242 / 0.76);
+  --ma-text-3: rgb(251 247 242 / 0.64);
+  --ma-fill: rgb(255 255 255 / 0.07);
+  --ma-fill-2: rgb(255 255 255 / 0.11);
+  --ma-fill-3: rgb(255 255 255 / 0.18);
+  --ma-hair: rgb(255 255 255 / 0.075);
+  --ma-deep: color-mix(in oklab, var(--accent) 4%, #0b0a09);
+  --ma-panel: color-mix(in oklab, var(--accent) 5%, #151413);
+  --ma-raised: color-mix(in oklab, var(--accent) 6%, #1d1c1a);
+  --ma-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ma-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --side: 236px;
+  --aside: 312px;
+  --rail: 88px;
+  --ma-top-h: 68px;
+  --ma-tab-h: 0px;
+  --gutter: 28px;
+
+  /* The shared tokens global.css rules are written against. */
+  --bg: var(--ma-deep);
+  --text-header: var(--ma-text);
+  --text-body: var(--ma-text-2);
+  --text-footer: var(--ma-text-3);
+  --ma-surface: var(--ma-raised);
+
+  background: var(--ma-deep);
+  color: var(--ma-text-2);
+  font-family: var(--font-default);
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The album page tinted its whole background; the ambient light below does that now. */
+body.ma-shell.album-detail-bg { background: var(--ma-deep); }
+
+/* Ambient light: the accent, soft, from the top of the screen. The prototype used a
+   blurred copy of the cover; a gradient of the accent follows the same colour with
+   nothing to download, and fades with it when an album starts. */
+.ma-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 60% at 42% -8%, color-mix(in oklab, var(--accent) 30%, transparent), transparent 72%),
+    radial-gradient(90% 50% at 85% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%);
+}
+
+.ma-shell :focus-visible { outline: 2.5px solid var(--accent-bright); outline-offset: 3px; }
+
+/* ─── Primitives ─────────────────────────────────────────────────────────────── */
+.ma-i {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ma-wordmark {
+  font-family: var(--font-logo);
+  font-size: 17px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ma-circle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.32);
+  color: var(--ma-text);
+  cursor: pointer;
+  transition: background 160ms, transform 160ms var(--ma-ease);
+}
+.ma-circle:hover { background: rgb(0 0 0 / 0.5); color: var(--ma-text); }
+.ma-circle:active { transform: scale(0.92); }
+.ma-circle .ma-i { width: 20px; height: 20px; }
+
+.ma-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 160ms var(--ma-ease), background 160ms, box-shadow 220ms, filter 160ms;
+}
+.ma-btn:active { transform: scale(0.96); }
+.ma-btn .ma-i { width: 20px; height: 20px; }
+.ma-btn--accent {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 10px 30px -10px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.ma-btn--accent:hover { color: var(--on-accent); filter: brightness(1.07); box-shadow: 0 14px 40px -8px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / 0.3); }
+.ma-btn--glass { background: var(--ma-fill-2); color: var(--ma-text); box-shadow: inset 0 0 0 1px var(--ma-hair); }
+.ma-btn--glass:hover { background: var(--ma-fill-3); color: var(--ma-text); }
+.ma-btn--sm { height: 44px; padding: 0 18px; font-size: 14px; }
+
+/* Equaliser on whatever plays; still while the bar's toggle says paused. */
+.ma-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; flex: none; }
+.ma-eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 1.5px;
+  background: var(--accent-bright);
+  transform-origin: bottom;
+  animation: ma-eq 0.9s var(--ma-ease) infinite alternate;
+}
+.ma-eq i:nth-child(2) { animation-delay: -0.45s; animation-duration: 0.7s; }
+.ma-eq i:nth-child(3) { animation-delay: -0.2s; animation-duration: 1.05s; }
+.ma-eq i:nth-child(4) { animation-delay: -0.6s; animation-duration: 0.8s; }
+@keyframes ma-eq { from { transform: scaleY(0.22); } to { transform: scaleY(1); } }
+body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-play-state: paused; }
+
+/* Album images (CoverArt.astro): a square crop fills the box; a 16:9 frame sits
+   whole in the middle, over a blurred, darkened copy of itself. */
+.ma-art {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  background: #1c1b1a;
+}
+.ma-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+.ma-art__bg { transform: scale(1.4); filter: blur(16px) brightness(0.5) saturate(1.3); }
+.ma-art__frame {
+  position: absolute;
+  left: var(--inset, 7%);
+  right: var(--inset, 7%);
+  top: 50%;
+  aspect-ratio: 16 / 9;
+  translate: 0 -50%;
+  border-radius: var(--frame-r, 5px);
+  overflow: hidden;
+  box-shadow: 0 12px 26px -8px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.07);
+  transition: transform 600ms var(--ma-spring);
+}
+.ma-art--frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(90% 70% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.35));
+}
+
+/* ─── Sidebar (desktop) / rail (tablet) ──────────────────────────────────────── */
+.ma-side { display: none; }
+.ma-brand { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 22px; border-radius: 10px; }
+.ma-brand__product { font-size: 13px; color: var(--ma-text-3); }
+.ma-nav { display: grid; gap: 2px; }
+.ma-nav a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--ma-text-2);
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 160ms, color 160ms;
+}
+.ma-nav a:hover { background: var(--ma-fill); color: var(--ma-text); }
+.ma-nav a:active { background: var(--ma-fill-2); }
+.ma-nav a[aria-current='page'] { background: var(--ma-fill); color: var(--ma-text); }
+.ma-nav a[aria-current='page'] .ma-i { color: var(--accent-bright); }
+.ma-nav .ma-nav__submit { display: none; }
+
+.ma-side__label { margin: 26px 12px 10px; font-size: 13px; font-weight: 600; color: var(--ma-text-3); }
+.ma-recent__list { display: grid; gap: 2px; list-style: none; }
+.ma-recent__list a {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 12px;
+  transition: background 160ms;
+}
+.ma-recent__list a:hover,
+.ma-recent__list a.is-playing { background: var(--ma-fill); }
+.ma-recent__art { width: 44px; height: 44px; border-radius: 8px; --inset: 4%; --frame-r: 2px; }
+.ma-recent__list b,
+.ma-recent__list small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-recent__list b { font-size: 14px; font-weight: 600; color: var(--ma-text); }
+.ma-recent__list small { font-size: 12.5px; color: var(--ma-text-3); }
+.ma-recent__list .is-playing b { color: var(--accent-bright); }
+
+.ma-submit-card { margin-top: auto; padding: 18px; border-radius: 16px; background: var(--ma-fill); }
+.ma-submit-card b { display: block; font-size: 15px; font-weight: 600; color: var(--ma-text); }
+.ma-submit-card p { font-size: 14px; line-height: 1.45; color: var(--ma-text-2); margin: 4px 0 14px; }
+
+/* ─── Top bar ────────────────────────────────────────────────────────────────── */
+.ma-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ma-top-h);
+  padding: 0 20px;
+  transition: background 220ms, box-shadow 220ms;
+}
+.ma-top.is-solid {
+  background: color-mix(in oklab, var(--ma-deep) 82%, transparent);
+  box-shadow: 0 1px 0 var(--ma-hair);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+}
+.ma-top__nav { display: none; gap: 8px; }
+.ma-top__brand { display: flex; align-items: center; height: 44px; border-radius: 8px; }
+.ma-top__end { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.ma-search { display: none; }
+.ma-search__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.32);
+  box-shadow: inset 0 0 0 1px var(--ma-hair);
+  color: var(--ma-text-3);
+  font-size: 14.5px;
+  cursor: text;
+  transition: background 160ms, box-shadow 160ms;
+}
+.ma-search__field:hover { background: rgb(0 0 0 / 0.45); }
+.ma-search__field:focus-within {
+  background: rgb(0 0 0 / 0.5);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-bright) 60%, transparent);
+}
+.ma-search__field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ma-text);
+  font: inherit;
+  outline: none;
+}
+.ma-search__field input::placeholder { color: var(--ma-text-3); }
+.ma-search__field input::-webkit-search-cancel-button { display: none; }
+/* The field is the focus target: its ring goes on the pill, not the bare input. */
+.ma-search__field:has(input:focus-visible) { outline: 2.5px solid var(--accent-bright); outline-offset: 3px; }
+
+/* ─── Right panel: Now playing (idle) + Most played ──────────────────────────── */
+.ma-aside { display: none; }
+.ma-aside__head { display: flex; align-items: center; min-height: 40px; margin: 0 4px 14px; }
+.ma-aside__head h2,
+.np-dock__label { font-size: 16px; font-weight: 600; line-height: 1.2; color: var(--ma-text); }
+.ma-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  aspect-ratio: 1;
+  padding: 28px;
+  border-radius: 14px;
+  background: var(--ma-fill);
+  text-align: center;
+}
+.ma-empty .ma-i { width: 40px; height: 40px; color: var(--ma-text-3); }
+.ma-empty p { max-width: 230px; font-size: 14px; color: var(--ma-text-2); }
+.ma-empty b { display: block; margin-bottom: 4px; font-size: 15.5px; font-weight: 600; color: var(--ma-text); }
+.ma-aside__section {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 24px 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ma-text-2);
+}
+.ma-aside__section small { font-size: 13px; font-weight: 400; color: var(--ma-text-3); }
+
+/* Album list rows: the right panel's Most played (and later the band pages). The
+   art is the ▶ (a button), the text the link to the album. */
+.ma-arows { display: grid; gap: 2px; list-style: none; }
+.ma-arow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 12px;
+  transition: background 160ms;
+}
+.ma-arow:hover { background: var(--ma-fill); }
+.ma-arow__art {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+  transition: transform 160ms var(--ma-ease);
+  --inset: 5%;
+  --frame-r: 3px;
+}
+.ma-arow__art > .ma-art { position: absolute; inset: 0; }
+.ma-arow__art:active { transform: scale(0.94); }
+.ma-arow__icon {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.5);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 160ms;
+}
+.ma-arow__icon svg { width: 18px; height: 18px; }
+.ma-arow__art:hover .ma-arow__icon,
+.ma-arow__art:focus-visible .ma-arow__icon,
+.ma-arow__art[data-playing] .ma-arow__icon { opacity: 1; }
+.ma-arow__text { min-width: 0; padding: 4px 0; border-radius: 6px; }
+.ma-arow__text b,
+.ma-arow__text small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-arow__text b { font-size: 14.5px; font-weight: 600; color: var(--ma-text); }
+.ma-arow__text small { margin-top: 2px; font-size: 12.5px; color: var(--ma-text-3); }
+.ma-arow__text:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ma-fill-3); }
+.ma-arow:has([data-playing]) { background: color-mix(in oklab, var(--accent) 9%, transparent); }
+.ma-arow:has([data-playing]) b { color: var(--accent-bright); }
+
+/* ─── Phone tab bar ──────────────────────────────────────────────────────────── */
+.ma-tabbar { display: none; }
+
+/* ─── Footer (archive) ───────────────────────────────────────────────────────── */
+.ma-shell .footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  padding: 28px var(--gutter) 36px;
+  border-top: 0;
+  background: none;
+  color: var(--ma-text-3);
+  font-size: 13.5px;
+}
+.ma-shell .footer a { color: var(--ma-text-2); }
+.ma-shell .footer a:hover { color: var(--ma-text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ─── Pages inside the shell ─────────────────────────────────────────────────── */
+/* The album hero was a 100vw full-bleed band; in a centre column between panels
+   it just fills the column. */
+.ma-shell .stage { width: auto; margin-left: 0; margin-right: 0; }
+/* Between the panels the column can be too narrow for a 340px cover beside the
+   text (the title would break mid-word): stack them. */
+@media (min-width: 768px) {
+  @container (max-width: 839px) {
+    .ma-shell .stage__inner { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+    .ma-shell .stage__panel { flex: none; width: 100%; }
+  }
+}
+.ma-shell #main:focus { outline: none; }
+
+/* Browse: the Genres and Countries sections the sidebar links to (#genres,
+   #countries), one pill per facet page. */
+.ma-facets { margin-top: 40px; scroll-margin-top: calc(var(--ma-top-h) + 16px); }
+.ma-facets__title { margin-bottom: 14px; font-size: 23px; font-weight: 700; letter-spacing: -0.02em; color: var(--ma-text); }
+.ma-pills { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
+.ma-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ma-fill);
+  color: var(--ma-text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 160ms;
+}
+.ma-pill:hover { background: var(--ma-fill-2); color: var(--ma-text); }
+.ma-pill small { font-size: 12.5px; color: var(--ma-text-3); }
+
+/* ─── Player inside the shell ────────────────────────────────────────────────────
+   The Player island (islands/Player.tsx, persisted) keeps its behaviour; only
+   where it sits changes. global.css still places it below 1100px (the video docked
+   full width above the bar) and on short landscape phones (a right column); here
+   it is moved clear of the rail and the tab bar, and on desktop the video takes
+   the right panel's place. */
+.np-dock__head { display: none; }
+.np-cover--frame { object-fit: contain; background: #000; }
+.np-up__cover--frame { object-fit: contain; background: #000; }
+
+/* ═══ Desktop >= 1100px ═════════════════════════════════════════════════════════ */
+@media (min-width: 1100px) {
+  body.ma-shell { padding-left: calc(var(--side) + 16px); padding-right: calc(var(--aside) + 16px); }
+
+  .ma-side,
+  .ma-aside,
+  body.ma-shell #np-root[data-open] #np-dock {
+    position: fixed;
+    top: 8px;
+    bottom: 8px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: color-mix(in oklab, var(--ma-panel) 90%, transparent);
+    border: 1px solid var(--ma-hair);
+    border-radius: 20px;
+    overflow: auto;
+    scrollbar-width: none;
+  }
+  .ma-side { left: 8px; width: var(--side); padding: 22px 14px 14px; }
+  .ma-aside { right: 8px; width: var(--aside); padding: 20px 16px 16px; }
+  .ma-aside > * { flex-shrink: 0; }
+
+  /* 8px taller, its row centred where the prototype's sat inside the 8px frame. */
+  .ma-top { display: grid; grid-template-columns: 1fr minmax(0, 420px) 1fr; gap: 16px; height: calc(var(--ma-top-h) + 8px); padding-top: 8px; }
+  .ma-top__nav { display: flex; grid-column: 1; }
+  .ma-top__brand,
+  .ma-top__back,
+  .ma-top__search { display: none; }
+  .ma-search { display: block; grid-column: 2; }
+  .ma-top__end { grid-column: 3; }
+
+  /* Playing: the video takes the right panel's place, square, with the album and
+     Up next under it. The idle panel stays in the page, hidden, behind it. */
+  body.ma-shell:has(#np-root[data-open]) .ma-aside { visibility: hidden; }
+  body.ma-shell #np-root[data-open] #np-dock {
+    left: auto;
+    right: 8px;
+    width: var(--aside);
+    height: auto;
+    z-index: 31;
+    gap: 0;
+    padding: 20px 16px 16px;
+    background: var(--ma-panel);
+  }
+  body.ma-shell #np-root[data-open] .np-dock__head { display: flex; align-items: center; min-height: 40px; margin: 0 4px 14px; }
+  /* YouTube: >= 200x200, visible, uncropped. 280x280, the 16:9 video letterboxed
+     by the player itself inside the square. */
+  body.ma-shell #np-root[data-open] #mini-player {
+    flex: none;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 14px;
+    box-shadow: 0 24px 40px -24px rgb(0 0 0 / 0.8), 0 0 0 1px var(--ma-hair);
+  }
+  body.ma-shell #np-root[data-open] .np-dock__meta { display: flex; flex-direction: column; gap: 4px; margin: 16px 4px 0; }
+  body.ma-shell .np-dock__title { font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--ma-text); }
+  body.ma-shell .np-dock__band { font-size: 15px; color: var(--accent-bright); }
+  body.ma-shell .np-dock__band:hover { color: var(--accent-bright); }
+  body.ma-shell #np-root[data-open] .np-upnext:not([hidden]) { display: block; margin-top: 24px; }
+  body.ma-shell .np-upnext__h { margin: 0 4px 8px; font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ma-text-2); }
+  body.ma-shell .np-up { border-radius: 12px; padding: 6px; gap: 12px; }
+  body.ma-shell .np-up:hover { background: var(--ma-fill); }
+  body.ma-shell .np-up__cover { border-radius: 8px; }
+  body.ma-shell .np-up__title { font-size: 14.5px; font-weight: 600; color: var(--ma-text); }
+  body.ma-shell .np-up__band { font-size: 12.5px; color: var(--ma-text-3); }
+
+  /* The bar floats at the bottom of the centre column. */
+  body.ma-shell:has(#np-root[data-open]) { padding-bottom: calc(var(--np-bar-h) + 32px); }
+  body.ma-shell #now-playing-bar {
+    left: calc(var(--side) + 16px + 24px);
+    right: calc(var(--aside) + 16px + 24px);
+    bottom: 16px;
+    max-width: 780px;
+    margin-inline: auto;
+    padding: 0 10px 0 8px;
+    border-radius: 18px;
+    background: color-mix(in oklab, var(--ma-raised) 94%, black);
+    box-shadow: 0 24px 50px -16px rgb(0 0 0 / 0.75), inset 0 0 0 1px var(--ma-hair);
+  }
+  body.ma-shell .np-notice { bottom: calc(100% + 8px); left: 0; right: 0; }
+}
+
+/* ═══ Tablet 768-1099px: icon rail ══════════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 1099px) {
+  body.ma-shell { --gutter: 24px; --np-tab-h: 0px; padding-left: var(--rail); }
+
+  .ma-side {
+    position: fixed;
+    z-index: 35;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    width: var(--rail);
+    padding: 14px 8px;
+    background: color-mix(in oklab, var(--ma-deep) 94%, transparent);
+    box-shadow: 1px 0 0 var(--ma-hair);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .ma-side .ma-brand,
+  .ma-side .ma-recent,
+  .ma-side .ma-submit-card { display: none; }
+  .ma-nav { gap: 6px; margin-top: 64px; }
+  .ma-nav a {
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    height: 66px;
+    padding: 0;
+    border-radius: 16px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .ma-nav a .ma-i { width: 24px; height: 24px; }
+  .ma-nav .ma-nav__submit { display: flex; }
+
+  .ma-top { gap: 16px; padding: 0 20px 0 24px; }
+  .ma-search { display: block; flex: 1 1 auto; max-width: 460px; margin-left: auto; }
+  .ma-search + .ma-top__end { margin-left: 0; }
+  .ma-top__search { display: none; }
+}
+
+/* The video docks above the bar, clear of the rail (not on short landscape
+   phones, where global.css moves it to a right-hand column). */
+@media (min-width: 768px) and (max-width: 1099px) and (min-height: 501px),
+  (min-width: 768px) and (max-width: 1099px) and (orientation: portrait),
+  (min-width: 768px) and (max-width: 1099px) and (pointer: fine) {
+  body.ma-shell #now-playing-bar,
+  body.ma-shell #np-root[data-open] #np-dock { left: var(--rail); }
+}
+
+/* ═══ Phone < 768px ═════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body.ma-shell {
+    --gutter: 20px;
+    --ma-top-h: 60px;
+    --ma-tab-h: calc(64px + env(safe-area-inset-bottom));
+    --np-tab-h: var(--ma-tab-h);
+    padding-bottom: var(--ma-tab-h);
+  }
+  .ma-top { padding: 0 12px 0 16px; }
+  .ma-top .ma-circle { width: 44px; height: 44px; background: rgb(0 0 0 / 0.4); }
+  .ma-wordmark { font-size: 15px; }
+  .ma-top__brand .ma-wordmark { text-shadow: 0 1px 2px rgb(0 0 0 / 0.9), 0 0 14px rgb(0 0 0 / 0.75); }
+
+  .ma-tabbar {
+    position: fixed;
+    z-index: 110;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    height: var(--ma-tab-h);
+    padding: 4px 8px env(safe-area-inset-bottom);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--ma-deep) 0%, transparent), var(--ma-deep) 30%);
+  }
+  /* Over the docked video and the bar, the fade would show them through. */
+  body.ma-shell:has(#np-root[data-open]) .ma-tabbar { background: var(--ma-deep); }
+  .ma-tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ma-text-3);
+    transition: color 160ms, transform 160ms var(--ma-ease);
+  }
+  .ma-tabbar a:active { transform: scale(0.92); }
+  .ma-tabbar a .ma-i { width: 24px; height: 24px; }
+  .ma-tabbar a[aria-current='page'] { color: var(--ma-text); }
+  .ma-tabbar a[aria-current='page'] .ma-i { color: var(--accent-bright); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ma-eq i { animation: none; transform: scaleY(0.6); }
+  .ma-eq i:nth-child(2) { transform: scaleY(1); }
+  .ma-eq i:nth-child(3) { transform: scaleY(0.4); }
+  .ma-shell *,
+  .ma-shell *::before,
+  .ma-shell *::after { transition-duration: 0ms !important; }
+}

@@ -78,6 +78,10 @@ import {
   resolveAccent,
   type AccentTokens,
 } from '../lib/accent.js';
+import { GLYPH_PLAY, GLYPH_PAUSE } from '../lib/icons.js';
+import { rememberRecent, browserStorage, RECENT_EVENT } from '../lib/recent.js';
+import { coverMode } from '../lib/coverDisplay.js';
+import { NOW_EVENT, type NowInfo } from '../lib/now.js';
 
 interface PlayerTrack {
   idx: number;
@@ -91,20 +95,27 @@ interface NpData {
   albumId?: number;
   youtubeUrl: string;
   accent?: string; // encoded accent tokens (lib/accent.ts encodeAccent)
-  albumTitle: string;
+  albumTitle: string; // as shown (lib/title.ts displayTitle)
   bandName: string;
   coverThumb: string;
+  cover?: string; // square crop or YouTube frame (lib/coverDisplay.ts decides how to draw it)
+  meta?: string; // "United States · 2016 · Deathcore"
+  bandHref?: string; // the band's page, else a Browse search
   tracks: PlayerTrack[];
 }
 
 // One album in the play queue. Built from a card's data attributes or from the
-// album page's NpData; carries everything the bar and "Up next" paint.
+// album page's NpData; carries everything the bar, "Up next", the sidebar's Recent
+// list and the home hero show.
 interface QItem {
   videoId: string;
   albumId: string;
   band: string;
   title: string;
   thumb: string;
+  cover: string;
+  meta: string;
+  bandHref: string;
   href: string;
   youtubeUrl: string;
   accent: AccentTokens | null;
@@ -120,8 +131,8 @@ interface PendingPlay {
 }
 
 // The glyph of a card's play button: ▶ while idle, ⏸ while that album plays.
-const PLAY_PATH = 'M7 5v14l12-7z';
-const PAUSE_PATH = 'M7 5h4v14H7zM14 5h4v14h-4z';
+const PLAY_PATH = GLYPH_PLAY;
+const PAUSE_PATH = GLYPH_PAUSE;
 
 // Props spread onto the dock while it is closed: `inert` keeps the off-screen
 // iframe and its links out of the tab order and the accessibility tree.
@@ -209,6 +220,9 @@ export default function Player() {
         band: d.band || '',
         title: d.title || '',
         thumb: d.thumb || '',
+        cover: d.cover || d.thumb || '',
+        meta: d.meta || '',
+        bandHref: d.bandHref || '',
         href: d.href || '#',
         youtubeUrl: ytWatchUrl(d.videoId),
         accent: decodeAccent(d.accent),
@@ -220,6 +234,9 @@ export default function Player() {
       band: d.bandName || '',
       title: d.albumTitle || '',
       thumb: d.coverThumb || '',
+      cover: d.cover || d.coverThumb || '',
+      meta: d.meta || '',
+      bandHref: d.bandHref || '',
       href: d.albumId != null ? `/metal-archive/album/${d.albumId}` : window.location.pathname,
       youtubeUrl: d.youtubeUrl || ytWatchUrl(d.videoId),
       accent: decodeAccent(d.accent),
@@ -230,6 +247,7 @@ export default function Player() {
       albumTitle: it.title,
       bandName: it.band,
       coverThumb: it.thumb,
+      cover: it.cover,
       tracks: [],
     });
     // Every playable card under `scope`, in DOM order.
@@ -238,11 +256,13 @@ export default function Player() {
         .map(itemFromCard)
         .filter((i): i is QItem => !!i);
     // What to cue on page load so the first tap can play synchronously: this
-    // page's album, else its first playable card. Null on pages with neither.
+    // page's album, else the first playable card of its content. Null on pages
+    // with neither. The right panel's Most played rows are on every page, so they
+    // do not count: a form page must not load a YouTube player for them.
     const cueSource = (): NpData | null => {
       const data = readNpData();
       if (data) return data;
-      const first = document.querySelector<HTMLElement>('[data-play-card]');
+      const first = document.querySelector<HTMLElement>('#main [data-play-card]');
       const item = first ? itemFromCard(first) : null;
       return item ? dataFromItem(item) : null;
     };
@@ -447,10 +467,13 @@ export default function Player() {
         npArtistRef.current.textContent = trackName ? `${item.band} · ${item.title}` : item.band;
       }
     };
+    // A YouTube frame (no square crop) is shown whole, letterboxed, never cropped.
+    const isFrame = (src: string) => coverMode(src) === 'frame';
     const paintBar = (item: QItem) => {
       if (npCoverRef.current) {
-        npCoverRef.current.src = item.thumb;
-        npCoverRef.current.style.visibility = item.thumb ? 'visible' : 'hidden';
+        npCoverRef.current.src = item.cover;
+        npCoverRef.current.style.visibility = item.cover ? 'visible' : 'hidden';
+        npCoverRef.current.classList.toggle('np-cover--frame', isFrame(item.cover));
       }
       if (npNameRef.current) npNameRef.current.href = item.href;
       if (npYoutubeRef.current) npYoutubeRef.current.href = item.youtubeUrl;
@@ -461,7 +484,7 @@ export default function Player() {
       }
       if (dockBandRef.current) {
         dockBandRef.current.textContent = item.band;
-        dockBandRef.current.href = `/metal-archive/browse?q=${encodeURIComponent(item.band)}`;
+        dockBandRef.current.href = item.bandHref || `/metal-archive/browse?q=${encodeURIComponent(item.band)}`;
       }
       paintAccent(document.documentElement);
       setBarName('');
@@ -484,10 +507,10 @@ export default function Player() {
         btn.className = 'np-up';
         btn.setAttribute('data-np-jump', String(q ? q.items.indexOf(it) : -1));
         btn.setAttribute('aria-label', `Play ${it.title} by ${it.band}`);
-        if (it.thumb) {
+        if (it.cover) {
           const img = document.createElement('img');
-          img.className = 'np-up__cover';
-          img.src = it.thumb;
+          img.className = isFrame(it.cover) ? 'np-up__cover np-up__cover--frame' : 'np-up__cover';
+          img.src = it.cover;
           img.alt = '';
           img.width = 44;
           img.height = 44;
@@ -519,9 +542,10 @@ export default function Player() {
       document.querySelectorAll<HTMLButtonElement>('[data-np-prev]').forEach((b) => { b.disabled = !q; });
     };
 
-    // The column on desktop starts below the (sticky) navbar, whose height varies.
+    // The right-hand column (short landscape phones) starts below the sticky top
+    // bar, whose height varies.
     const syncDockTop = () => {
-      const nav = document.querySelector<HTMLElement>('.navbar');
+      const nav = document.querySelector<HTMLElement>('.ma-top, .navbar');
       if (nav && dockRef.current) dockRef.current.style.setProperty('--np-top', `${nav.offsetHeight}px`);
     };
     // The open/closed state lives on #np-root, a PERSISTED element: <body> is
@@ -546,8 +570,38 @@ export default function Player() {
         if (b.hasAttribute('data-playing') === on) return;
         b.toggleAttribute('data-playing', on);
         b.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${b.dataset.title} by ${b.dataset.band}`);
-        b.querySelector('path')?.setAttribute('d', on ? PAUSE_PATH : PLAY_PATH);
+        // [data-glyph] marks the ▶ inside a cover button, which may hold other
+        // drawings (the live recordings' microphone).
+        (b.querySelector('[data-glyph] path') || b.querySelector('path'))?.setAttribute('d', on ? PAUSE_PATH : PLAY_PATH);
       });
+    };
+
+    // What plays, for the page parts that follow it (lib/now.ts): written on the
+    // persisted #np-root so a page that arrives later reads it at once, and
+    // announced on document. Starting an album also puts it first in the
+    // sidebar's Recent list (lib/recent.ts; storage may be unavailable, which
+    // only means the list is not kept).
+    const publishNow = (item: QItem | null) => {
+      const now: NowInfo | null = item
+        ? {
+            id: item.albumId || item.videoId,
+            videoId: item.videoId,
+            title: item.title,
+            band: item.band,
+            href: item.href,
+            cover: item.cover,
+            meta: item.meta,
+            bandHref: item.bandHref,
+          }
+        : null;
+      if (now) {
+        rootRef.current?.setAttribute('data-now', JSON.stringify(now));
+        rememberRecent(browserStorage(), { id: now.id, title: now.title, band: now.band, href: now.href, cover: now.cover });
+      } else {
+        rootRef.current?.removeAttribute('data-now');
+      }
+      document.dispatchEvent(new CustomEvent(NOW_EVENT, { detail: now }));
+      if (now) document.dispatchEvent(new CustomEvent(RECENT_EVENT));
     };
 
     // controls=0 leaves nothing in the video to operate, so the iframe is not a
@@ -790,6 +844,7 @@ export default function Player() {
       npResetProgress();
       syncCards();
       paintBar(item);
+      publishNow(item);
 
       clearActiveRows();
       let name = '';
@@ -893,6 +948,7 @@ export default function Player() {
       paintUpNext();
       updateTransport();
       paintAccent(document.documentElement);   // back to the page's colour, or amber
+      publishNow(null);
     };
 
     // Landed on the album that is playing: its tracklist is known now, so show
@@ -1246,6 +1302,9 @@ export default function Player() {
   return (
     <div id="np-root" ref={rootRef}>
       <aside id="np-dock" ref={dockRef} aria-label="Now playing video" {...INERT}>
+        {/* Desktop only (archive.css): the dock takes the right panel's place, so
+            it carries that panel's label. Not a heading: see "Up next" below. */}
+        <div class="np-dock__head"><p class="np-dock__label">Now playing</p></div>
         <div id="mini-player" ref={miniPlayerRef}>
           <div id="yt-player" ref={ytHostRef} style={{ width: '100%', height: '100%' }} />
 

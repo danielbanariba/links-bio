@@ -1,0 +1,36 @@
+---
+// An album image as the archive draws it, in a box its parent sizes:
+//   square  a crop from the covers step (/covers/<videoId>.webp) fills the box;
+//   frame   anything else (the 761 "full" overrides, a missing crop) is a 16:9
+//           YouTube frame, shown WHOLE: letterboxed over a blurred, darkened copy
+//           of itself, never centre-cropped (the cover art is rarely centred);
+//   none    no image: a plain tile.
+// The two <img> of a frame share one URL, so the browser fetches it once.
+// coverMode() (lib/coverDisplay.ts) decides; Search.tsx and the sidebar's Recent
+// script build the same markup.
+import { coverMode } from '../lib/coverDisplay.js';
+
+interface Props {
+  src: string | null | undefined;
+  alt?: string;
+  loading?: 'lazy' | 'eager';
+  class?: string;
+}
+const { src, alt = '', loading = 'lazy', class: cls } = Astro.props;
+const mode = coverMode(src);
+const url = (src ?? '').trim();
+---
+{mode === 'square' && (
+  <span class:list={['ma-art', cls]}>
+    <img class="ma-art__img" src={url} alt={alt} loading={loading} decoding="async" width="400" height="400" />
+  </span>
+)}
+{mode === 'frame' && (
+  <span class:list={['ma-art ma-art--frame', cls]}>
+    <img class="ma-art__bg" src={url} alt="" loading={loading} decoding="async" width="320" height="180" />
+    <span class="ma-art__frame">
+      <img class="ma-art__img" src={url} alt={alt} loading={loading} decoding="async" width="320" height="180" />
+    </span>
+  </span>
+)}
+{mode === 'none' && <span class:list={['ma-art ma-art--none', cls]} aria-hidden="true" />}

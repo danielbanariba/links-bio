@@ -38,6 +38,8 @@ export interface Card {
   // else the same mqdefault URL as `thumb` (lib/cover.ts, coverSrc).
   cover: string;
   youtube_video_id: string | null;
+  // YouTube views, only where a query selects them (getMostPlayed).
+  views?: number;
 }
 
 export interface Track {

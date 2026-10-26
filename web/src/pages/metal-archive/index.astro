@@ -11,12 +11,13 @@ import {
 } from '../../lib/db.js';
 import { ClientRouter } from 'astro:transitions';
 import { genreLabel } from '../../lib/labels.js';
-import Navbar from '../../components/Navbar.astro';
+import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import Carousel from '../../components/Carousel.astro';
 import AlbumCard from '../../components/AlbumCard.astro';
 import RowArrows from '../../components/RowArrows.astro';
 import '../../styles/global.css';
+import '../../styles/archive.css';
 
 // ─── Data queries (all build-time) ───────────────────────────────────────────
 const ROW_SIZE = 12;
@@ -47,8 +48,8 @@ const ogImage = latest[0]?.thumb;
     <link rel="canonical" href="https://danielbanariba.com/metal-archive" />
     <ClientRouter />
   </head>
-  <body class="ma">
-    <Navbar />
+  <body class="ma-shell ma">
+    <ArchiveChrome />
 
     <main id="main" tabindex="-1">
       <div class="wrap home-sections">

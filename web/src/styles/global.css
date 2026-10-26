@@ -1183,11 +1183,11 @@ img {
   .stage__actions { justify-content: flex-start; }
 }
 
-/* With the desktop column open (same media as the column, see "Desktop column"
-   below) the stage can be as narrow as 700px, too narrow for a 340px cover beside
-   the text (the title would break mid-word): stack them. Below 1100px the video
-   docks at the bottom and the stage keeps its width, so nothing moves on play. */
-@media (min-width: 1100px), (min-width: 768px) and (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+/* With the video column open on a short landscape phone (see "Landscape column"
+   below) the stage can be too narrow for a 340px cover beside the text (the title
+   would break mid-word): stack them. The desktop shell (archive.css) stacks by the
+   column's width instead, since its side panels are always there. */
+@media (min-width: 768px) and (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   @container (max-width: 839px) {
     body:has(#np-root[data-open]) .stage__inner {
       flex-direction: column;
@@ -1383,10 +1383,10 @@ a.band-pill:hover { background: var(--ma-hover-2); }
    first play sets #np-root[data-open] (state on a persisted element; <body> is
    replaced on every navigation, but :has() sees the moved island):
      < 1100px   the video docks full width directly above the bar, >= 200px tall
-     >= 1100px  a right "Now playing" column: video, album, band and Up next
+     >= 1100px  the archive shell's right panel (styles/archive.css)
+     short landscape phones: a right-hand column (below)
    YouTube's embed rules need the player >= 200x200 and visible while it plays,
-   so both layouts keep the video on screen, and the page reserves their space
-   (body padding below 1100px, margin on main + footer for the column). */
+   so every layout keeps the video on screen, and the page reserves its space. */
 :root {
   --np-bar-h: 72px;
   --np-tab-h: 0px;                              /* 58px where the phone tab bar shows */
@@ -1694,11 +1694,12 @@ a.np-name:hover { text-decoration: underline; }
   .mp-retry { min-height: 44px; min-width: 44px; }
 }
 
-/* ─── Desktop column (and short landscape phones, where a docked video would not
+/* ─── Landscape column (short landscape phones, where a docked video would not
    fit above the bars): the video leaves the bottom for a right-hand column that
-   starts below the sticky navbar (--np-top, measured by the Player) and ends at
-   the bar. The page narrows by the column's width so nothing is covered. ───── */
-@media (min-width: 1100px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+   starts below the sticky top bar (--np-top, measured by the Player) and ends at
+   the bar. The page narrows by the column's width so nothing is covered. The
+   desktop placement is the archive shell's right panel (styles/archive.css). ─ */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   body:has(#np-root[data-open]) {
     padding-bottom: calc(var(--np-bar-h) + var(--np-tab-h) + 8px);
   }

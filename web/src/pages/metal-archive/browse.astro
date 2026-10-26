@@ -5,13 +5,15 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ClientRouter } from 'astro:transitions';
-import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, isLiveRecording } from '../../lib/db.js';
+import { getBrowseIndex, getAllGenres, getAllCountries, getAllYears, getGenreFacetGroups, groupFacetsBySlug, isLiveRecording } from '../../lib/db.js';
+import { countryFlag, countryLabel, genreLabel } from '../../lib/labels.js';
 import { encodeAccent } from '../../lib/accent.js';
 import { getAlbumAccent } from '../../lib/vibrant.js';
-import Navbar from '../../components/Navbar.astro';
+import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import Search from '../../islands/Search.tsx';
 import '../../styles/global.css';
+import '../../styles/archive.css';
 
 // ─── Build-time index ─────────────────────────────────────────────────────────
 // The browse index is written to two locations:
@@ -70,6 +72,15 @@ const years = getAllYears().map((f) => String(f.value));
 
 const totalCount = index.length;
 
+// Genres and Countries (the shell's sidebar links here, #genres / #countries):
+// one link per facet page, biggest first, with the same slugs as getStaticPaths.
+const genreLinks = getGenreFacetGroups()
+  .sort((a, b) => b.count - a.count)
+  .map((g) => ({ href: `/metal-archive/genre/${g.slug}`, label: genreLabel(g.label), count: g.count }));
+const countryLinks = groupFacetsBySlug(getAllCountries())
+  .sort((a, b) => b.count - a.count)
+  .map((g) => ({ href: `/metal-archive/country/${g.slug}`, label: countryLabel(g.label), flag: countryFlag(g.label), count: g.count }));
+
 const pageTitle = 'Browse albums | Metal Archive';
 const metaDesc = `Browse ${totalCount} underground metal albums. Filter by genre, country, year and release type.`;
 const canonical = 'https://danielbanariba.com/metal-archive/browse';
@@ -95,8 +106,8 @@ const ogImage = initial[0]?.thumb || undefined;
   <link rel="canonical" href={canonical} />
   <ClientRouter />
 </head>
-<body>
-  <Navbar />
+<body class="ma-shell">
+  <ArchiveChrome />
 
   <main class="browse-page" id="main" tabindex="-1">
     <div class="browse-header">
@@ -142,6 +153,23 @@ const ogImage = initial[0]?.thumb || undefined;
         ))}
       </div>
     </noscript>
+
+    <section class="ma-facets" id="genres" aria-labelledby="genres-h">
+      <h2 class="ma-facets__title" id="genres-h">Genres</h2>
+      <ul class="ma-pills">
+        {genreLinks.map((g) => (
+          <li><a class="ma-pill" href={g.href}>{g.label}<small>{g.count}</small></a></li>
+        ))}
+      </ul>
+    </section>
+    <section class="ma-facets" id="countries" aria-labelledby="countries-h">
+      <h2 class="ma-facets__title" id="countries-h">Countries</h2>
+      <ul class="ma-pills">
+        {countryLinks.map((c) => (
+          <li><a class="ma-pill" href={c.href}>{c.flag && <span aria-hidden="true">{c.flag}</span>}{c.label}<small>{c.count}</small></a></li>
+        ))}
+      </ul>
+    </section>
   </main>
 
   <Footer />

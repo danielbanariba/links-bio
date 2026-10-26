@@ -312,12 +312,13 @@ export function getRecentAlbums(excludeId: number, limit = 7): Card[] {
 export function getMostPlayed(limit = 12): Card[] {
   const rows: any[] = db
     .prepare(
-      `SELECT ${CARD_COLS} FROM albums
+      `SELECT ${CARD_COLS}, views FROM albums
        WHERE views > 0 AND ${NOT_LIVE}
        ORDER BY views DESC, id DESC LIMIT ?`
     )
     .all(limit);
-  return rows.map(toCard);
+  // The right panel prints the count ("9,131 views"), so it rides along.
+  return rows.map((r) => ({ ...toCard(r), views: r.views }));
 }
 
 // ─── Slug helper — single source of truth for band/genre/country URLs ─────────

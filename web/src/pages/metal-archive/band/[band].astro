@@ -15,9 +15,10 @@ import { getAlbumAccent } from '../../../lib/vibrant.js';
 import { accentHtmlAttrs } from '../../../lib/accent.js';
 import { safeJsonLd } from '../../../lib/seo.js';
 import AlbumCard from '../../../components/AlbumCard.astro';
-import Navbar from '../../../components/Navbar.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 export function getStaticPaths() {
   const bands = getBandsWithMultipleAlbums();
@@ -96,8 +97,8 @@ const bandJsonLd = safeJsonLd({
     <script type="application/ld+json" set:html={bandJsonLd} />
     <ClientRouter />
   </head>
-  <body class="ma">
-    <Navbar />
+  <body class="ma-shell ma">
+    <ArchiveChrome />
 
     <main class="band-page" id="main" tabindex="-1">
       <!-- ─── Artist-style header (avatar + real stats) ─────── -->

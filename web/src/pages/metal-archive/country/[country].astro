@@ -11,9 +11,10 @@ import { ClientRouter } from 'astro:transitions';
 import { getAllCountries, getAlbumsByCountry, slugify } from '../../../lib/db.js';
 import { countryFlag, countryLabel } from '../../../lib/labels.js';
 import AlbumGrid from '../../../components/AlbumGrid.astro';
-import Navbar from '../../../components/Navbar.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 // slugify is imported from db.ts — single source of truth shared with the pages
 // that link here. Imports are available in the prerender chunk.
@@ -66,8 +67,8 @@ const ogImage = albums[0]?.thumb || undefined;
     <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
-  <body>
-    <Navbar />
+  <body class="ma-shell">
+    <ArchiveChrome />
 
     <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
       <header class="facet-hero">

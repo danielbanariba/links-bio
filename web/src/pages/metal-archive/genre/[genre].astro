@@ -17,9 +17,10 @@ import { genreLabel } from '../../../lib/labels.js';
 import { getAlbumAccent } from '../../../lib/vibrant.js';
 import { accentHtmlAttrs } from '../../../lib/accent.js';
 import AlbumGrid from '../../../components/AlbumGrid.astro';
-import Navbar from '../../../components/Navbar.astro';
+import ArchiveChrome from '../../../components/ArchiveChrome.astro';
 import Footer from '../../../components/Footer.astro';
 import '../../../styles/global.css';
+import '../../../styles/archive.css';
 
 export function getStaticPaths() {
   const groups = getGenreFacetGroups();
@@ -81,8 +82,8 @@ const ogImage = repCover || undefined;
     <link rel="canonical" href={canonical} />
     <ClientRouter />
   </head>
-  <body>
-    <Navbar />
+  <body class="ma-shell">
+    <ArchiveChrome />
 
     <main class="wrap" id="main" tabindex="-1" style="padding-top: 2rem;">
       <header class="facet-hero">
