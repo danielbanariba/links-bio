@@ -25,7 +25,7 @@ import { coverMode } from '../lib/coverDisplay.js';
 import { GLYPH_PLAY, ICONS } from '../lib/icons.js';
 import { slugify } from '../lib/slug.js';
 import { isLiveRecording } from '../lib/live.js';
-import { searchAlbums, searchBands, searchFacets, topResult } from '../lib/search.js';
+import { searchAlbums, searchBands, searchFacets, topResult, SEARCH_URL_EVENT } from '../lib/search.js';
 import type { BrowseEntry } from '../lib/types.js';
 
 // The cover as components/CoverArt.astro draws it: a square crop fills the box, a
@@ -101,6 +101,8 @@ function writeUrl(params: Record<string, string>, extra: Record<string, unknown>
   const qs = sp.toString();
   const url = window.location.pathname + (qs ? `?${qs}` : '');
   history.replaceState({ ...(history.state ?? {}), ...extra }, '', url);
+  // replaceState fires no event: tell the sidebar, which marks Genres/Countries from the URL.
+  document.dispatchEvent(new Event(SEARCH_URL_EVENT));
 }
 
 interface SearchProps {
@@ -114,6 +116,9 @@ export default function Search({ total }: SearchProps) {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [sort, setSort] = useState('');
   const [shown, setShown] = useState(0);
+  // Set once the mount effect has read the URL: until then a deep link keeps the
+  // page's tiles hidden (browse.astro marks it, archive.css hides them).
+  const [ready, setReady] = useState(false);
   const loading = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,6 +147,7 @@ export default function Search({ total }: SearchProps) {
     setSort(sp.get('sort') ?? '');
     const saved = history.state?.[SHOWN_KEY];
     if (Number.isInteger(saved)) setShown(saved);
+    setReady(true);
     if (q0.trim() || FILTERS.some((k) => f[k]) || sp.get('sort')) loadIndex();
   }, []);
 
@@ -333,7 +339,7 @@ export default function Search({ total }: SearchProps) {
   })();
 
   return (
-    <div class="ma-search-island" data-mode={mode}>
+    <div class="ma-search-island" data-mode={mode} data-ready={ready ? '' : undefined}>
       <h1 class="ma-page-title">{mode === 'list' ? 'Browse' : 'Search'}</h1>
       <form class="ma-bigsearch" role="search" action="/metal-archive/browse" method="get" onSubmit={(e) => { e.preventDefault(); inputRef.current?.blur(); }}>
         <Icon name="search" />

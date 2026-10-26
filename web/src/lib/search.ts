@@ -13,6 +13,11 @@ import { displayTitle } from './title.js';
 import { coverMode } from './coverDisplay.js';
 import type { BrowseEntry } from './types.js';
 
+/** Fired on document each time the Search island rewrites the URL in place
+ *  (history.replaceState fires nothing), so components/ArchiveChrome.astro can
+ *  re-mark Search, Genres or Countries in the sidebar. */
+export const SEARCH_URL_EVENT = 'ma:search-url';
+
 /** Lowercase, without accents: "Motörhead" and "motorhead" are the same query. */
 export function normalize(s: string | null | undefined): string {
   return (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

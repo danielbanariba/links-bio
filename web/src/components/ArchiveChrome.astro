@@ -108,6 +108,7 @@ const isSub = !isHome && !onBrowse;
   import { loadRecent, browserStorage, RECENT_EVENT, type RecentEntry } from '../lib/recent.js';
   import { coverArtElement } from '../lib/coverArtDom.js';
   import { readNow, NOW_EVENT } from '../lib/now.js';
+  import { SEARCH_URL_EVENT } from '../lib/search.js';
 
   // ─── Recent: built with createElement/textContent, entries are stored data ───
   function eq(): HTMLElement {
@@ -212,6 +213,7 @@ const isSub = !isHome && !onBrowse;
 
   window.addEventListener('scroll', syncTop, { passive: true });
   window.addEventListener('hashchange', markBrowseNav);
+  document.addEventListener(SEARCH_URL_EVENT, markBrowseNav);
   document.addEventListener(RECENT_EVENT, renderRecent);
   document.addEventListener(NOW_EVENT, renderRecent);
   document.addEventListener('astro:after-swap', () => {

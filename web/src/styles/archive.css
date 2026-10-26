@@ -824,6 +824,8 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
 .ma-bigsearch__clear:hover { background: var(--ma-fill); color: var(--ma-text); }
 
 .ma-searchpage:has([data-mode='results'], [data-mode='list']) .ma-browse-empty { display: none; }
+/* A deep link (browse.astro's inline script) hides them until the island has read the URL. */
+.ma-searchpage.is-deeplink:not(:has(.ma-search-island[data-ready])) .ma-browse-empty { display: none; }
 .ma-results { padding-top: 6px; }
 .ma-results__note { margin: 24px 0 0; font-size: 15px; color: var(--ma-text-2); }
 /* The sidebar's Genres and Countries land here, below the top bar and the field. */

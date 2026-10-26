@@ -111,6 +111,14 @@ const ogImage = index.find((a) => !isLiveRecording(a.album_title))?.thumb || und
   <ArchiveChrome />
 
   <main class="ma-searchpage" id="main" tabindex="-1">
+    {/* A deep link (?q=, a filter or a sort) opens on results, not on the tiles:
+        mark it before the first paint so the tiles stay hidden until the island
+        takes over (archive.css). Without JS this never runs and the tiles stay. */}
+    <script is:inline>
+      if (/[?&](q|genre|country|year|release_type|sort)=[^&]/.test(location.search)) {
+        document.getElementById('main').classList.add('is-deeplink');
+      }
+    </script>
     <Search client:load total={totalCount} />
 
     <div class="ma-browse-empty">
