@@ -57,7 +57,8 @@ export function planCover(input: {
     return { kind: 'render', box, source: 'override', score: 0 };
   }
 
-  // No override. A cached override whose entry was deleted from the file is stale.
+  // No override. A cached override (a box, or "full" cached with no box) whose
+  // line was deleted from the file is stale.
   if (!entry || entry.source === 'override' || entry.v !== COVER_ALGO_VERSION) return { kind: 'detect' };
   if (!entry.box) return { kind: 'skip' }; // a definitive "no clean square"
   if (fileExists) return { kind: 'skip' };

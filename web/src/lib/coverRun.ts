@@ -95,7 +95,9 @@ export async function runCovers(opts: RunOptions): Promise<{ cache: CoverCache; 
     }
     if (plan.kind === 'full') {
       await rm(coverFile, { force: true });
-      next[a.videoId] = entryOf('full', null, 0);
+      // Cached as the override it is (no box), not as the detector's own "full":
+      // once the line leaves the override file, planCover detects it again.
+      next[a.videoId] = entryOf('override', null, 0);
       return;
     }
 
@@ -148,14 +150,24 @@ export async function runCovers(opts: RunOptions): Promise<{ cache: CoverCache; 
         log(`[covers] ${a.videoId} (album ${a.id}) skipped: ${err instanceof Error ? err.message : String(err)}`);
       }
       done++;
-      if (opts.onCheckpoint && done % every === 0) await opts.onCheckpoint(next);
+      if (opts.onCheckpoint && done % every === 0) {
+        // Only a convenience for a killed run: a failed write is logged, never
+        // allowed to stop the run (the final write still happens).
+        try {
+          await opts.onCheckpoint(next);
+        } catch (err) {
+          log(`[covers] checkpoint not saved: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.concurrency ?? 6, work.length)) }, worker));
 
+  // An album with no box is shown whole ("full"), whether the detector or a
+  // reviewer said so.
   for (const a of work) {
     const e = next[a.videoId];
-    if (e) summary.bySource[e.source]++;
+    if (e) summary.bySource[e.box ? e.source : 'full']++;
   }
   summary.ms = Date.now() - started;
   return { cache: next, summary };
@@ -179,6 +191,13 @@ export function formatSummary(s: RunSummary): string {
 
 class PermanentFetchError extends Error {}
 
+/**
+ * The longest Retry-After that is waited out. A server asking for more (an hour,
+ * a day) fails the album now; the next build retries it. Without a cap one header
+ * would stall the twice-a-day sync build for as long as the server says.
+ */
+export const MAX_RETRY_AFTER_MS = 30_000;
+
 export interface RetryOptions {
   fetchFn?: (url: string, init?: { signal?: AbortSignal }) => Promise<Response>;
   sleep?: (ms: number) => Promise<void>;
@@ -188,7 +207,10 @@ export interface RetryOptions {
   timeoutMs?: number;
 }
 
-/** GET with retry + exponential backoff on network errors, 429 and 5xx; other statuses fail at once. */
+/**
+ * GET with retry + exponential backoff on network errors, 429 and 5xx; other
+ * statuses fail at once. A Retry-After is honoured up to MAX_RETRY_AFTER_MS.
+ */
 export async function fetchWithRetry(url: string, opts: RetryOptions = {}): Promise<Buffer> {
   const fetchFn = opts.fetchFn ?? fetch;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -203,7 +225,10 @@ export async function fetchWithRetry(url: string, opts: RetryOptions = {}): Prom
       if (res.status !== 429 && res.status < 500) throw new PermanentFetchError(`HTTP ${res.status} for ${url}`);
       lastError = new Error(`HTTP ${res.status} for ${url}`);
       const retryAfter = Number(res.headers.get('retry-after'));
-      if (Number.isFinite(retryAfter) && retryAfter > 0) waitMs = Math.max(waitMs, retryAfter * 1000);
+      if (Number.isFinite(retryAfter) && retryAfter > 0) {
+        if (retryAfter * 1000 > MAX_RETRY_AFTER_MS) break;
+        waitMs = Math.max(waitMs, retryAfter * 1000);
+      }
     } catch (err) {
       if (err instanceof PermanentFetchError) throw err;
       lastError = err;

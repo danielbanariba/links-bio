@@ -110,7 +110,8 @@ test('an override box is cropped exactly and "full" removes the crop without a d
     const r2 = await runCovers({ ...base, albums: [album(1, 'vidRed1')], overrides: { vidRed1: 'full' }, cache: r1.cache });
     assert.equal(s.calls.length, before, 'no download for a "full" override');
     assert.ok(!existsSync(file), 'the old crop file is removed');
-    assert.deepEqual([r2.cache.vidRed1.source, r2.cache.vidRed1.box], ['full', null]);
+    // No box; cached as the override it is, so removing it brings the detector back.
+    assert.deepEqual([r2.cache.vidRed1.source, r2.cache.vidRed1.box], ['override', null]);
   } finally {
     s.cleanup();
   }
@@ -142,4 +143,74 @@ test('fetchWithRetry does not retry a 404', async () => {
     /404/,
   );
   assert.equal(n, 1);
+});
+
+// Defect caught: taking a "full" override out of the file (to let the detector
+// try that album again) leaving it uncropped forever: the cache said "full"
+// with no box, which reads as the detector's own final "no square" answer.
+test('a "full" override that was removed from the file is detected again', async () => {
+  const s = setup();
+  try {
+    const good = await synthFrame({ cover: { x: 84, y: 60, size: 600 } });
+    const fetchImage = async (url: string) => {
+      s.calls.push(url);
+      return good;
+    };
+    const base = { coversDir: s.coversDir, previewDir: s.previewDir, fetchImage, log: quiet, albums: [album(1, 'vidUnfull')] };
+    const r1 = await runCovers({ ...base, overrides: { vidUnfull: 'full' }, cache: {} });
+    assert.equal(s.calls.length, 0);
+    const r2 = await runCovers({ ...base, overrides: {}, cache: r1.cache });
+    assert.equal(s.calls.length, 1, 'the frame is downloaded for detection');
+    assert.ok(r2.cache.vidUnfull.box, 'the detector found the square');
+    assert.ok(existsSync(path.join(s.coversDir, 'vidUnfull.webp')));
+  } finally {
+    s.cleanup();
+  }
+});
+
+// Defect caught: a cold run killed halfway by a checkpoint write that failed
+// (the checkpoint only exists to keep progress), with every album done so far
+// lost and the remaining workers left running unsupervised.
+test('a failing checkpoint is logged and the run goes on', async () => {
+  const s = setup();
+  try {
+    const good = await synthFrame({ cover: { x: 84, y: 60, size: 600 } });
+    const logs: string[] = [];
+    const { cache, summary } = await runCovers({
+      albums: [album(1, 'vidCk1'), album(2, 'vidCk2'), album(3, 'vidCk3')],
+      overrides: {},
+      cache: {},
+      fetchImage: async () => good,
+      coversDir: s.coversDir,
+      previewDir: s.previewDir,
+      concurrency: 1,
+      checkpointEvery: 1,
+      onCheckpoint: () => {
+        throw new Error('ENOSPC');
+      },
+      log: (m) => logs.push(m),
+    });
+    assert.deepEqual(Object.keys(cache).sort(), ['vidCk1', 'vidCk2', 'vidCk3']);
+    assert.equal(summary.failed, 0);
+    assert.ok(logs.some((m) => m.includes('ENOSPC')), 'the failure is logged');
+  } finally {
+    s.cleanup();
+  }
+});
+
+// Defect caught: one throttled response with "Retry-After: 3600" stalling the
+// twice-a-day sync build for an hour per attempt. A wait that long is not
+// waited: the album fails now and the next build retries it.
+test('fetchWithRetry does not wait out a Retry-After longer than its cap', async () => {
+  const sleeps: number[] = [];
+  let n = 0;
+  await assert.rejects(
+    fetchWithRetry('https://x/y.jpg', {
+      fetchFn: async () => (n++, res(429, { 'retry-after': '3600' })),
+      sleep: async (ms) => void sleeps.push(ms),
+    }),
+    /429/,
+  );
+  assert.ok(sleeps.every((ms) => ms <= 30_000), `slept ${JSON.stringify(sleeps)}`);
+  assert.equal(n, 1, 'the server asked for more than the cap: no retry');
 });
