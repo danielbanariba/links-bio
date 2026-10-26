@@ -84,6 +84,9 @@ const isSub = !isHome && !onBrowse;
     </form>
   )}
   <div class="ma-top__end">
+    {/* Shown only while the Player's now-playing view is open on desktop and
+        tablet (styles/archive.css); the phone's sheet has its own chevron. */}
+    <button type="button" class="ma-btn ma-btn--glass ma-btn--sm ma-top__close" data-np-close-view><Icon name="down" />Close player</button>
     <button type="button" class="ma-circle" data-surprise aria-label="Surprise me: a random album"><Icon name="dice" /></button>
     {!onBrowse && (
       <a class="ma-circle ma-top__search" href="/metal-archive/browse" aria-label="Search"><Icon name="search" /></a>

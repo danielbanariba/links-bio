@@ -28,7 +28,14 @@ const { id, title, more, queue = true, tiles = false } = Astro.props;
       {more && <a class="ma-row__more" href={more.href} aria-label={`${more.label}: ${title}`}>{more.label}</a>}
     </div>
   </div>
-  <div class:list={['ma-row__track', tiles && 'ma-row__track--tiles']} data-row-track data-queue={queue ? '' : undefined}>
+  {/* data-from names the queue in the now-playing view's "Playing from". */}
+  <div
+    class:list={['ma-row__track', tiles && 'ma-row__track--tiles']}
+    data-row-track
+    data-queue={queue ? '' : undefined}
+    data-from={queue ? title : undefined}
+    data-from-href={queue ? `${Astro.url.pathname}#${id}` : undefined}
+  >
     <slot />
   </div>
 </section>

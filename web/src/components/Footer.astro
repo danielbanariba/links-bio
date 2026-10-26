@@ -47,8 +47,9 @@ const views = (n: number | undefined) => `${(n ?? 0).toLocaleString('en-US')} vi
     {mostPlayed.length > 0 && (
       <>
         <p class="ma-aside__section" id="ma-most-h">Most played <small>YouTube views</small></p>
-        {/* data-queue: a ▶ here plays these five, in this order. */}
-        <ol class="ma-arows" aria-labelledby="ma-most-h" data-queue>
+        {/* data-queue: a ▶ here plays these five, in this order. data-from names
+            them in the now-playing view's "Playing from". */}
+        <ol class="ma-arows" aria-labelledby="ma-most-h" data-queue data-from="Most played" data-from-href="/metal-archive/browse?sort=views">
           {mostPlayed.map(({ album, title, attrs }) => (
             <li class="ma-arow">
               {attrs

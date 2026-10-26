@@ -29,7 +29,7 @@ import { displayTitle } from '../../lib/title.js';
 import { playAttrs, bandHref } from '../../lib/cardPlay.js';
 import { getAlbumAccent } from '../../lib/vibrant.js';
 import { accentHtmlAttrs } from '../../lib/accent.js';
-import { GLYPH_PLAY, GLYPH_PAUSE } from '../../lib/icons.js';
+import { GLYPH_PLAY } from '../../lib/icons.js';
 import ArchiveChrome from '../../components/ArchiveChrome.astro';
 import Footer from '../../components/Footer.astro';
 import Row from '../../components/Row.astro';
@@ -105,8 +105,9 @@ const ogImage = hero?.thumb;
     <main id="main" tabindex="-1" class="ma-home">
       <h1 class="sr-only">Metal Archive</h1>
 
-      <!-- data-queue: the hero's ▶ plays on through Latest uploads. -->
-      <div data-queue>
+      <!-- data-queue: the hero's ▶ plays on through Latest uploads (data-from:
+           the now-playing view's "Playing from"). -->
+      <div data-queue data-from="Latest uploads" data-from-href="/metal-archive#latest">
         {hero && (
           <section class="ma-hero" data-hero data-state="idle" aria-labelledby="ma-hero-h">
             <div class="ma-hero__bg" aria-hidden="true">
@@ -145,10 +146,10 @@ const ogImage = hero?.thumb;
                       Play album
                     </button>
                   )}
-                  <button type="button" class="ma-btn ma-btn--accent ma-hero__now ma-pp js-pp" data-np-toggle data-state="paused">
-                    <svg class="ma-i ma-i--fill ma-pp__play" viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PLAY} /></svg>
-                    <svg class="ma-i ma-i--fill ma-pp__pause" viewBox="0 0 24 24" aria-hidden="true"><path d={GLYPH_PAUSE} /></svg>
-                    <span class="ma-pp__play">Play</span><span class="ma-pp__pause">Pause</span>
+                  {/* While an album plays, the hero hands over to the player: play and
+                      pause are on the bar and in the view this opens. */}
+                  <button type="button" class="ma-btn ma-btn--accent ma-hero__now" data-np-open>
+                    <Icon name="expand" />Open player
                   </button>
                   <a class="ma-btn ma-btn--glass" href={`/metal-archive/album/${hero.id}`} data-hero-info>
                     <Icon name="info" />Album info
