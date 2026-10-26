@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 import { thumb } from './thumb.js';
 import { coverUrl } from './coverStore.js';
 import { pickCollage } from './coverDisplay.js';
-import type { Album, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
+import type { Album, BandCard, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
 
 const candidates = [
   process.env.REFLEX_DB,
@@ -610,15 +610,25 @@ export function getTopBands(
 }
 
 // All albums for a given band, newest-first so the most recent work is prominent.
-// Live recordings are included but separated on the band page.
-export function getAlbumsByBand(bandName: string): Card[] {
+// Live recordings are included but separated on the band page. Each carries its
+// views (the band page's Popular and total), release type and track count (one
+// subquery per album, so an album without tracks counts 0, not 1).
+export function getAlbumsByBand(bandName: string): BandCard[] {
   const rows: any[] = db
     .prepare(
-      `SELECT ${CARD_COLS} FROM albums
+      `SELECT ${CARD_COLS}, views, release_type,
+              (SELECT COUNT(*) FROM tracks t WHERE t.album_id = albums.id) AS tracks
+       FROM albums
        WHERE band_name = ? ORDER BY year DESC, upload_date DESC`
     )
     .all(bandName);
-  return rows.map(toCard);
+  return rows.map((r) => ({
+    ...toCard(r),
+    artwork: r.album_artwork_url ?? null,
+    views: r.views ?? 0,
+    release_type: r.release_type ?? null,
+    tracks: r.tracks,
+  }));
 }
 
 // Returns the number of albums by the given band. Used on album detail pages to

@@ -42,6 +42,15 @@ export interface Card {
   views?: number;
 }
 
+// A band's album as the band page (and an album page's "More from") lists it.
+export interface BandCard extends Card {
+  /** The full-size YouTube thumbnail: the band hero's image when there is no square crop. */
+  artwork: string | null;
+  views: number;
+  release_type: string | null;
+  tracks: number;
+}
+
 export interface Track {
   track_number: number | null;
   track_name: string;

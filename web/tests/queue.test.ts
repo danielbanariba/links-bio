@@ -14,6 +14,7 @@ import {
   shuffleUpcoming,
   restoreOrder,
   afterEnd,
+  leadWith,
 } from '../src/lib/queue.ts';
 
 const card = (videoId: string) => ({ videoId, title: `album ${videoId}` });
@@ -187,4 +188,17 @@ test('with repeat on, the album that ended plays again even when another follows
   assert.equal(afterEnd(q, true), 1);
   assert.equal(afterEnd(q, false), 2);
   assert.equal(afterEnd(withIndex(q, 2), false), -1);
+});
+
+test('a band page Play or Shuffle that starts mid-list still queues every album', () => {
+  // Defect: building the queue at the chosen album (the most played, or a random
+  // one) in the page's order leaves the albums printed before it behind the
+  // start, so they never play. leadWith puts the start first and keeps the rest.
+  const items = row('a', 'b', 'c', 'd');
+  const led = leadWith(items, 'c');
+  assert.deepEqual(ids(led), ['c', 'a', 'b', 'd']);
+  const q = buildQueue(led, 'c')!;
+  assert.deepEqual(ids(upNext(q, 9)), ['a', 'b', 'd']);
+  // An album that is not there leaves the order as it was.
+  assert.deepEqual(ids(leadWith(items, 'z')), ['a', 'b', 'c', 'd']);
 });

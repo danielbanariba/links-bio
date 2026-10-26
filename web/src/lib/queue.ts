@@ -43,6 +43,18 @@ export function buildQueue<T extends QueueItem>(items: T[], startVideoId: string
 const playable = <T extends QueueItem>(q: Queue<T>, i: number): boolean =>
   !q.unplayable.has(q.items[i].videoId);
 
+/**
+ * `items` with the album whose video is `videoId` moved to the front, the rest in
+ * their order. A band page's Play starts at its most played album and Shuffle at
+ * a random one: a queue built at that album in the page's order would leave the
+ * albums printed before it behind the start, never to play. Unchanged when the
+ * album is not there.
+ */
+export function leadWith<T extends QueueItem>(items: T[], videoId: string): T[] {
+  const i = items.findIndex((item) => item.videoId === videoId);
+  return i < 0 ? items.slice() : [items[i], ...items.slice(0, i), ...items.slice(i + 1)];
+}
+
 /** Index of the next playable album, or -1 at the end (the queue does not wrap). */
 export function nextIndex<T extends QueueItem>(q: Queue<T>): number {
   for (let i = q.index + 1; i < q.items.length; i++) if (playable(q, i)) return i;

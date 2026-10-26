@@ -69,6 +69,7 @@ import {
   shuffleUpcoming,
   restoreOrder,
   afterEnd,
+  leadWith,
   type Queue,
 } from '../lib/queue.js';
 import {
@@ -832,8 +833,7 @@ export default function Player() {
       let state = -1;
       try { state = playerRef.current.getPlayerState(); } catch { /* not ready */ }
       const id = state === 1 || state === 3 ? loadedVideoIdRef.current : '';
-      document.querySelectorAll<HTMLElement>('[data-play-card]').forEach((b) => {
-        const on = !!id && b.dataset.videoId === id;
+      const paint = (b: HTMLElement, on: boolean) => {
         if (b.hasAttribute('data-playing') === on) return;
         b.toggleAttribute('data-playing', on);
         // data-keep-label: a button whose visible text is its name ("Play album"
@@ -848,6 +848,12 @@ export default function Player() {
         // while its album plays; the label is its visible text, so it follows.
         const text = b.querySelector<HTMLElement>('[data-label-on]');
         if (text) text.textContent = (on ? text.dataset.labelOn : text.dataset.labelOff) ?? text.textContent;
+      };
+      document.querySelectorAll<HTMLElement>('[data-play-card]').forEach((b) => paint(b, !!id && b.dataset.videoId === id));
+      // A band page's Play: Pause while any album of its scope plays.
+      document.querySelectorAll<HTMLElement>('[data-play-scope]:not([data-shuffle])').forEach((b) => {
+        const scope = document.getElementById(b.dataset.playScope || '');
+        paint(b, !!id && !!scope && cardItems(scope).some((i) => i.videoId === id));
       });
     };
 
@@ -1819,6 +1825,37 @@ export default function Player() {
         queueScopeRef.current = scope instanceof Element ? scope : null;
         sourceRef.current = sourceOf(scope instanceof Element ? scope : cardBtn);
         startItem(item);
+        return;
+      }
+
+      // Play and Shuffle on a band page: the albums of the element that
+      // data-play-scope names (its discography). Play starts at the album the
+      // button names (the most played) and pauses/resumes while one of them plays;
+      // Shuffle turns shuffle on and starts at a random one. Either way the start
+      // goes first and every other album of the scope follows (leadWith).
+      const scopeBtn = t.closest<HTMLElement>('[data-play-scope]');
+      if (scopeBtn) {
+        const scopeEl = document.getElementById(scopeBtn.dataset.playScope || '');
+        const items = scopeEl ? cardItems(scopeEl) : [];
+        if (items.length === 0) return;
+        const shuffle = scopeBtn.hasAttribute('data-shuffle');
+        if (!shuffle && isOpen() && items.some((i) => i.videoId === loadedVideoIdRef.current) && [1, 2, 3].includes(playerState())) {
+          togglePlay();
+          return;
+        }
+        if (shuffle && !shuffleRef.current) {
+          shuffleRef.current = true;
+          paintModes();
+          announce('Shuffle on');
+        }
+        const start = shuffle
+          ? items[Math.floor(Math.random() * items.length)]
+          : items.find((i) => i.videoId === scopeBtn.dataset.videoId) || items[0];
+        setQueue(buildQueue(leadWith(items, start.videoId), start.videoId));
+        // Not rebuilt from the scope later: its page order is not this queue's.
+        queueScopeRef.current = null;
+        sourceRef.current = sourceOf(scopeEl);
+        startItem(start);
         return;
       }
 
