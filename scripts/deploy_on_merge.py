@@ -46,6 +46,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
+from urllib.parse import quote
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -79,6 +80,11 @@ MIGRATION_BLOCKED = (
     "a migration is pending: back up reflex.db, run `git pull --ff-only` and "
     "`alembic upgrade head`, then remove failed_sha from .deploy-state.json; "
     "the next tick deploys"
+)
+DATABASE_BEHIND = (
+    "reflex.db is at alembic revision {current} but the checkout's head is "
+    "{head}: back up reflex.db, run `alembic upgrade head`, then remove "
+    "failed_sha from .deploy-state.json; the next tick deploys"
 )
 
 NOOP, SKIP, REFUSE, BLOCK, UPDATE = "noop", "skip", "refuse", "block", "update"
@@ -272,6 +278,7 @@ def _count_fetch_failure(state_path: Path, state: State, exc: DeployError) -> st
 
 
 def _deploy(repo: Path, remote: str, state: State) -> None:
+    _check_database_at_head(repo)
     head_before = _rev_parse(repo, "HEAD")
     _git(repo, "merge", "--ff-only", remote)
     logger.info("fast-forwarded %s -> %s", _short(head_before), _short(remote))
@@ -298,6 +305,60 @@ def _deploy(repo: Path, remote: str, state: State) -> None:
             # (systemd/polkit/50-links-bio-forms-restart.rules) lets this user
             # restart it; --no-ask-password fails fast if that rule is missing.
             _run(["systemctl", "--no-ask-password", "restart", FORMS_UNIT], cwd=repo)
+
+
+def _check_database_at_head(repo: Path) -> None:
+    """Refuse to deploy unless reflex.db is at the checkout's alembic head.
+
+    decide() only blocks a migration that is not pulled yet. One the
+    operator pulled by hand is already in HEAD, and new code would then
+    build against, and the forms service restart on, a database whose
+    schema it does not match. This runs before the fast-forward, which
+    cannot change the head: an incoming migration is blocked earlier."""
+    current, head = _migration_state(repo)
+    if current != head:
+        raise DeployError(DATABASE_BEHIND.format(current=current, head=head))
+    logger.info("reflex.db is at the checkout's alembic head %s", head)
+
+
+def _migration_state(repo: Path, db_url: str | None = None) -> tuple[str | None, str]:
+    """(reflex.db's alembic revision, the checkout's alembic head), both
+    read without touching any database file. db_url defaults to the app's
+    own (links_bio.db.DB_URL: REFLEX_DB_URL, or the repo's reflex.db). This
+    deliberately skips alembic/env.py, which would configure a migration
+    run."""
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+    from alembic.util import CommandError
+    from sqlalchemy import create_engine
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.pool import NullPool
+
+    if db_url is None:
+        from links_bio.db import DB_URL as db_url
+
+    try:
+        head = ScriptDirectory(str(repo / "alembic")).get_current_head()
+    except CommandError as exc:
+        raise DeployError(f"cannot read the checkout's alembic head: {exc}") from None
+
+    url = make_url(db_url)
+    if url.get_backend_name() == "sqlite" and url.database:
+        # mode=ro: SQLite would otherwise create an empty file at a wrong path.
+        engine = create_engine(
+            f"sqlite:///file:{quote(url.database)}?mode=ro&uri=true", poolclass=NullPool
+        )
+    else:
+        engine = create_engine(url, poolclass=NullPool)
+    try:
+        with engine.connect() as connection:
+            current = MigrationContext.configure(connection).get_current_revision()
+    except SQLAlchemyError as exc:
+        raise DeployError(f"cannot read reflex.db's alembic revision: {_redact(str(exc))}") from None
+    finally:
+        engine.dispose()
+    return current, head
 
 
 def _gather_facts(repo: Path, remote: str) -> Facts:

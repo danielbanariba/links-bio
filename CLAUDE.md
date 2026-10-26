@@ -351,7 +351,10 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
     cannot fast-forward.
   - **Migrations:** when the range not pulled yet touches `alembic/versions/`, it does not pull, because
     `reflex.db`'s PII cannot be regenerated. Back up the DB, run `git pull --ff-only` and `alembic upgrade
-    head`, then remove `failed_sha`; the next tick deploys.
+    head`, then remove `failed_sha`; the next tick deploys. Before any install, build, deploy or restart
+    it also checks, read-only, that `reflex.db` (`REFLEX_DB_URL` or the default) is at the checkout's
+    alembic head, which catches a migration someone pulled by hand. If not, it alerts once and asks for
+    a backup, `alembic upgrade head` and removing `failed_sha`.
 
   One-time bootstrap on the host. The first tick has no state file, so it runs the full plan and deploys:
   ```bash

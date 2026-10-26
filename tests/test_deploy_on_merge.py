@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -133,6 +134,8 @@ class Recorder:
     commands: list[Command] = field(default_factory=list)
     sequence: list[str] = field(default_factory=list)
     failing: set[str] = field(default_factory=set)
+    db_revision: str | None = "rev-head"
+    head_revision: str = "rev-head"
 
 
 def _action_name(cmd: list[str]) -> str:
@@ -148,7 +151,9 @@ def _action_name(cmd: list[str]) -> str:
 @pytest.fixture
 def actions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Recorder:
     """Record every deploy action instead of running it. Add an action name
-    to `.failing` to make that action fail."""
+    to `.failing` to make that action fail. reflex.db's alembic revision and
+    the checkout's head come from `.db_revision` and `.head_revision`, which
+    match unless a test says otherwise."""
     node_bin = tmp_path / "nvm-bin"
     node_bin.mkdir()
     recorder = Recorder(node_bin=node_bin)
@@ -167,6 +172,11 @@ def actions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Recorder:
 
     monkeypatch.setattr(dom, "_stream", fake_stream)
     monkeypatch.setattr(bg, "run_astro_build_and_deploy", fake_build_and_deploy)
+    monkeypatch.setattr(
+        dom,
+        "_migration_state",
+        lambda repo, db_url=None: (recorder.db_revision, recorder.head_revision),
+    )
     return recorder
 
 
@@ -516,3 +526,72 @@ def test_malformed_fetch_count_counts_as_no_state(repos, actions, monkeypatch):
 
     assert _tick_while_github_is_down(repos, monkeypatch, ticks=1) == [0]
     assert repos.state()["fetch_failures"] == 1
+
+
+
+# --- reflex.db must be at the checkout's alembic head --------------------
+
+
+def test_database_behind_head_blocks_the_deploy_after_a_manual_pull(repos, actions):
+    """Catches deploying new code against an unmigrated PII database when
+    the operator pulled a migration by hand before a tick saw it: the range
+    still to pull is then empty, so only comparing reflex.db with the
+    checkout's alembic head stops the build, the deploy and the forms
+    restart on the new models. It alerts once, like any other failure."""
+    good = repos.mark_deployed()
+    merged = repos.land(
+        {
+            "alembic/versions/0002_add_column.py": "revision = '0002'\n",
+            "links_bio/fastapi_forms.py": "VERSION = 2\n",
+        }
+    )
+    git(repos.prod, "pull", "-q", "--ff-only")
+    actions.db_revision, actions.head_revision = "0001", "0002"
+
+    assert dom.main() == 1
+    assert actions.sequence == []
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
+
+    assert dom.main() == 0
+    assert actions.sequence == []
+
+
+def _stamped_sqlite(path: Path, revision: str) -> Path:
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
+        conn.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
+        conn.commit()
+    finally:
+        conn.close()
+    return path
+
+
+def test_migration_state_reads_a_scratch_database_stamped_behind_head(tmp_path):
+    """Catches a misread revision on either side of the comparison: a
+    scratch reflex.db stamped one revision behind this repo's real alembic
+    head must read back as exactly that revision, while one stamped at the
+    head must match it. Either misread lets new code deploy against an
+    unmigrated PII database, or blocks every deploy for nothing."""
+    from alembic.script import ScriptDirectory
+
+    head = ScriptDirectory(str(PROJECT_ROOT / "alembic")).get_current_head()
+    behind = ScriptDirectory(str(PROJECT_ROOT / "alembic")).get_revision(head).down_revision
+    behind_db = _stamped_sqlite(tmp_path / "behind.db", behind)
+    at_head_db = _stamped_sqlite(tmp_path / "at-head.db", head)
+
+    assert dom._migration_state(PROJECT_ROOT, f"sqlite:///{behind_db}") == (behind, head)
+    assert dom._migration_state(PROJECT_ROOT, f"sqlite:///{at_head_db}") == (head, head)
+
+
+def test_missing_database_fails_without_creating_an_empty_one(tmp_path):
+    """Catches the check writing to the database it inspects: opened
+    read-write, SQLite creates an empty file at a wrong REFLEX_DB_URL path,
+    and the next build would publish an empty archive from it. The check
+    must open read-only and fail instead."""
+    missing = tmp_path / "reflex.db"
+
+    with pytest.raises(dom.DeployError):
+        dom._migration_state(PROJECT_ROOT, f"sqlite:///{missing}")
+
+    assert not missing.exists()
