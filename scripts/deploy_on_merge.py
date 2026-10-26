@@ -6,11 +6,13 @@ units, from the host checkout (the only machine with reflex.db). One tick:
 
 1. Take the shared deploy lock (links_bio/deploy_lock.py) without waiting.
    If the twice-daily sync or a slow earlier deploy holds it, skip the tick.
-2. Fetch main anonymously over HTTPS into refs/remotes/origin/main. The repo
+2. Read the gitignored .deploy-state.json ({"deployed_sha", "failed_sha",
+   "fetch_failures"}). A missing or malformed file means no state.
+3. Fetch main anonymously over HTTPS into refs/remotes/origin/main. The repo
    is public, and a user unit has no SSH agent. DEPLOY_REPO_URL overrides
-   the URL.
-3. Read the gitignored .deploy-state.json ({"deployed_sha", "failed_sha"}).
-   A missing or malformed file means no state.
+   the URL. A failed fetch (GitHub or the network down) only counts and
+   exits 0; the 12th failure in a row, an hour of them, fails the unit once.
+   The next good fetch resets the count, so each outage alerts once.
 4. Decide (`decide()`, first match wins):
    - noop: HEAD is origin/main and already deployed;
    - skip: origin/main already failed and alerted;
@@ -42,7 +44,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -59,6 +61,9 @@ FORMS_UNIT = "metal-archive-forms.service"
 # A fetch that stalls this long fails the tick instead of holding the
 # deploy lock (and the waiting sync) until the unit's own timeout.
 GIT_TIMEOUT_SECONDS = 300
+# Consecutive failed fetches before the one alert of an outage: 12 ticks of
+# links-bio-deploy.timer is an hour. Shorter blips stay out of the inbox.
+FETCH_ALERT_AFTER = 12
 
 NPM_CI = "npm-ci"
 PIP_INSTALL = "pip-install"
@@ -77,6 +82,7 @@ MIGRATION_BLOCKED = (
 )
 
 NOOP, SKIP, REFUSE, BLOCK, UPDATE = "noop", "skip", "refuse", "block", "update"
+FETCH_FAILED = "fetch-failed"
 
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
 _URL_CREDENTIALS = re.compile(r"://[^/@\s]+@")
@@ -92,6 +98,7 @@ class DeployError(RuntimeError):
 class State:
     deployed_sha: str | None = None
     failed_sha: str | None = None
+    fetch_failures: int = 0
 
 
 @dataclass(frozen=True)
@@ -180,11 +187,21 @@ def read_state(path: Path) -> State:
             logger.warning("ignoring %s: %s is not a sha; running with no state", path.name, key)
             return State()
         values[key] = value
-    return State(**values)
+    fetch_failures = data.get("fetch_failures", 0)
+    if type(fetch_failures) is not int or fetch_failures < 0:
+        logger.warning(
+            "ignoring %s: fetch_failures is not a count; running with no state", path.name
+        )
+        return State()
+    return State(**values, fetch_failures=fetch_failures)
 
 
 def write_state(path: Path, state: State) -> None:
-    payload = {"deployed_sha": state.deployed_sha, "failed_sha": state.failed_sha}
+    payload = {
+        "deployed_sha": state.deployed_sha,
+        "failed_sha": state.failed_sha,
+        "fetch_failures": state.fetch_failures,
+    }
     path.write_text(json.dumps(payload, indent=2) + "\n")
 
 
@@ -192,9 +209,16 @@ def run_tick(repo: Path, repo_url: str) -> str:
     """Run one tick in `repo` (the caller holds the lock). Returns the
     action taken. On failure, records failed_sha and re-raises."""
     state_path = repo / STATE_FILE_NAME
-    _git(repo, "fetch", "--quiet", repo_url, f"+refs/heads/main:{REMOTE_REF}")
-    remote = _rev_parse(repo, REMOTE_REF)
     state = read_state(state_path)
+    try:
+        _git(repo, "fetch", "--quiet", repo_url, f"+refs/heads/main:{REMOTE_REF}")
+    except DeployError as exc:
+        return _count_fetch_failure(state_path, state, exc)
+    if state.fetch_failures:
+        logger.info("fetch works again after %d failed tick(s)", state.fetch_failures)
+        state = replace(state, fetch_failures=0)
+        write_state(state_path, state)
+    remote = _rev_parse(repo, REMOTE_REF)
     try:
         facts = _gather_facts(repo, remote)
         decision = decide(facts, state)
@@ -226,6 +250,25 @@ def run_tick(repo: Path, repo_url: str) -> str:
     write_state(state_path, State(deployed_sha=remote))
     logger.info("deployed %s and recorded it as deployed_sha", _short(remote))
     return decision.action
+
+
+def _count_fetch_failure(state_path: Path, state: State, exc: DeployError) -> str:
+    """Record one more failed fetch. Raise only on the FETCH_ALERT_AFTER-th
+    in a row, so an outage fails the unit (and emails) once, not per tick.
+    deployed_sha and failed_sha stay as they were."""
+    failures = state.fetch_failures + 1
+    write_state(state_path, replace(state, fetch_failures=failures))
+    if failures == FETCH_ALERT_AFTER:
+        raise DeployError(
+            f"fetching main has failed {failures} ticks in a row (about an hour): {exc}"
+        )
+    logger.warning(
+        "fetch failed (%d in a row; the unit fails once at %d, then waits for a good fetch): %s",
+        failures,
+        FETCH_ALERT_AFTER,
+        exc,
+    )
+    return FETCH_FAILED
 
 
 def _deploy(repo: Path, remote: str, state: State) -> None:

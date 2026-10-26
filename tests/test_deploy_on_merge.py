@@ -78,6 +78,10 @@ class Repos:
     def state(self) -> dict:
         return json.loads(self.state_file.read_text())
 
+    def shas(self) -> dict:
+        state = self.state()
+        return {"deployed_sha": state["deployed_sha"], "failed_sha": state["failed_sha"]}
+
     def write_state(self, deployed_sha=None, failed_sha=None) -> None:
         self.state_file.write_text(
             json.dumps({"deployed_sha": deployed_sha, "failed_sha": failed_sha})
@@ -181,7 +185,7 @@ def test_merge_is_pulled_deployed_and_recorded(repos, actions):
 
     assert repos.head() == merged
     assert actions.sequence == ["build-deploy"]
-    assert repos.state() == {"deployed_sha": merged, "failed_sha": None}
+    assert repos.shas() == {"deployed_sha": merged, "failed_sha": None}
 
 
 def test_tick_after_a_deploy_does_nothing(repos, actions):
@@ -207,7 +211,7 @@ def test_first_tick_without_state_runs_the_full_plan(repos, actions):
     assert dom.main() == 0
 
     assert actions.sequence == FULL_PLAN
-    assert repos.state() == {"deployed_sha": repos.head(), "failed_sha": None}
+    assert repos.shas() == {"deployed_sha": repos.head(), "failed_sha": None}
 
 
 def test_unknown_deployed_sha_falls_back_to_the_full_plan(repos, actions):
@@ -302,7 +306,7 @@ def test_failed_build_alerts_once_and_the_next_merge_replans_from_the_last_good_
     actions.failing.add("build-deploy")
 
     assert dom.main() == 1
-    assert repos.state() == {"deployed_sha": good, "failed_sha": broken}
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": broken}
 
     actions.sequence.clear()
     assert dom.main() == 0
@@ -312,7 +316,7 @@ def test_failed_build_alerts_once_and_the_next_merge_replans_from_the_last_good_
     fix = repos.land({"web/src/pages/index.astro": "<h1>fixed</h1>\n"})
     assert dom.main() == 0
     assert actions.sequence == ["npm-ci", "build-deploy"]
-    assert repos.state() == {"deployed_sha": fix, "failed_sha": None}
+    assert repos.shas() == {"deployed_sha": fix, "failed_sha": None}
 
 
 def test_sha_that_already_failed_is_skipped_without_touching_the_checkout(repos, actions):
@@ -326,7 +330,7 @@ def test_sha_that_already_failed_is_skipped_without_touching_the_checkout(repos,
 
     assert repos.head() == good
     assert actions.sequence == []
-    assert repos.state() == {"deployed_sha": good, "failed_sha": failed}
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": failed}
 
 
 def test_forms_restart_failure_still_deploys_then_fails_the_run(repos, actions):
@@ -340,7 +344,7 @@ def test_forms_restart_failure_still_deploys_then_fails_the_run(repos, actions):
     assert dom.main() == 1
 
     assert actions.sequence == ["build-deploy", "restart-forms"]
-    assert repos.state() == {"deployed_sha": good, "failed_sha": merged}
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
 
 
 # --- refusals ------------------------------------------------------------
@@ -397,7 +401,7 @@ def test_incoming_migration_blocks_the_pull(repos, actions):
 
     assert repos.head() == good
     assert actions.sequence == []
-    assert repos.state() == {"deployed_sha": good, "failed_sha": merged}
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
 
 
 def test_migration_pulled_by_hand_deploys_on_the_next_tick(repos, actions):
@@ -420,7 +424,7 @@ def test_migration_pulled_by_hand_deploys_on_the_next_tick(repos, actions):
     assert dom.main() == 0
 
     assert actions.sequence == ["build-deploy", "restart-forms"]
-    assert repos.state() == {"deployed_sha": merged, "failed_sha": None}
+    assert repos.shas() == {"deployed_sha": merged, "failed_sha": None}
 
 
 @pytest.mark.parametrize(
@@ -439,7 +443,7 @@ def test_malformed_state_file_counts_as_no_state(repos, actions, content):
     assert dom.main() == 0
 
     assert actions.sequence == FULL_PLAN
-    assert repos.state() == {"deployed_sha": repos.head(), "failed_sha": None}
+    assert repos.shas() == {"deployed_sha": repos.head(), "failed_sha": None}
 
 
 # --- the shared lock -----------------------------------------------------
@@ -459,3 +463,56 @@ def test_tick_is_skipped_while_another_run_holds_the_lock(repos, actions):
 
     assert actions.sequence == []
     assert git(repos.prod, "rev-parse", "refs/remotes/origin/main") == remote_before
+
+
+# --- fetch outages -------------------------------------------------------
+
+
+def _tick_while_github_is_down(repos: Repos, monkeypatch, ticks: int) -> list[int]:
+    monkeypatch.setenv("DEPLOY_REPO_URL", str(repos.origin.parent / "unreachable.git"))
+    return [dom.main() for _ in range(ticks)]
+
+
+def test_fetch_outage_alerts_once_not_every_tick(repos, actions, monkeypatch):
+    """Catches a GitHub or network outage that emails every 5 minutes for
+    as long as it lasts, and a long outage that never alerts at all (the
+    site silently stops following main). An hour of failed fetches (12
+    ticks) fails the unit exactly once; the ticks before and after exit 0.
+    The outage must not touch deployed_sha or failed_sha either."""
+    good = repos.mark_deployed()
+
+    codes = _tick_while_github_is_down(repos, monkeypatch, ticks=15)
+
+    assert codes == [0] * 11 + [1] + [0] * 3
+    assert actions.sequence == []
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": None}
+
+
+def test_recovered_fetch_resets_the_count_so_the_next_outage_alerts_again(
+    repos, actions, monkeypatch
+):
+    """Catches a count that never resets: after one alerted outage, the
+    next outage would stay silent however long it lasts. A good fetch also
+    must not redeploy what an outage left as already deployed."""
+    repos.mark_deployed()
+    _tick_while_github_is_down(repos, monkeypatch, ticks=12)
+
+    monkeypatch.setenv("DEPLOY_REPO_URL", str(repos.origin))
+    assert dom.main() == 0
+    assert repos.state()["fetch_failures"] == 0
+    assert actions.sequence == []
+
+    codes = _tick_while_github_is_down(repos, monkeypatch, ticks=12)
+    assert codes == [0] * 11 + [1]
+
+
+def test_malformed_fetch_count_counts_as_no_state(repos, actions, monkeypatch):
+    """Catches a hand-edited fetch_failures (a string, say) crashing every
+    tick of an outage, which is the email every 5 minutes this count exists
+    to prevent. Like any malformed state, it must count as no state."""
+    repos.state_file.write_text(
+        json.dumps({"deployed_sha": repos.head(), "failed_sha": None, "fetch_failures": "11"})
+    )
+
+    assert _tick_while_github_is_down(repos, monkeypatch, ticks=1) == [0]
+    assert repos.state()["fetch_failures"] == 1
