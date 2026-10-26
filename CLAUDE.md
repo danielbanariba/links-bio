@@ -97,10 +97,10 @@ python sync_youtube_to_db.py --solo-nuevos --mark-featured   # individual steps 
 ```bash
 cd web && npm run build && vercel deploy --prod --prebuilt
 ```
-**After a merge that changes the dependencies, update the host before its next build.** No deploy
-path installs packages: the timer and the pre-push hook build with whatever is already in
-`web/node_modules` and `env/`. After the T10b upgrade (Astro 7, Preact 11, mcp 2, sqlmodel 0.0.48),
-run this on the host right after pulling `main`:
+**A merge installs its own dependencies.** `links-bio-deploy.timer` runs `npm ci`, the `pip install`
+and the forms restart when a merge changes them (see "Deployment"). The sync timer and the pre-push hook
+still build with whatever is already in `web/node_modules` and `env/`, so after pulling `main` by hand
+(after the T10b upgrade: Astro 7, Preact 11, mcp 2, sqlmodel 0.0.48), run:
 ```bash
 cd web && npm ci && cd ..                          # Astro 7 needs Node >= 22.23.4 (the host has v25.8.0)
 env/bin/pip install -r requirements-dev.txt
@@ -109,8 +109,9 @@ sudo systemctl restart metal-archive-forms.service
 Pull the code and install the pins together. The new `mcp/server.py` imports `MCPServer`, which mcp 1.x
 does not have. The old one imports `mcp.server.fastmcp`, which mcp 2.x removed.
 Production also deploys automatically (a) twice a day from the `links-bio-sync.timer` systemd unit
-(see "Data layer & sync"), and (b) from the **`.git/hooks/pre-push` hook whenever `main` is pushed**.
-Both prefer `VERCEL_TOKEN` when it is set in `.env` (decision D2: a logged-in CLI session can expire
+(see "Data layer & sync"), (b) **within 5 minutes of every merge to `main`** from `links-bio-deploy.timer`
+(see "Deployment"), and (c) from the **`.git/hooks/pre-push` hook whenever `main` is pushed**.
+All three prefer `VERCEL_TOKEN` when it is set in `.env` (decision D2: a logged-in CLI session can expire
 silently, which is exactly what caused 3+ weeks of silently-failing deploys in Sep 2026) and fall back
 to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to production** — `git push --no-verify` bypasses the hook once.
 
@@ -259,6 +260,12 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
   in-app Reflex daemon thread, both retired once the Reflex app itself was removed (T5/T7). A failure
   triggers `OnFailure=notify-failure@%n.service` (`scripts/notify_failure.py`), the single email alert
   mechanism for every systemd unit in this project — see "Deployment" below.
+- **Merges deploy on their own, and never alongside the sync.** `links-bio-deploy.timer` (every 5 min)
+  runs `scripts/deploy_on_merge.py`, which pulls a new merge and builds+deploys it (see "Deployment").
+  Both jobs hold one lock, `links_bio/deploy_lock.py` (an `flock` on the gitignored `.deploy.lock`), for
+  their whole run. The deploy skips its tick while the lock is busy. The sync waits up to 65 minutes
+  (`LOCK_WAIT_SECONDS`, longer than a deploy can run) and fails loudly past that, which is why
+  `links-bio-sync.service` has `TimeoutStartSec=7500`.
 - **There is no artwork step; YouTube thumbnails are the only cover source.** `sync_youtube_to_db.py`
   writes `album_artwork_url` from the video thumbnail on insert and on every full sync. The DeathGrind.club
   step (`run_artwork_sync()`, `sync_artwork_deathgrind.py`, `--skip-artwork`) was removed in Oct 2026 for two reasons:
@@ -299,10 +306,11 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   (`cleanUrls` + `trailingSlash`) is dead config: the Astro adapter never copies it into
   `.vercel/output/config.json`, and no deploy path `cd`s to the repo root before running `vercel`. It is
   left in place, not deleted, in case a future deploy path starts running from the root.
-- **Two deploy paths, both preferring `VERCEL_TOKEN`** (decision D2): (1) the **`links-bio-sync.timer`**
-  systemd unit, twice a day (see "Data layer & sync"); (2) the `.git/hooks/pre-push` hook, which
+- **Three deploy paths, all preferring `VERCEL_TOKEN`** (decision D2): (1) the **`links-bio-sync.timer`**
+  systemd unit, twice a day (see "Data layer & sync"); (2) the **`links-bio-deploy.timer`** merge deploy
+  (below); (3) the `.git/hooks/pre-push` hook, which
   **auto-deploys production when `main` is pushed** and aborts the push if build/deploy fails
-  (`git push --no-verify` to skip). Both fall back to the logged-in Vercel CLI session when
+  (`git push --no-verify` to skip). All fall back to the logged-in Vercel CLI session when
   `VERCEL_TOKEN` is unset — **do not rely on that fallback for the unattended timer**: a logged-in
   session can expire silently, which is exactly what caused `vercel deploy` to fail on every cycle for
   3+ weeks (Sep–Oct 2026) with nobody told, until the `notify-failure@.service` alert mechanism
@@ -322,7 +330,35 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   deploy was already live, but the old process crashed importing a chunk that no longer existed,
   exited 1, and failed the unit. The CLI skips the self-upgrade under CI. Manual `vercel` runs on the
   host still auto-update.
-- **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Deploy locally, or let the sync timer / the pre-push hook do it.
+- **Merge → deploy: `links-bio-deploy.timer`** runs `scripts/deploy_on_merge.py` every 5 minutes, a
+  oneshot under `OnFailure=notify-failure@%n.service`. It fetches `main` anonymously over HTTPS
+  (`DEPLOY_REPO_URL` overrides the URL), and when a merge landed it fast-forwards the host checkout and
+  runs only what the paths changed since the last good deploy need, in this order:
+  - `web/package*.json` → `npm ci`;
+  - `requirements*.txt` → `pip install -r requirements-dev.txt`;
+  - always the Astro build+deploy (`npm run build` already runs the covers step);
+  - `links_bio/` or a requirements file → `systemctl restart metal-archive-forms.service`. It is a system
+    unit, so the polkit rule `systemd/polkit/50-links-bio-forms-restart.rules` allows exactly that restart.
+
+  The gitignored `.deploy-state.json` holds `deployed_sha` and `failed_sha`. With no file, or a malformed
+  one, the next tick runs the full plan.
+  - **Alert once:** a failure exits non-zero (one email) and records `failed_sha` = origin/main; later
+    ticks skip that sha. A new merge retries, re-planning from the last good deploy. To retry the same
+    sha, remove `failed_sha` from `.deploy-state.json`.
+  - **Refusals:** it alerts and does not pull when the checkout is not on `main`, has tracked changes, or
+    cannot fast-forward.
+  - **Migrations:** when the range not pulled yet touches `alembic/versions/`, it does not pull, because
+    `reflex.db`'s PII cannot be regenerated. Back up the DB, run `git pull --ff-only` and `alembic upgrade
+    head`, then remove `failed_sha`; the next tick deploys.
+
+  One-time bootstrap on the host. The first tick has no state file, so it runs the full plan and deploys:
+  ```bash
+  cd ~/Desktop/links-bio && git pull --ff-only
+  sudo cp systemd/polkit/50-links-bio-forms-restart.rules /etc/polkit-1/rules.d/
+  cp systemd/links-bio-deploy.service systemd/links-bio-deploy.timer systemd/links-bio-sync.service ~/.config/systemd/user/
+  systemctl --user daemon-reload && systemctl --user enable --now links-bio-deploy.timer
+  ```
+- **CI auto-deploy is intentionally OFF** (`.github/workflows/deploy.yml` is a no-op reminder). A GitHub runner has no `reflex.db`, so a CI build would publish an empty/stale site. Merges reach production through `links-bio-deploy.timer` on the host instead.
 
 ## Backups
 
@@ -355,6 +391,7 @@ no dead Reflex code left in this repo to accidentally edit; the table below is n
 | `links_bio/fastapi_forms.py` (forms) | Runs as `metal-archive-forms.service` (a host system unit, not tracked here). |
 | `links_bio/models/` (DB schema) | Plain SQLModel; Alembic drives it directly (no `reflex db`). |
 | `links_bio/background_sync.py` + sync scripts + `scripts/sync_and_deploy.py` | Oneshot pipeline, triggered by `links-bio-sync.timer`. No daemon thread. |
+| `scripts/deploy_on_merge.py` + `links_bio/deploy_lock.py` | Oneshot merge deploy, triggered by `links-bio-deploy.timer` every 5 minutes. |
 | `reflex.db` (data) | Lives only on the host (gitignored); backed up by `scripts/backup_reflex_db.sh`. |
 
 `cloudflared-config.yml` is a sanitized mirror of the real `/etc/cloudflared/config.yml` (see

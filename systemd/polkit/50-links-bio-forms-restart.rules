@@ -1,0 +1,16 @@
+// Lets user banar restart metal-archive-forms.service, and nothing else,
+// without a password. scripts/deploy_on_merge.py runs from a user unit
+// (links-bio-deploy.service), and the forms API is a system unit, so its
+// `systemctl restart` needs this rule after a merge changes links_bio/ or
+// the requirements files.
+//
+// Install once on the host (polkit picks it up without a restart):
+//   sudo cp systemd/polkit/50-links-bio-forms-restart.rules /etc/polkit-1/rules.d/
+polkit.addRule(function (action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "metal-archive-forms.service" &&
+        action.lookup("verb") == "restart" &&
+        subject.user == "banar") {
+        return polkit.Result.YES;
+    }
+});

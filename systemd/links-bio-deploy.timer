@@ -1,0 +1,11 @@
+[Unit]
+Description=Check main for a new merge to deploy, every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+# A missed tick needs no catch-up run: the next one, 5 minutes later, sees
+# the same merge.
+Persistent=false
+
+[Install]
+WantedBy=timers.target
