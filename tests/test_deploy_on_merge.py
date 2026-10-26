@@ -758,3 +758,22 @@ def test_host_commit_ahead_of_origin_waits_without_alerting(repos, actions):
     assert repos.head() == ahead
     assert actions.sequence == []
     assert repos.shas() == {"deployed_sha": good, "failed_sha": None}
+
+
+def test_rewound_main_alerts_once_instead_of_waiting(repos, actions):
+    """Catches a force-push or reset that moves main back behind what is
+    live being taken for unpushed host commits: the tick would wait forever
+    without a word while the host keeps serving the rolled-back merge. It
+    must fail the unit once, leave the checkout alone, and skip after."""
+    older = repos.mark_deployed()
+    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
+    assert dom.main() == 0
+    git(repos.dev, "push", "-q", "-f", "origin", f"{older}:main")
+    actions.sequence.clear()
+
+    assert dom.main() == 1
+
+    assert repos.head() == merged
+    assert actions.sequence == []
+    assert repos.shas() == {"deployed_sha": merged, "failed_sha": older}
+    assert dom.main() == 0

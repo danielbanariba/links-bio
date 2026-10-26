@@ -352,9 +352,12 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
     unit's `TimeoutStartSec`), the tick records `failed_sha` before it exits.
   - **Outages alert once:** a failed fetch (GitHub or the network down) only bumps `fetch_failures`
     and exits 0. The 12th in a row (an hour) fails the unit once; the next good fetch resets the count.
-  - **Refusals:** it alerts and does not pull when the checkout is not on `main`, has tracked changes, or
-    has diverged from origin/main. Local commits ahead of origin/main, not pushed yet (the pre-push hook
-    builds in that window), are not an error: it logs that it is waiting for the push and changes nothing.
+  - **Refusals:** it alerts and does not pull when the checkout is not on `main`, has tracked changes,
+    has diverged from origin/main, or when origin/main moved back behind the deployed sha (a force-push
+    or reset of main; if the rollback is intended, `git reset --hard origin/main` on the host, then
+    remove `failed_sha`). Local commits ahead of an origin/main that did not move back, not pushed yet
+    (the pre-push hook builds in that window), are not an error: it logs that it is waiting for the push
+    and changes nothing.
   - **Migrations:** when the range not pulled yet touches `alembic/versions/`, it does not pull, because
     `reflex.db`'s PII cannot be regenerated. Back up the DB, run `git pull --ff-only` and `alembic upgrade
     head`, then remove `failed_sha`; the next tick deploys. Before any install, build, deploy or restart

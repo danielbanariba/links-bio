@@ -17,7 +17,8 @@ units, from the host checkout (the only machine with reflex.db). One tick:
    - noop: HEAD is origin/main and already deployed;
    - skip: origin/main already failed and alerted;
    - wait: local commits ahead of origin/main, not pushed yet (exit 0);
-   - refuse: not on main, tracked changes, or HEAD and origin/main diverged;
+   - refuse: not on main, tracked changes, origin/main moved back behind the
+     deployed sha (a force-push or reset), or HEAD and origin/main diverged;
    - block: the range not pulled yet adds or changes a migration;
    - update: fast-forward, then run the plan.
 5. Plan from the paths changed since the last good deploy (`plan_actions()`):
@@ -142,6 +143,7 @@ class Facts:
     dirty: bool
     head_is_ancestor: bool
     remote_is_ancestor: bool
+    remote_behind_deployed: bool
     incoming: tuple[str, ...]
 
 
@@ -170,6 +172,17 @@ def decide(facts: Facts, state: State) -> Decision:
             "tracked files have local changes (git status --porcelain "
             "--untracked-files=no): commit, stash or discard them, then remove "
             "failed_sha from .deploy-state.json",
+        )
+    if facts.remote_behind_deployed:
+        # A force-push or reset rolled main back. From HEAD alone it looks
+        # like unpushed host commits, but waiting would keep the rolled-back
+        # merge live without a word.
+        return Decision(
+            REFUSE,
+            f"origin/main {_short(facts.remote)} moved back behind the deployed "
+            f"{_short(state.deployed_sha)} (a force-push or reset of main), and the "
+            "newer deploy is still live: if the rollback is intended, run `git reset "
+            "--hard origin/main` on the host, then remove failed_sha from .deploy-state.json",
         )
     if facts.head != facts.remote and facts.remote_is_ancestor:
         # Local commits not pushed yet (the pre-push hook builds in this
@@ -262,7 +275,7 @@ def run_tick(repo: Path, repo_url: str) -> str:
         write_state(state_path, state)
     remote = _rev_parse(repo, REMOTE_REF)
     try:
-        facts = _gather_facts(repo, remote)
+        facts = _gather_facts(repo, remote, state.deployed_sha)
         decision = decide(facts, state)
         if decision.action == NOOP:
             return NOOP
@@ -406,7 +419,7 @@ def _migration_state(repo: Path, db_url: str | None = None) -> tuple[str | None,
     return current, head
 
 
-def _gather_facts(repo: Path, remote: str) -> Facts:
+def _gather_facts(repo: Path, remote: str, deployed_sha: str | None) -> Facts:
     head = _rev_parse(repo, "HEAD")
     branch = _git_run(repo, "symbolic-ref", "--quiet", "--short", "HEAD")
     dirty = _git(repo, "status", "--porcelain", "--untracked-files=no").strip()
@@ -417,6 +430,13 @@ def _gather_facts(repo: Path, remote: str) -> Facts:
         dirty=bool(dirty),
         head_is_ancestor=_is_ancestor(repo, head, remote),
         remote_is_ancestor=_is_ancestor(repo, remote, head),
+        # Only a deployed sha the checkout knows counts: an unknown one
+        # (garbage-collected, or a hand-edited state) is not a rollback.
+        remote_behind_deployed=(
+            deployed_sha is not None
+            and deployed_sha != remote
+            and _is_ancestor(repo, remote, deployed_sha)
+        ),
         incoming=tuple(_changed_paths(repo, head, remote)),
     )
 
