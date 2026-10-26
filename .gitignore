@@ -46,3 +46,8 @@ web/public/browse-index.json
 # symlinks web/node_modules to the main checkout's copy, and a bare
 # symlink entry would not match that trailing-slash form.
 node_modules
+
+# links_bio/deploy_lock.py: the flock the sync and deploy jobs share.
+.deploy.lock
+# scripts/deploy_on_merge.py: this host's deployed_sha and failed_sha.
+.deploy-state.json

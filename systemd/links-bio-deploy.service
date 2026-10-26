@@ -1,0 +1,27 @@
+# USER unit: install into ~/.config/systemd/user/ and manage it with
+# `systemctl --user`. Needs `loginctl enable-linger banar` to run while
+# logged out.
+#
+# Takes every merge to main to production: links-bio-deploy.timer runs this
+# every 5 minutes, and scripts/deploy_on_merge.py fetches main, fast-forwards
+# the checkout and runs only what the merge needs (npm ci, pip install, the
+# Astro build+deploy, a restart of the forms service), then exits. It shares
+# a lock with links-bio-sync.service, so the two never build at once. On
+# failure, notify-failure@%n.service sends the one alert email, and later
+# ticks skip that same sha so it alerts only once.
+#
+# Restarting metal-archive-forms.service (a system unit) needs the polkit
+# rule in systemd/polkit/50-links-bio-forms-restart.rules installed once.
+[Unit]
+Description=Deploy the latest merge to main (git fast-forward -> deps -> Astro -> Vercel)
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/banar/Desktop/links-bio
+EnvironmentFile=/home/banar/Desktop/links-bio/.env
+ExecStart=/home/banar/Desktop/links-bio/env/bin/python /home/banar/Desktop/links-bio/scripts/deploy_on_merge.py
+# Same budget as links-bio-sync.service: npm ci plus a cold Astro build and
+# a Vercel deploy can legitimately take a while. links-bio-sync waits on the
+# shared lock for longer than this, so it always outlasts a deploy.
+TimeoutStartSec=3600

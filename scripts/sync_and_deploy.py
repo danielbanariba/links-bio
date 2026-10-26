@@ -20,6 +20,11 @@ script never sends its own email: systemd's OnFailure=notify-failure@%n.service
 on links-bio-sync.service is the one alert mechanism, so a failure is
 reported exactly once no matter which step inside the cycle failed.
 
+The whole cycle runs under the shared deploy lock (links_bio/deploy_lock.py),
+so it never builds while scripts/deploy_on_merge.py is deploying a merge. If
+a merge deploy holds the lock, the sync waits for it (LOCK_WAIT_SECONDS) and
+fails loudly past that limit instead of building alongside it.
+
 Usage:
     scripts/sync_and_deploy.py [--skip-youtube] [--skip-deploy] [--full-youtube-sync]
 """
@@ -34,8 +39,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from links_bio import background_sync as bg  # noqa: E402
+from links_bio import deploy_lock
 
 logger = logging.getLogger("sync_and_deploy")
+
+# A merge deploy holds the lock for at most its unit's TimeoutStartSec
+# (3600s) plus the time systemd takes to stop it, so waiting 65 minutes
+# outlasts any deploy the timer started. Hitting this limit means something
+# else holds the lock (a hung manual run, say). links-bio-sync.service's own
+# TimeoutStartSec covers this wait plus the cycle.
+LOCK_WAIT_SECONDS = 65 * 60
 
 
 def run_cycle(
@@ -94,7 +107,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    failed = run_cycle(args.skip_youtube, args.skip_deploy, args.full_youtube_sync)
+    try:
+        with deploy_lock.hold(wait_seconds=LOCK_WAIT_SECONDS):
+            failed = run_cycle(args.skip_youtube, args.skip_deploy, args.full_youtube_sync)
+    except deploy_lock.LockBusy as exc:
+        logger.error(
+            "sync_and_deploy: gave up after waiting %d s for the deploy lock (%s); "
+            "no step ran.",
+            LOCK_WAIT_SECONDS,
+            exc,
+        )
+        return 1
 
     if failed:
         logger.error("sync_and_deploy: %d step(s) failed: %s", len(failed), ", ".join(failed))
