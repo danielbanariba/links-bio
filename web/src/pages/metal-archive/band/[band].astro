@@ -207,7 +207,7 @@ const bandJsonLd = safeJsonLd({
                     ? countries.map((c, i) => {
                         const href = countryHref(c);
                         const name = <>{countryFlag(c) && <span aria-hidden="true">{countryFlag(c)} </span>}{countryLabel(c)}</>;
-                        return <>{i > 0 && ', '}{href ? <a href={href}>{name}</a> : name}</>;
+                        return <span class="ma-facts__item">{href ? <a href={href}>{name}</a> : name}{i < countries.length - 1 && <span class="ma-facts__sep">, </span>}</span>;
                       })
                     : <span class="ma-muted">Not listed</span>}
                 </dd>
@@ -218,7 +218,7 @@ const bandJsonLd = safeJsonLd({
                   {genres.length > 0
                     ? genres.map((g, i) => {
                         const href = genreHref(g);
-                        return <>{i > 0 && ', '}{href ? <a href={href}>{genreLabel(g)}</a> : genreLabel(g)}</>;
+                        return <span class="ma-facts__item">{href ? <a href={href}>{genreLabel(g)}</a> : genreLabel(g)}{i < genres.length - 1 && <span class="ma-facts__sep">, </span>}</span>;
                       })
                     : <span class="ma-muted">Not listed</span>}
                 </dd>

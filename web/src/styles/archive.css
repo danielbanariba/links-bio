@@ -144,6 +144,11 @@ body.ma-shell {
   transition: background 160ms, transform 160ms var(--ma-ease);
 }
 .ma-circle:hover { background: rgb(0 0 0 / 0.5); color: var(--ma-text); }
+/* A touch screen wide enough for the desktop layout (a tablet in landscape) still
+   needs 44px targets; min-* leaves the bigger circles as they are. */
+@media (pointer: coarse) {
+  .ma-circle { min-width: 44px; min-height: 44px; }
+}
 .ma-circle:active { transform: scale(0.92); }
 .ma-circle .ma-i { width: 20px; height: 20px; }
 /* A filled glyph (▶, ⏸) drawn with the icon box's size. */
@@ -342,7 +347,9 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
-.ma-hero__band { display: inline-block; margin-top: 8px; font-size: 21px; font-weight: 500; color: var(--accent-bright); }
+.ma-hero__band { position: relative; display: inline-block; margin-top: 8px; font-size: 21px; font-weight: 500; color: var(--accent-bright); }
+/* A 44px tall tap target around the name, without moving anything. */
+.ma-hero__band::after { content: ''; position: absolute; inset: -9px -6px; }
 .ma-hero__band:hover { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
 .ma-hero__meta { margin: 8px 0 0; font-size: 14.5px; color: var(--ma-text-2); }
 .ma-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
@@ -521,7 +528,7 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
 }
 .ma-album__band { position: relative; display: inline-block; margin-top: 8px; font-size: 21px; font-weight: 500; color: var(--accent-bright); }
 /* A 44px-tall target for a line of text, without moving the layout. */
-.ma-album__band::after { content: ''; position: absolute; inset: -9px -6px; }
+.ma-album__band::after { content: ''; position: absolute; inset: -12px -6px; }
 .ma-album__band:hover { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
 .ma-album__meta { margin: 8px 0 0; font-size: 14.5px; color: var(--ma-text-2); }
 .ma-album__actions { grid-area: actions; display: flex; align-items: center; gap: 12px; margin-top: 22px; }
@@ -714,6 +721,14 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
 .ma-facts dd { margin: 0; min-width: 0; font-size: 15px; color: var(--ma-text); overflow-wrap: anywhere; }
 .ma-facts a { color: var(--accent-bright); }
 .ma-facts a:hover { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 3px; }
+/* Touch: a fact's link takes its row's height as the target (44px), and several
+   links stack one per line so their targets never overlap. */
+@media (pointer: coarse) {
+  .ma-facts dd a { display: inline-block; padding-block: 12px; margin-block: -12px; }
+  .ma-facts__item { display: block; }
+  .ma-facts__item + .ma-facts__item { margin-top: 24px; }
+  .ma-facts__sep { display: none; }
+}
 @container (max-width: 759px) {
   .ma-band__body { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
@@ -746,6 +761,12 @@ body:has(#now-playing-toggle:not([data-state='playing'])) .ma-eq i { animation-p
   .ma-arows--ranked .ma-arow__views,
   .ma-arow__wide { display: none; }
   .ma-arow__narrow { display: inline; }
+}
+/* Play, Shuffle and Share in one row overflowed a 320px screen by 24px. */
+@media (max-width: 374px) {
+  .ma-bhero__actions { gap: 10px; }
+  .ma-bhero__actions .ma-btn,
+  .ma-bhero__actions .ma-btn--accent { padding: 0 18px; }
 }
 
 /* ─── Search / Browse (pages/metal-archive/browse.astro, islands/Search.tsx) ─────
@@ -1277,6 +1298,13 @@ a.ma-topres:hover { transform: translateY(-3px); }
 }
 .ma-shell .footer a { color: var(--ma-text-2); }
 .ma-shell .footer a:hover { color: var(--ma-text); text-decoration: underline; text-underline-offset: 3px; }
+/* Touch: each link is 44px tall itself. The shared ::after (global.css) grew them
+   into one another once the links wrap onto two rows. */
+@media (pointer: coarse) {
+  .ma-shell .footer { row-gap: 0; }
+  .ma-shell .footer a { display: inline-flex; align-items: center; min-height: 44px; }
+  .ma-shell .footer a::after { content: none; }
+}
 
 /* ─── Pages inside the shell ─────────────────────────────────────────────────── */
 .ma-shell #main:focus { outline: none; }
