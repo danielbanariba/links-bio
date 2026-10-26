@@ -34,6 +34,9 @@ export interface Card {
   year: number | null;
   country: string | null;
   thumb: string;
+  // Square cover for album cards: /covers/<videoId>.webp when a clean crop exists,
+  // else the same mqdefault URL as `thumb` (lib/cover.ts, coverSrc).
+  cover: string;
   youtube_video_id: string | null;
 }
 
@@ -72,6 +75,8 @@ export interface BrowseEntry {
   release_type: string | null;
   views: number | null;
   thumb: string;
+  // Square cover for the result cards (same rule as Card.cover).
+  cover: string;
   // The album's YouTube video: the Browse results show a ▶ only when it is set.
   youtube_video_id: string | null;
 }

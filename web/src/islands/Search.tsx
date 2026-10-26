@@ -23,6 +23,7 @@ interface BrowseEntry {
   release_type: string | null;
   views: number | null;
   thumb: string;
+  cover: string;
   youtube_video_id: string | null;
 }
 
@@ -296,11 +297,11 @@ export default function Search({ genres, countries, years, totalCount, initial }
             <div key={a.id} class="album-card-wrap">
               <a class="album-card" href={href}>
                 <div class="album-card__art">
-                  {a.thumb
+                  {a.cover || a.thumb
                     ? (
                       <img
                         class="album-card__cover"
-                        src={a.thumb}
+                        src={a.cover || a.thumb}
                         alt=""
                         loading="lazy"
                         decoding="async"

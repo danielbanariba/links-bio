@@ -10,6 +10,7 @@ import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { thumb } from './thumb.js';
+import { coverUrl } from './coverStore.js';
 import type { Album, Card, Track, SimilarBand, Facet, GenreShowcase, BrowseEntry } from './types.js';
 
 const candidates = [
@@ -54,6 +55,7 @@ function toCard(row: any): Card {
     year: row.year ?? null,
     country: row.country ?? null,
     thumb: thumb(row.album_artwork_url),
+    cover: coverUrl(row.youtube_video_id, row.album_artwork_url),
     youtube_video_id: row.youtube_video_id ?? null,
   };
 }
@@ -602,6 +604,7 @@ export function getBrowseIndex(): BrowseEntry[] {
     release_type: r.release_type ?? null,
     views: r.views ?? null,
     thumb: thumb(r.album_artwork_url),
+    cover: coverUrl(r.youtube_video_id, r.album_artwork_url),
     youtube_video_id: r.youtube_video_id ?? null,
   }));
 }
