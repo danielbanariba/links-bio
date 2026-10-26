@@ -32,10 +32,11 @@ const here = (active: boolean) => (active ? 'page' : undefined);
   <a href="/" class="navbar__brand" aria-label="daniel_banariba">
     <span class="logo-paren">{'{'}</span><span class="logo-word">daniel_banariba</span><span class="logo-paren">{'}'}</span><span class="logo-semi">;</span>
   </a>
+  {/* Search on top of every archive page: a plain GET to Browse (?q=), where the
+      Search island reads it. Hidden on phones, where the tab bar's Search tab
+      is the entry point. (A JS comment: Astro 7's compiler rejects an HTML
+      comment as the first node inside an expression.) */}
   {isMetalArchive && (
-    <!-- Search on top of every archive page: a plain GET to Browse (?q=), where the
-         Search island reads it. Hidden on phones, where the tab bar's Search tab
-         is the entry point. -->
     <form class="navbar__search" action="/metal-archive/browse" method="get" role="search">
       <input
         class="navbar__search-input"
