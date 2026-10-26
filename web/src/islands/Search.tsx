@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { countryLabel, genreLabel } from '../lib/labels.js';
-import { getCardMeta } from '../lib/cardMeta.js';
+import { formatCardMeta } from '../lib/cardMeta.js';
 
 // Mirrors BrowseEntry from types.ts — must stay in sync.
 interface BrowseEntry {
@@ -235,7 +235,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
           <input
             type="search"
             class="search-input"
-            placeholder="Search bands, albums, genres..."
+            placeholder="Search bands, albums, genres…"
             defaultValue={query}
             onInput={onQueryInput}
             aria-label="Search albums"
@@ -289,7 +289,7 @@ export default function Search({ genres, countries, years, totalCount, initial }
       {!showEmpty && (
         <div class="album-grid search-grid" data-queue>
           {visible.map((a) => {
-            const meta = getCardMeta(a.year, a.country);
+            const meta = formatCardMeta(a);
             const videoId = (a.youtube_video_id || '').trim();
             const href = `/metal-archive/album/${a.id}`;
             return (
@@ -312,15 +312,9 @@ export default function Search({ genres, countries, years, totalCount, initial }
                   }
                 </div>
                 <div class="album-card__body">
-                  <div class="album-card__band">{a.band_name}</div>
                   <div class="album-card__album">{a.album_title}</div>
-                  {meta.showRow && (
-                    <div class="album-card__meta">
-                      {meta.showYear && <span>{a.year}</span>}
-                      {meta.showSeparator && <span aria-hidden="true"> · </span>}
-                      {meta.showCountry && <span>{countryLabel(a.country)}</span>}
-                    </div>
-                  )}
+                  <div class="album-card__band">{a.band_name}</div>
+                  {meta && <div class="album-card__meta" title={meta}>{meta}</div>}
                 </div>
               </a>
               {videoId && (

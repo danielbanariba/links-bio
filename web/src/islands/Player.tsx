@@ -1220,45 +1220,30 @@ export default function Player() {
 
           <div id="mini-player-loader" class="mp-overlay" ref={loaderRef} style={{ display: 'none' }}>
             <div class="mp-spinner" />
-            <span style={{ color: 'var(--text-body)', fontSize: '0.75em', marginTop: '0.6em' }}>
-              Loading player...
-            </span>
+            <span class="mp-overlay__text">Loading player…</span>
           </div>
 
           <div id="mini-player-error" class="mp-overlay" ref={errorRef} style={{ display: 'none' }}>
-            <span style={{ color: 'var(--text-header)', fontSize: '0.8em', fontWeight: 600 }}>
-              Video unavailable
-            </span>
-            <span style={{ color: 'var(--text-footer)', fontSize: '0.75em', marginTop: '0.3em', textAlign: 'center' }}>
-              This video cannot be played here.
-            </span>
+            <span class="mp-overlay__title">Video unavailable</span>
+            <span class="mp-overlay__text">This video cannot be played here.</span>
             <a
               ref={ytErrorLinkRef}
               href="#"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'var(--primary)', fontSize: '0.75em', textDecoration: 'none', marginTop: '0.6em', fontWeight: 600 }}
+              class="mp-overlay__link"
             >
               Open on YouTube ↗
             </a>
           </div>
 
           <div id="mini-player-timeout" class="mp-overlay" ref={timeoutRef} style={{ display: 'none' }}>
-            <span style={{ color: 'var(--text-header)', fontSize: '0.78em', fontWeight: 600, textAlign: 'center' }}>
-              The player is taking a while to load.
-            </span>
-            <span style={{ color: 'var(--text-footer)', fontSize: '0.75em', marginTop: '0.3em' }}>
-              Check your internet connection.
-            </span>
+            <span class="mp-overlay__title">The player is taking a while to load.</span>
+            <span class="mp-overlay__text">Check your internet connection.</span>
             <button
               type="button"
               class="mp-retry"
               data-mp-retry="1"
-              style={{
-                background: 'var(--primary)', color: 'var(--text-header)', border: 'none',
-                cursor: 'pointer', fontSize: '0.75em', padding: '0.4em 1em',
-                borderRadius: '2px', marginTop: '0.7em', fontWeight: 600,
-              }}
             >
               Retry
             </button>

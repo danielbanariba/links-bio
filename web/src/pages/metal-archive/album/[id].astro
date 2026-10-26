@@ -331,7 +331,7 @@ const albumJsonLd = safeJsonLd({
               </div>
             </div>
 
-            <!-- Transport: prev · play/pause (radial glow REQ-005/006) · next (REQ-004).
+            <!-- Transport: prev · play/pause · next (REQ-004).
                  Prev/next move between ALBUMS in the play queue (this album first, then
                  the other playable cards on this page); tracks are picked in the tracklist. -->
             <div class="stage__transport">
@@ -339,7 +339,6 @@ const albumJsonLd = safeJsonLd({
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M5 6h2v12H5zM19 6v12l-9-6z"/></svg>
               </button>
               <button type="button" class="stage__play js-pp" aria-label="Play or pause" data-np-main="1" data-state="paused">
-                <span class="stage__play-glow" aria-hidden="true"></span>
                 <svg class="ic ic-play" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
                 <svg class="ic ic-pause" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM14 5h4v14h-4z"/></svg>
                 <span class="ic ic-spinner" aria-hidden="true"></span>

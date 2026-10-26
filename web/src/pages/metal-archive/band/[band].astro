@@ -48,7 +48,7 @@ const countries = [...new Set(
   allAlbums.map((a) => countryLabel(a.country)).filter(Boolean),
 )];
 
-// Header visuals: the newest cover drives the avatar + blurred backdrop AND the
+// Header visuals: the newest cover drives the avatar AND the
 // page's dynamic --album-color, so the whole band page takes that band's colour.
 const latest = allAlbums[0] ?? null;
 const cover = latest?.thumb || '';
@@ -99,9 +99,8 @@ const bandJsonLd = safeJsonLd({
     <Navbar />
 
     <main class="band-page" id="main" tabindex="-1">
-      <!-- ─── Artist-style header (cover backdrop + avatar + real stats) ─────── -->
+      <!-- ─── Artist-style header (avatar + real stats) ─────── -->
       <header class="artist-header">
-        {cover && <div class="artist-header__backdrop" style={`background-image: url('${cover}')`} aria-hidden="true"></div>}
         <div class="artist-header__inner">
           {cover
             ? <img class="artist-header__avatar" src={cover} alt={`${realName} — cover art`} loading="eager" decoding="async" />

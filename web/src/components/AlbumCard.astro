@@ -1,19 +1,21 @@
 ---
-// AlbumCard: cover-first gallery card (Bandcamp-style) with a play button.
-// The artwork is the protagonist: a large square cover; band/album text sits
-// cleanly below. The card itself is a plain link to the album page.
-// The play button is a SIBLING of that link (a <button> inside an <a> is
-// invalid HTML) laid over the cover. The persistent Player island handles its
-// click through the data attributes: the queue is the nearest [data-queue] row
-// or grid, or every [data-play-card] on the page. A card with no
-// youtube_video_id has nothing to play and renders no button.
-// `accent` (optional) tints the hover ring/glow with the album's dominant color;
-// defaults to the Xerox cyan when not provided so per-card Vibrant is not required.
-// The cover is decorative (alt=""): the band and album text right under it is the
+// AlbumCard: a cover-first card. A large square cover with nothing written over it
+// but the ▶ control; under it the album title, the band as plain text, and one muted
+// line "country · year · genre" (lib/cardMeta.ts, English labels). The card itself is
+// a plain link to the album page.
+// The play button is a SIBLING of that link (a <button> inside an <a> is invalid
+// HTML) laid over the cover. The persistent Player island handles its click through
+// the data attributes: the queue is the nearest [data-queue] row or grid, or every
+// [data-play-card] on the page. A card with no youtube_video_id has nothing to play
+// and renders no button.
+// `accent` (optional) sets the ▶ colour for this card; by default it is the page's
+// --accent (the album colour on album, band and genre pages, amber elsewhere).
+// The cover is decorative (alt=""): the title and band text right under it is the
 // link's name, so a screen reader would otherwise read both twice.
-// `livePlaceholder` (optional) — when true, renders a branded placeholder instead
-// of the API-sourced thumbnail (used for Live Recordings cards on the home page).
+// `livePlaceholder` (optional) renders a flat tile instead of the API-sourced
+// thumbnail (used for Live Recordings cards). It carries an icon, no text.
 import type { Card } from '../lib/types.js';
+import { formatCardMeta } from '../lib/cardMeta.js';
 
 interface Props {
   album: Card;
@@ -25,9 +27,10 @@ interface Props {
 const { album, loading = 'lazy', accent, livePlaceholder = false } = Astro.props;
 const href = `/metal-archive/album/${album.id}`;
 // Inline custom property only when an accent is passed; the CSS falls back to
-// the cyan brand otherwise.
+// the page's --accent otherwise.
 const accentStyle = accent ? `--card-accent: ${accent};` : undefined;
 const videoId = (album.youtube_video_id || '').trim();
+const meta = formatCardMeta(album);
 ---
 
 <div class="album-card-wrap">
@@ -36,8 +39,7 @@ const videoId = (album.youtube_video_id || '').trim();
       {livePlaceholder
         ? (
           <div class="album-card__cover album-card__cover--live" aria-hidden="true">
-            <span class="live-cover__band">{album.band_name}</span>
-            <span class="live-cover__badge">LIVE</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
           </div>
         )
         : album.thumb
@@ -54,8 +56,9 @@ const videoId = (album.youtube_video_id || '').trim();
       }
     </div>
     <div class="album-card__body">
-      <div class="album-card__band">{album.band_name}</div>
       <div class="album-card__album">{album.album_title}</div>
+      <div class="album-card__band">{album.band_name}</div>
+      {meta && <div class="album-card__meta" title={meta}>{meta}</div>}
     </div>
   </a>
   {videoId && (
