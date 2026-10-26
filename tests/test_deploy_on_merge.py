@@ -16,9 +16,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import signal
 import sqlite3
 import subprocess
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -126,6 +130,7 @@ class Command:
     cmd: list[str]
     cwd: Path
     env: dict | None
+    timeout: float | None
 
 
 @dataclass
@@ -136,6 +141,7 @@ class Recorder:
     failing: set[str] = field(default_factory=set)
     db_revision: str | None = "rev-head"
     head_revision: str = "rev-head"
+    on_build: Callable[[], None] | None = None
 
 
 def _action_name(cmd: list[str]) -> str:
@@ -159,14 +165,16 @@ def actions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Recorder:
     recorder = Recorder(node_bin=node_bin)
     monkeypatch.setattr(bg, "find_node_bin", lambda: str(node_bin))
 
-    def fake_stream(cmd, cwd, env=None):
+    def fake_stream(cmd, cwd, env=None, timeout=None):
         name = _action_name(cmd)
-        recorder.commands.append(Command(list(cmd), Path(cwd), env))
+        recorder.commands.append(Command(list(cmd), Path(cwd), env, timeout))
         recorder.sequence.append(name)
         return 1 if name in recorder.failing else 0
 
     def fake_build_and_deploy(skip_deploy: bool = False):
         recorder.sequence.append("build-deploy")
+        if recorder.on_build is not None:
+            recorder.on_build()
         if "build-deploy" in recorder.failing:
             raise RuntimeError("npm run build failed")
 
@@ -276,8 +284,10 @@ def test_actions_run_on_the_host_toolchain(repos, actions):
     """Catches npm ci started without nvm's bin on PATH (the unit's PATH has
     no npm, so it dies with FileNotFoundError: the bug find_node_bin exists
     for), pip installing into an interpreter other than the env/ the job and
-    the services run from, and a `systemctl --user` restart aimed at a user
-    unit that does not exist instead of the system forms service."""
+    the services run from, a `systemctl --user` restart aimed at a user
+    unit that does not exist instead of the system forms service, and an
+    install with no timeout of its own (or one no shorter than the unit's
+    TimeoutStartSec), so a hang ends in systemd's kill, not a clean failure."""
     repos.mark_deployed()
     repos.land(
         {
@@ -299,6 +309,14 @@ def test_actions_run_on_the_host_toolchain(repos, actions):
     assert restart.cmd[0] == "systemctl"
     assert "--user" not in restart.cmd
     assert restart.cmd[-2:] == ["restart", "metal-archive-forms.service"]
+    unit_budget = _deploy_unit_timeout_seconds()
+    assert 0 < npm.timeout < unit_budget
+    assert 0 < pip.timeout < unit_budget
+
+
+def _deploy_unit_timeout_seconds() -> int:
+    unit = (PROJECT_ROOT / "systemd" / "links-bio-deploy.service").read_text()
+    return int(re.search(r"^TimeoutStartSec=(\d+)$", unit, re.MULTILINE).group(1))
 
 
 # --- failures and the alert-once rule ------------------------------------
@@ -595,3 +613,57 @@ def test_missing_database_fails_without_creating_an_empty_one(tmp_path):
         dom._migration_state(PROJECT_ROOT, f"sqlite:///{missing}")
 
     assert not missing.exists()
+
+
+
+# --- hangs and systemd's stop --------------------------------------------
+
+
+class _SigtermReachedTheTest(BaseException):
+    """Raised by the test's own SIGTERM guard: the tick installed no handler."""
+
+
+def test_sigterm_mid_step_latches_failed_sha_and_the_next_tick_skips(repos, actions):
+    """Catches a step that systemd kills with SIGTERM when TimeoutStartSec
+    runs out never latching failed_sha: the same hang would then be retried
+    on every tick, each for up to an hour, and every kill would email
+    again. On SIGTERM the tick must record the sha, so it alerts once and
+    later ticks skip it."""
+    good = repos.mark_deployed()
+    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
+    actions.on_build = lambda: os.kill(os.getpid(), signal.SIGTERM)
+
+    def guard(signum, frame):
+        raise _SigtermReachedTheTest()
+
+    previous = signal.signal(signal.SIGTERM, guard)
+    try:
+        assert dom.main() == 1
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+    assert repos.shas() == {"deployed_sha": good, "failed_sha": merged}
+
+    actions.on_build = None
+    actions.sequence.clear()
+    assert dom.main() == 0
+    assert actions.sequence == []
+
+
+def test_hung_step_is_killed_at_its_timeout_with_its_children(tmp_path):
+    """Catches a hung npm ci or pip install holding the tick until systemd
+    kills the unit at the hour mark, including through a child process that
+    keeps the output pipe open after its parent is killed: the step must
+    fail at its own timeout, with its whole process group stopped."""
+    hang = [
+        sys.executable,
+        "-c",
+        "import subprocess, sys, time; "
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)']); "
+        "time.sleep(20)",
+    ]
+
+    started = time.monotonic()
+    with pytest.raises(dom.DeployError):
+        dom._stream(hang, tmp_path, timeout=0.5)
+
+    assert time.monotonic() - started < 10

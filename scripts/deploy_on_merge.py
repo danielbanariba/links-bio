@@ -41,8 +41,10 @@ import json
 import logging
 import os
 import re
+import signal
 import subprocess
 import sys
+import threading
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -65,6 +67,11 @@ GIT_TIMEOUT_SECONDS = 300
 # Consecutive failed fetches before the one alert of an outage: 12 ticks of
 # links-bio-deploy.timer is an hour. Shorter blips stay out of the inbox.
 FETCH_ALERT_AFTER = 12
+# Each install gets its own limit, well inside the unit's TimeoutStartSec
+# (3600s), so a hang fails as a clean, latched failure instead of ending in
+# systemd's kill.
+NPM_CI_TIMEOUT_SECONDS = 20 * 60
+PIP_TIMEOUT_SECONDS = 15 * 60
 
 NPM_CI = "npm-ci"
 PIP_INSTALL = "pip-install"
@@ -98,6 +105,20 @@ logger = logging.getLogger("deploy_on_merge")
 
 class DeployError(RuntimeError):
     """A tick that must fail the unit, so OnFailure sends the one alert."""
+
+
+class StepTimedOut(DeployError):
+    """A step ran past its own timeout and was killed with its children."""
+
+
+class Stopped(RuntimeError):
+    """SIGTERM arrived mid-tick: systemd's TimeoutStartSec ran out, or
+    someone stopped the unit. An Exception, so run_tick's failure path
+    latches failed_sha before the process exits."""
+
+
+def _stop_on_sigterm(signum, frame):
+    raise Stopped("stopped by SIGTERM (the unit's TimeoutStartSec ran out, or a manual stop)")
 
 
 @dataclass(frozen=True)
@@ -295,9 +316,18 @@ def _deploy(repo: Path, remote: str, state: State) -> None:
     for action in plan:
         logger.info("step %s", action)
         if action == NPM_CI:
-            _run(["npm", "ci"], cwd=repo / "web", env=bg.node_env())
+            _run(
+                ["npm", "ci"],
+                cwd=repo / "web",
+                env=bg.node_env(),
+                timeout=NPM_CI_TIMEOUT_SECONDS,
+            )
         elif action == PIP_INSTALL:
-            _run([sys.executable, "-m", "pip", "install", "-r", "requirements-dev.txt"], cwd=repo)
+            _run(
+                [sys.executable, "-m", "pip", "install", "-r", "requirements-dev.txt"],
+                cwd=repo,
+                timeout=PIP_TIMEOUT_SECONDS,
+            )
         elif action == BUILD_DEPLOY:
             bg.run_astro_build_and_deploy()
         elif action == RESTART_FORMS:
@@ -418,24 +448,67 @@ def _git_run(repo: Path, *args: str) -> subprocess.CompletedProcess:
         raise DeployError(f"git {args[0]} timed out after {GIT_TIMEOUT_SECONDS}s") from None
 
 
-def _run(cmd: list[str], cwd: Path, env: dict | None = None) -> None:
+def _run(
+    cmd: list[str], cwd: Path, env: dict | None = None, timeout: float | None = None
+) -> None:
     logger.info("running %s in %s", " ".join(cmd), cwd)
-    returncode = _stream(cmd, cwd, env)
+    returncode = _stream(cmd, cwd, env, timeout=timeout)
     if returncode != 0:
         raise DeployError(f"{' '.join(cmd)} failed with exit code {returncode}")
 
 
-def _stream(cmd: list[str], cwd: Path, env: dict | None = None) -> int:
+def _stream(
+    cmd: list[str], cwd: Path, env: dict | None = None, timeout: float | None = None
+) -> int:
     """Run `cmd`, echoing its combined stdout+stderr line by line as it
     arrives, like background_sync._run_vercel, so a slow or hung step still
     leaves its output in the journal and the OnFailure email. Returns the
-    exit code."""
+    exit code.
+
+    The step runs in its own process group. Past `timeout`, or if the tick
+    is interrupted (SIGTERM), the whole group is killed: a child that npm or
+    pip spawned would otherwise keep the output pipe open and the tick
+    hanging. A timeout raises StepTimedOut."""
     proc = subprocess.Popen(
-        cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
     )
-    for line in proc.stdout:
-        print(line, end="", flush=True)
-    return proc.wait()
+    timed_out = threading.Event()
+    watchdog = None
+    if timeout is not None:
+
+        def _kill_on_timeout():
+            timed_out.set()
+            _kill_group(proc)
+
+        watchdog = threading.Timer(timeout, _kill_on_timeout)
+        watchdog.daemon = True
+        watchdog.start()
+    try:
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+        returncode = proc.wait()
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        if proc.poll() is None:
+            _kill_group(proc)
+            proc.wait()
+    if timed_out.is_set():
+        raise StepTimedOut(f"{' '.join(cmd)} timed out after {timeout:g}s and was killed")
+    return returncode
+
+
+def _kill_group(proc: subprocess.Popen) -> None:
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
 
 
 def _short(sha: str | None) -> str:
@@ -454,18 +527,21 @@ def main() -> int:
         format="%(asctime)s [deploy_on_merge] %(levelname)s %(message)s",
     )
     repo_url = os.environ.get("DEPLOY_REPO_URL") or DEFAULT_REPO_URL
+    previous_sigterm = signal.signal(signal.SIGTERM, _stop_on_sigterm)
     try:
         with deploy_lock.hold():
             run_tick(PROJECT_ROOT, repo_url)
     except deploy_lock.LockBusy:
         logger.info("another sync or deploy holds the deploy lock; skipping this tick")
         return 0
-    except DeployError as exc:
+    except (DeployError, Stopped) as exc:
         logger.error("deploy failed: %s", exc)
         return 1
     except Exception:
         logger.exception("deploy failed")
         return 1
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm or signal.SIG_DFL)
     return 0
 
 

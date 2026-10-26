@@ -345,6 +345,9 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
   - **Alert once:** a failure exits non-zero (one email) and records `failed_sha` = origin/main; later
     ticks skip that sha. A new merge retries, re-planning from the last good deploy. To retry the same
     sha, remove `failed_sha` from `.deploy-state.json`.
+  - **Hangs alert once too:** `npm ci` and `pip install` each have their own timeout (20 and 15 min),
+    which kills the step with its child processes. If systemd still stops the tick with SIGTERM (the
+    unit's `TimeoutStartSec`), the tick records `failed_sha` before it exits.
   - **Outages alert once:** a failed fetch (GitHub or the network down) only bumps `fetch_failures`
     and exits 0. The 12th in a row (an hour) fails the unit once; the next good fetch resets the count.
   - **Refusals:** it alerts and does not pull when the checkout is not on `main`, has tracked changes, or
