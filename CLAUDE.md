@@ -165,7 +165,25 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
     player has loaded while it is open. Then `Row.astro` rows: Latest uploads, Most played, genre tiles,
     Bands to dig into, the top country's albums, country tiles, Live recordings (`getFacetTiles()`,
     `getBandsToDigInto()` in `db.ts`).
-- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (YouTube player, persisted across ClientRouter navigation) and `Search.tsx` (client-side search over `/browse-index.json`). Any card's ▶ plays its album in place: the queue is that card's row or grid (`data-queue`, `web/src/lib/queue.ts`), the player goes on to the next album by itself and skips videos that cannot be embedded. The video is always visible while it plays (YouTube's 200x200 rule): a right "Now playing" column at ≥1100px, docked above the bar below that. `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search and by "Surprise me" (the bio's Navbar, the archive top bar's dice).
+- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (YouTube player, persisted across ClientRouter navigation) and `Search.tsx` (client-side search over `/browse-index.json`). Any card's ▶ plays its album in place: the queue is that card's row or grid (`data-queue`, `web/src/lib/queue.ts`), the player goes on to the next album by itself and skips videos that cannot be embedded. `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search and by "Surprise me" (the bio's Navbar, the archive top bar's dice).
+  - **The Player's surfaces:** the mini player bar; the right panel at ≥1100px (the video, the album,
+    the queue); the now-playing view (in place of the page on desktop and tablet, a full-screen modal
+    sheet on the phone); a floating 200x200 video tile on phone and tablet. Its state lives on the
+    persisted `#np-root`: `data-active` (an album is loaded), `data-view` (the view is open),
+    `data-surface` (where the video is). It is `data-active`, not the old `data-open`, on purpose:
+    global.css still lays out a docked video for `[data-open]`, and `archive.css` owns the shell's player.
+  - **One iframe, never moved.** Moving an iframe in the DOM reloads it and stops the music. So
+    `#mini-player` is a fixed box laid over the active slot (`[data-np-slot]`): the panel, the view's
+    art or the tile. It is sized and animated to that slot (`web/src/lib/playerStage.ts`), sits above
+    every other layer, and takes no clicks. YouTube's rules hold on every surface: at least 200x200,
+    inside the viewport, not covered, not cropped (square corners; a 16:9 video in the square art is
+    shown whole over a blurred cover). Auto-next only runs while the video is more than half visible.
+  - **Tracks:** every album is one video; a track is a start time in it (`web/src/lib/segments.ts`).
+    The album page brings its own; any other album's come from `/metal-archive/album/<id>.json`
+    (`pages/metal-archive/album/[id].json.ts`, `web/src/lib/albumInfo.ts`), fetched when it starts.
+    These per-album JSON files add one build output per album; they are not HTML and not in the sitemap.
+  - "Playing from" reads `data-from` / `data-from-href` on the queue's scope (rows, the hero, Most
+    played), else the page's `h1`. Shuffle and repeat are pure queue functions in `queue.ts`.
 - **Per-album color theming:** `web/src/lib/vibrant.ts` gets a colour per cover at build time and caches it in `web/.vibrant-cache.json`, so unchanged covers skip re-extraction. `web/src/lib/coverColor.ts` picks the colour with `sharp` alone: a 64px sample, a 4-bit histogram, then node-vibrant's targets and weights for its "Vibrant" swatch. So the colour is the most vivid one on the cover, not the most frequent one. node-vibrant itself was removed in T10b: its Jimp backend carried the npm audit advisories. Colours cached from node-vibrant stay valid. Covers are YouTube thumbnails (see "Data layer & sync"). The concurrency gate + 429 backoff in `vibrant.ts` date from when covers came from the rate-limited `cdn.deathgrind.club`, and stay as a safety net for a cold build of ~2700 covers. Don't delete the cache file casually; a cold build re-fetches every cover.
   - **The colour comes from the square crop** (`web/public/covers/<videoId>.webp`, read from disk) when one exists, else from the mqdefault frame URL. `colorCacheKey()` keys a crop by video id + crop box, so a re-crop (an override) gets a fresh colour; a failed extraction is never cached.
   - **Readable variants, same hue** (`web/src/lib/accent.ts`, `readableAccent`): `text` ≥ 4.5:1 and `fill` ≥ 3:1 against `--ma-surface-2` (HSL lightness raised only as far as needed, never mixed toward white), `ink` from `inkOnAccent(fill)`, `glow` = the fill at 45% alpha. A test keeps `ACCENT_SURFACE` in step with `global.css`.
