@@ -46,7 +46,7 @@ Forms POST to `import.meta.env.PUBLIC_API_BASE` (default `https://app.danielbana
 
 ### Forms backend — FastAPI (`links_bio/`)
 ```bash
-source env/bin/activate                                  # Python 3.13 venv
+source env/bin/activate                                  # Python 3.14 venv
 uvicorn links_bio.fastapi_forms:app --port 8001 --reload
 ```
 
@@ -102,10 +102,16 @@ and the forms restart when a merge changes them (see "Deployment"). The sync tim
 still build with whatever is already in `web/node_modules` and `env/`, so after pulling `main` by hand
 (after the T10b upgrade: Astro 7, Preact 11, mcp 2, sqlmodel 0.0.48), run:
 ```bash
-cd web && npm ci && cd ..                          # Astro 7 needs Node >= 22.23.4 (the host has v25.8.0)
+cd web && npm ci && cd ..                          # Astro 7 needs an even Node >= 22.23.4 (odd ones are unsupported)
 env/bin/pip install -r requirements-dev.txt
 sudo systemctl restart metal-archive-forms.service
 ```
+The sync, the merge deploy and `npm ci` above use the highest Node under `~/.local/share/nvm` that has
+both `npm` and `vercel` (`find_node_bin()` in `links_bio/background_sync.py`), not the shell's default:
+after installing a new Node with nvm, run `npm i -g vercel` in it, or the deploy stays on the old one.
+The host runs Node 26 and Python 3.14 since Oct 2026. `env/` was created with `uv venv --seed`; without
+`--seed` it has no pip, and the merge deploy's `pip install` fails.
+
 Pull the code and install the pins together. The new `mcp/server.py` imports `MCPServer`, which mcp 1.x
 does not have. The old one imports `mcp.server.fastmcp`, which mcp 2.x removed.
 Production also deploys automatically (a) twice a day from the `links-bio-sync.timer` systemd unit
