@@ -11,6 +11,9 @@ import {
   upNext,
   withIndex,
   extendQueue,
+  shuffleUpcoming,
+  restoreOrder,
+  afterEnd,
 } from '../src/lib/queue.ts';
 
 const card = (videoId: string) => ({ videoId, title: `album ${videoId}` });
@@ -137,4 +140,51 @@ test('a scope that no longer holds the loaded album does not move the queue', ()
   // so a filter change would jump playback to the first result.
   const q = buildQueue(row('a', 'b', 'c'), 'c')!;
   assert.equal(extendQueue(q, row('x', 'y', 'z')), null);
+});
+
+// ─── shuffle and repeat (the now-playing view's side buttons) ───────────────────
+
+// A random source that always picks the first candidate: Fisher-Yates then
+// reverses-and-rotates, so the order surely changes.
+const first = () => 0;
+
+test('shuffle reorders only what is still to come', () => {
+  // Defect: shuffling the whole list moves the album that plays now (the view
+  // would then name another album as current) or brings back one already heard.
+  const q = buildQueue(row('a', 'b', 'c', 'd', 'e', 'f'), 'c')!;
+  const s = shuffleUpcoming(q, first);
+  assert.deepEqual(ids(s.items.slice(0, 3)), ['a', 'b', 'c']);
+  assert.equal(s.index, 2);
+  assert.notDeepEqual(ids(s.items.slice(3)), ['d', 'e', 'f']);
+  assert.deepEqual(ids(s.items.slice(3)).sort(), ['d', 'e', 'f']);
+});
+
+test('shuffle keeps skipping the albums that failed to embed', () => {
+  // Defect: returning a queue with a fresh unplayable set, so an album that
+  // already errored is loaded (and errors) again after shuffling.
+  let q = buildQueue(row('a', 'b', 'c', 'd'), 'a')!;
+  q = markUnplayable(q, 'c');
+  const s = shuffleUpcoming(q, first);
+  assert.ok(!upNext(s, 5).some((i) => i.videoId === 'c'));
+});
+
+test('shuffle off goes back to the built order, at the album that plays now', () => {
+  // Defect: restoring the old index, which in the original order points at a
+  // different album, so "next" would skip or repeat albums.
+  const built = buildQueue(row('a', 'b', 'c', 'd', 'e'), 'a')!;
+  const shuffled = shuffleUpcoming(built, first);
+  const playing = withIndex(shuffled, 1);
+  const current = playing.items[1].videoId;
+  const back = restoreOrder(playing, built.items);
+  assert.equal(back.items[back.index].videoId, current);
+  assert.deepEqual(ids(back.items), ['a', 'b', 'c', 'd', 'e']);
+});
+
+test('with repeat on, the album that ended plays again even when another follows', () => {
+  // Defect: the repeat button only changing its own look while auto-next still
+  // moves on to the next album.
+  const q = buildQueue(row('a', 'b', 'c'), 'b')!;
+  assert.equal(afterEnd(q, true), 1);
+  assert.equal(afterEnd(q, false), 2);
+  assert.equal(afterEnd(withIndex(q, 2), false), -1);
 });

@@ -91,3 +91,38 @@ export function extendQueue<T extends QueueItem>(q: Queue<T>, items: T[]): Queue
   const extended = { ...rebuilt, unplayable: q.unplayable };
   return nextIndex(extended) >= 0 ? extended : null;
 }
+
+/**
+ * Shuffle on: the albums after the loaded one in a random order. The loaded album
+ * stays where it is and so do the ones before it, so shuffling never replays an
+ * album already heard nor skips the one playing. `random` returns [0, 1), like
+ * Math.random (injected so the order can be checked).
+ */
+export function shuffleUpcoming<T extends QueueItem>(q: Queue<T>, random: () => number = Math.random): Queue<T> {
+  const rest = q.items.slice(q.index + 1);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return { ...q, items: [...q.items.slice(0, q.index + 1), ...rest] };
+}
+
+/**
+ * Shuffle off: the queue back in `order` (its items as they were built), at the
+ * album that plays now; what came before it in that order counts as heard.
+ * Unchanged when that album is not in `order`.
+ */
+export function restoreOrder<T extends QueueItem>(q: Queue<T>, order: T[]): Queue<T> {
+  const current = q.items[q.index];
+  const index = current ? order.findIndex((i) => i.videoId === current.videoId) : -1;
+  return index < 0 ? q : { ...q, items: order.slice(), index };
+}
+
+/**
+ * What plays once the loaded album has ended: the same album again with repeat
+ * on, else the next playable one; -1 stops playback.
+ */
+export function afterEnd<T extends QueueItem>(q: Queue<T>, repeat: boolean): number {
+  if (repeat && q.items[q.index]) return q.index;
+  return nextIndex(q);
+}
