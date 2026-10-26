@@ -181,10 +181,12 @@ def decide(facts: Facts, state: State) -> Decision:
             "--untracked-files=no): commit, stash or discard them, then remove "
             "failed_sha from .deploy-state.json",
         )
-    if facts.remote_behind_deployed:
+    if facts.remote_behind_deployed and facts.head != facts.remote:
         # A force-push or reset rolled main back. From HEAD alone it looks
         # like unpushed host commits, but waiting would keep the rolled-back
-        # merge live without a word.
+        # merge live without a word. Once the operator resets HEAD to
+        # origin/main (the recovery below), the rollback is accepted and
+        # deploys like any other update.
         return Decision(
             REFUSE,
             f"origin/main {_short(facts.remote)} moved back behind the deployed "

@@ -803,3 +803,24 @@ def test_rewound_main_alerts_once_instead_of_waiting(repos, actions):
     assert actions.sequence == []
     assert repos.shas() == {"deployed_sha": merged, "failed_sha": older}
     assert dom.main() == 0
+
+
+def test_rollback_recovery_from_the_refusal_message_redeploys(repos, actions):
+    """Catches the recovery the rollback refusal prescribes (reset the host
+    to origin/main, then remove failed_sha) being refused again, because
+    deployed_sha still names the rolled-back merge: the operator would loop
+    on alerts with no documented way out. Once HEAD is origin/main, the
+    tick must deploy the rolled-back state."""
+    older = repos.mark_deployed()
+    merged = repos.land({"web/src/pages/index.astro": "<h1>new bio</h1>\n"})
+    assert dom.main() == 0
+    git(repos.dev, "push", "-q", "-f", "origin", f"{older}:main")
+    assert dom.main() == 1
+    git(repos.prod, "reset", "-q", "--hard", "origin/main")
+    repos.write_state(deployed_sha=merged)
+    actions.sequence.clear()
+
+    assert dom.main() == 0
+
+    assert "build-deploy" in actions.sequence
+    assert repos.shas() == {"deployed_sha": older, "failed_sha": None}
