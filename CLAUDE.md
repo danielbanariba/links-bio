@@ -144,7 +144,28 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
   redundant. It stays, so the header does not depend on where an adapter version puts its route.
 - **`web/src/lib/db.ts` is the single DB gateway.** ALL database access goes through it — no inline DB opens in pages. It opens one read-only connection and exposes typed query functions (home feeds, album detail, facets, band pages, browse index). When a page needs data, add/return a function here.
 - **Routing:** `web/src/pages/index.astro` is the bio at `/`. The Metal Archive lives under `web/src/pages/metal-archive/` — the **folder provides the `/metal-archive` path prefix** (there is intentionally no `base` in the config), so public URLs are unchanged. Dynamic pages (`album/[id]`, `band/[band]`, `genre/[genre]`, `country/[country]`, `year/[year]`) enumerate paths via `getStaticPaths()` backed by `db.ts`.
-- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (YouTube player, persisted across ClientRouter navigation) and `Search.tsx` (client-side search over `/browse-index.json`). Any card's ▶ plays its album in place: the queue is that card's row or grid (`data-queue`, `web/src/lib/queue.ts`), the player goes on to the next album by itself and skips videos that cannot be embedded. The video is always visible while it plays (YouTube's 200x200 rule): a right "Now playing" column at ≥1100px, docked above the bar below that. `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search + Navbar.
+- **Archive shell (`web/src/components/ArchiveChrome.astro` + `web/src/styles/archive.css`).** Every
+  archive page renders `<ArchiveChrome />` (skip link, sidebar, top bar, phone tab bar) and imports
+  `archive.css` AFTER `global.css`. Everything in it is scoped under `body.ma-shell`, so none of it
+  reaches the bio; `Navbar.astro` now serves only the bio and the 404.
+  - Layout: at ≥1100px a left sidebar (Home/Search/Genres/Countries, Recent, Submit card) and a right
+    panel (`Footer.astro`'s aside: the "Now playing" slot, then Most played), the page between them.
+    768–1099px: an 88px icon rail. Phones: a top bar and a Home/Search/Submit tab bar.
+  - Font: Onest, self-hosted from `@fontsource-variable/onest` through `@font-face` in `archive.css`.
+    The wordmark keeps DinaRemasterII.
+  - Covers render through `CoverArt.astro`, or its browser twin `web/src/lib/coverArtDom.ts`, by
+    `coverMode()` (`web/src/lib/coverDisplay.ts`). A `/covers/` square crop fills the box. Anything else
+    is a YouTube frame: shown whole, letterboxed over a blurred copy, never centre-cropped.
+  - Titles drop "(Full Álbum)" on display only (`displayTitle()`, `web/src/lib/title.ts`). The DB and
+    the URLs keep the raw title.
+  - The Player publishes what it plays on `#np-root[data-now]` plus the `ma:now` event
+    (`web/src/lib/now.ts`), and adds it to the sidebar's Recent list (`web/src/lib/recent.ts`,
+    localStorage `ma:recent`, every access in try/catch). The home hero and Recent follow those.
+  - Home (`pages/metal-archive/index.astro`): a hero, which shows the latest upload, or the album the
+    player has loaded while it is open. Then `Row.astro` rows: Latest uploads, Most played, genre tiles,
+    Bands to dig into, the top country's albums, country tiles, Live recordings (`getFacetTiles()`,
+    `getBandsToDigInto()` in `db.ts`).
+- **Islands (client JS, Preact):** `web/src/islands/Player.tsx` (YouTube player, persisted across ClientRouter navigation) and `Search.tsx` (client-side search over `/browse-index.json`). Any card's ▶ plays its album in place: the queue is that card's row or grid (`data-queue`, `web/src/lib/queue.ts`), the player goes on to the next album by itself and skips videos that cannot be embedded. The video is always visible while it plays (YouTube's 200x200 rule): a right "Now playing" column at ≥1100px, docked above the bar below that. `browse-index.json` is generated from `getBrowseIndex()` at build and read by Search and by "Surprise me" (the bio's Navbar, the archive top bar's dice).
 - **Per-album color theming:** `web/src/lib/vibrant.ts` gets a colour per cover at build time and caches it in `web/.vibrant-cache.json`, so unchanged covers skip re-extraction. `web/src/lib/coverColor.ts` picks the colour with `sharp` alone: a 64px sample, a 4-bit histogram, then node-vibrant's targets and weights for its "Vibrant" swatch. So the colour is the most vivid one on the cover, not the most frequent one. node-vibrant itself was removed in T10b: its Jimp backend carried the npm audit advisories. Colours cached from node-vibrant stay valid. Covers are YouTube thumbnails (see "Data layer & sync"). The concurrency gate + 429 backoff in `vibrant.ts` date from when covers came from the rate-limited `cdn.deathgrind.club`, and stay as a safety net for a cold build of ~2700 covers. Don't delete the cache file casually; a cold build re-fetches every cover.
   - **The colour comes from the square crop** (`web/public/covers/<videoId>.webp`, read from disk) when one exists, else from the mqdefault frame URL. `colorCacheKey()` keys a crop by video id + crop box, so a re-crop (an override) gets a fresh colour; a failed extraction is never cached.
   - **Readable variants, same hue** (`web/src/lib/accent.ts`, `readableAccent`): `text` ≥ 4.5:1 and `fill` ≥ 3:1 against `--ma-surface-2` (HSL lightness raised only as far as needed, never mixed toward white), `ink` from `inkOnAccent(fill)`, `glow` = the fill at 45% alpha. A test keeps `ACCENT_SURFACE` in step with `global.css`.
@@ -157,7 +178,7 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 - **Bio identity links:** social URLs live in the `SOCIAL` map at the top of `index.astro`. The page also emits a JSON-LD `Person` whose `sameAs` (plus `rel="me"` on the icon links) tells search engines that this site and the engineering portfolio `danielbanariba.dev` are the same person. A new profile goes in `SOCIAL`, `sameAs` and the icon row together.
 - **Canonical origin is `https://danielbanariba.com`**, declared once as `site` in `astro.config.mjs`. Every page needs an absolute `<link rel="canonical">`. Archive pages previously pointed at `xeroxunderground.com`, a domain that does not resolve.
 - **`web/src/pages/sitemap.xml.ts`** generates the sitemap at build time from `db.ts` using the same `slugify()` as `getStaticPaths()`, so it can never list a path the build did not emit. `web/public/robots.txt` points at it. Add new page types to both the route and the sitemap.
-- **Styling:** one global stylesheet, `web/src/styles/global.css`, plus the archive-only accent block in `web/src/components/AccentTheme.astro` (see "Per-album color theming"). (The old per-component Reflex styles that used to live in `links_bio/styles/` were deleted with the rest of the Reflex UI tree — see "What is live vs. legacy".)
+- **Styling:** one global stylesheet, `web/src/styles/global.css`. Archive pages also load `web/src/styles/archive.css` (the shell, see "Archive shell") and the archive-only accent block in `web/src/components/AccentTheme.astro` (see "Per-album color theming"). (The old per-component Reflex styles that used to live in `links_bio/styles/` were deleted with the rest of the Reflex UI tree — see "What is live vs. legacy".)
 
 ## Forms backend (`links_bio/fastapi_forms.py`)
 
