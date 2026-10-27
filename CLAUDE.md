@@ -237,9 +237,19 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 - POST endpoints: `/api/metal-archive/submit`, `/promo`, `/newsletter`, `/contact`. Contact's fields are
   `name`/`email`/`subject`/`message` (matching what `index.astro`'s form actually sends — see T27 in
   `odd/tasks/platform-hardening.md` for the contract bug this fixed).
+- `POST /api/metal-archive/enrollment` is the enrollment form's endpoint (draft, see
+  `web/src/pages/matricula.astro` below). It saves a row in `enrollment_requests` and emails the
+  notification to `ENROLLMENT_NOTIFY_TO` (falls back to `GMAIL_ADDRESS`) through the optional `to`
+  parameter of `_send_email_notification`. It stays under `/api/metal-archive/` because the
+  cloudflared ingress only routes that prefix. Its option lists (`Relationship`, `MonthlyIncome`)
+  must match the `<select>` values on the page; `tests/test_enrollment_form.py` checks that.
+- **`/matricula` is an unlisted draft.** `web/src/pages/matricula.astro` is the enrollment form in
+  Spanish for Honduran families (the one Spanish page on the site). It is `noindex`, not in
+  `sitemap.xml` and not linked from anywhere, because the foundation that owns it still has to
+  correct the copy, the fields and the options. Do not link it from the bio or the nav until then.
 - Hardened against abuse: a sliding-window rate limiter (5 requests/10 min shared across
-  submit/promo/contact, 10/10 min for newsletter, keyed on `CF-Connecting-IP` only when the peer is the
-  cloudflared loopback tunnel), a silently-dropped `website` honeypot field on all 4 forms, a `max_length`
+  submit/promo/contact/enrollment, 10/10 min for newsletter, keyed on `CF-Connecting-IP` only when the peer is the
+  cloudflared loopback tunnel), a silently-dropped `website` honeypot field on all 5 forms, a `max_length`
   on every field, and a CRLF rejection on single-line fields (blocks header/SMTP injection via a
   `\r\n`-laced value). The interactive API docs are disabled in code (`docs_url=None`, `openapi_url=None`),
   not just hidden by tunnel routing.
@@ -249,7 +259,7 @@ to the logged-in CLI session otherwise. ⚠️ **Pushing `main` deploys to produ
 
 ## Data layer & sync (`links_bio/`, root scripts)
 
-- **`reflex.db` (SQLite) is the source of truth.** Schema = SQLModel models in `links_bio/models/`: `albums` (main catalog, many indexed columns), `tracks`, `similar_bands` (column is `similar_band_name`), `submissions`, `newsletter_subscribers`, `contact_messages`. Migrations live in `alembic/`. Models are discovered for migrations via `import links_bio.models` in `links_bio/links_bio.py`.
+- **`reflex.db` (SQLite) is the source of truth.** Schema = SQLModel models in `links_bio/models/`: `albums` (main catalog, many indexed columns), `tracks`, `similar_bands` (column is `similar_band_name`), `submissions`, `newsletter_subscribers`, `contact_messages`, `enrollment_requests`. Migrations live in `alembic/`. Models are discovered for migrations via `import links_bio.models` in `links_bio/links_bio.py`.
 - **Sync scripts (project root):** `sync_youtube_to_db.py` (YouTube → DB, marks featured — also sets
   `album_artwork_url` to the video's best YouTube thumbnail, the cover source of truth, on every full
   sync), plus `scripts/normalize_db.py` (normalize genre/country), `scripts/reparse_old_tracklists.py`,
@@ -384,7 +394,7 @@ https://danielbanariba.com/` still shows `server: Vercel`, unaffected by the Cad
 
 ## Backups
 
-`reflex.db` holds non-regenerable PII (contact messages, newsletter emails, band submissions) and has
+`reflex.db` holds non-regenerable PII (contact messages, newsletter emails, band submissions, enrollment requests) and has
 no copy anywhere but the host disk. Encrypted, off-host backups close that gap (decision D1):
 - `scripts/backup_reflex_db.sh` takes a consistent snapshot with `sqlite3 reflex.db ".backup <path>"`
   (never a raw `cp` of a live file), verifies `PRAGMA integrity_check = ok`, then pushes it with
@@ -431,6 +441,9 @@ Stored in `.env` (gitignored, read by both `links-bio-sync.{service,timer}` and 
 via `EnvironmentFile=`). See `mcp/server.py` `REQUIRED_ENV_VARS`.
 - `YOUTUBE_API_KEY` **or** (`YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` + `YOUTUBE_REFRESH_TOKEN`) — enables sync.
 - `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` — SMTP for form notifications and failure alert emails.
+- `ENROLLMENT_NOTIFY_TO` (optional) — recipient of the enrollment form's notification email. Unset, it
+  goes to `GMAIL_ADDRESS`. Changing it is an `.env` edit plus `sudo systemctl restart
+  metal-archive-forms.service`, no code change.
 - `VERCEL_TOKEN` — the unattended deploy path (decision D2): set it so the sync timer and the pre-push
   hook don't depend on a logged-in Vercel CLI session, which can expire silently. Falls back to that
   session when unset.

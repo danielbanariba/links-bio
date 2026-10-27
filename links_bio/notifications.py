@@ -16,8 +16,15 @@ from email.mime.text import MIMEText
 logger = logging.getLogger("notifications")
 
 
-def _send_email_notification(subject: str, body: str) -> str | None:
-    """Send email notification via Gmail SMTP. Returns error string or None."""
+def _send_email_notification(
+    subject: str, body: str, to: str | None = None
+) -> str | None:
+    """Send email notification via Gmail SMTP. Returns error string or None.
+
+    The message is always sent from (and authenticated as) GMAIL_ADDRESS.
+    `to` is the recipient; when omitted it is GMAIL_ADDRESS too, which is
+    what every alert caller wants (the owner mails themselves).
+    """
     gmail_address = os.environ.get("GMAIL_ADDRESS", "")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
 
@@ -26,7 +33,7 @@ def _send_email_notification(subject: str, body: str) -> str | None:
 
     msg = MIMEMultipart()
     msg["From"] = gmail_address
-    msg["To"] = gmail_address
+    msg["To"] = to or gmail_address
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
